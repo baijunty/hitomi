@@ -1,15 +1,18 @@
-import 'dart:io';
 import 'dart:math';
-import 'package:dart_tools/galery_utils.dart';
-import 'package:dart_tools/hitomi.dart';
 
 void main() async {
-  final List<Language> languages = [Language.japanese, Language.chinese];
-  var config = UserPrefenerce(Directory.current.path,
-      proxy: '127.0.0.1:8389', languages: languages);
-  final pool = TaskPools(config);
-  pool.sendNewTask('2129237');
-  await Future.delayed(Duration(minutes: 10));
+  // final List<Language> languages = [Language.japanese, Language.chinese];
+  // var config = UserPrefenerce(Directory.current.path,
+  //     proxy: '127.0.0.1:8389', languages: languages);
+  // final pool = TaskPools(config);
+  // pool.sendNewTask('2129237');
+  //await Future.delayed(Duration(minutes: 10));
+  var r = Uri.encodeComponent('http://adf.com/第三方sdf has話早く');
+  print(r);
+  r = Uri.encodeQueryComponent('http://adf.com/第三方sdf has話早く');
+  print(r);
+  r = Uri.encodeFull('http://adf.com/第三方sdf has話早く');
+  print(r);
 }
 
 int idVerify(String id) {

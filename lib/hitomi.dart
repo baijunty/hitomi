@@ -181,6 +181,7 @@ class _HitomiImpl implements Hitomi {
 
   @override
   Stream<Gallery> viewByTag(Tag tag, [int page = 0]) {
+    var url = 'https://hitomi.la/${tag.urlEncode()}-all.html';
     throw UnimplementedError();
   }
 
@@ -206,7 +207,7 @@ class Tag {
   }
 
   String urlEncode() {
-    return "$type/${Uri.encodeQueryComponent(name)}";
+    return "$type/${Uri.encodeComponent(name)}";
   }
 }
 
@@ -257,7 +258,7 @@ class SexTag extends Tag {
 
   @override
   String urlEncode() {
-    return "tag/$type:${Uri.encodeQueryComponent(name)}";
+    return "tag/$type:${Uri.encodeComponent(name)}";
   }
 }
 
