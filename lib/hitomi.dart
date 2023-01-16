@@ -6,14 +6,14 @@ import 'package:dart_tools/gallery.dart';
 
 import 'http_tools.dart';
 
-abstract class HitomiApi {
+abstract class Hitomi {
   Future<bool> downloadImages(String id);
   Future<Gallery> fetchGallery(String id, {usePrefence = true});
   Stream<Gallery> search(List<Tag> args, [int page = 0]);
   Stream<Gallery> viewByTag(Tag tag, [int page = 0]);
 
-  factory HitomiApi.fromPrefenerce(UserPrefenerce prefenerce) {
-    return _HitomiApiImpl(prefenerce);
+  factory Hitomi.fromPrefenerce(UserPrefenerce prefenerce) {
+    return _HitomiImpl(prefenerce);
   }
 
   Future<void> pause();
@@ -27,7 +27,7 @@ class UserPrefenerce {
       {this.proxy = 'direct', this.languages = const [Language.chinese]});
 }
 
-class _HitomiApiImpl implements HitomiApi {
+class _HitomiImpl implements Hitomi {
   final UserPrefenerce prefenerce;
   static final _regExp = RegExp(r"case\s+(\d+):$");
   static final _codeExp = RegExp(r"b:\s+'(\d+)\/'$");
@@ -36,7 +36,7 @@ class _HitomiApiImpl implements HitomiApi {
   late List<int> codes;
   late int index;
   Timer? _timer;
-  _HitomiApiImpl(this.prefenerce);
+  _HitomiImpl(this.prefenerce);
 
   Future<Timer> initData() async {
     final gg =
@@ -151,7 +151,8 @@ class _HitomiApiImpl implements HitomiApi {
     var gallery = Gallery.fromJson(json);
     if (usePrefence) {
       final languages = gallery.languages
-          ?.where((element) => prefenerce.languages.contains(element.name))
+          ?.where((element) =>
+              prefenerce.languages.map((e) => e.name).contains(element.name))
           .toList();
       if (languages?.isNotEmpty == true) {
         languages!.sort((a, b) => prefenerce.languages
@@ -159,11 +160,15 @@ class _HitomiApiImpl implements HitomiApi {
             .compareTo(
                 prefenerce.languages.indexWhere((l) => l.name == b.name)));
         final language = languages.first;
-        if (gallery.language != language.name && id != language.galleryid) {
+        if (id != language.galleryid) {
           print('select best language ${language.toJson()}');
           json = await _fetchGalleryJsonById(language.galleryid);
           gallery = Gallery.fromJson(json);
         }
+      } else if (!prefenerce.languages
+          .map((e) => e.name)
+          .contains(gallery.language)) {
+        throw 'not match the language';
       }
     }
     return gallery;

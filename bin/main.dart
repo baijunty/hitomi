@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:dart_tools/galery_utils.dart';
-import 'package:dart_tools/hitomi_api.dart';
+import 'package:dart_tools/hitomi.dart';
 
 void main(List<String> args) async {
   final parser = ArgParser()

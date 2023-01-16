@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:isolate';
-import 'package:dart_tools/hitomi_api.dart';
+import 'package:dart_tools/hitomi.dart';
 
 import 'http_tools.dart';
 
@@ -9,14 +9,9 @@ class TaskPools {
   final UserPrefenerce _config;
   final _port = ReceivePort();
   final StreamController<SendPort> _controller = StreamController.broadcast();
-  late HitomiApi api;
+  late Hitomi api;
   TaskPools(this._config) {
-    api = HitomiApi.fromPrefenerce(_config);
-    Timer.periodic(Duration(minutes: 30), ((timer) async {
-      _pools.forEach((element) {
-        element.send(api);
-      });
-    }));
+    api = Hitomi.fromPrefenerce(_config);
     _port.listen((element) {
       if (element is SendPort) {
         _pools.add(element);

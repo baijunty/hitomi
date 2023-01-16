@@ -1,15 +1,15 @@
-import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
-import 'package:dart_tools/http_tools.dart';
+import 'package:dart_tools/galery_utils.dart';
+import 'package:dart_tools/hitomi.dart';
 
 void main() async {
-  var r = await http_invke(
-          'https://translate.googleapis.com/translate_a/single?client=gtx&dt=t&sl=en&tl=zh-CN&q=yaoi',
-          proxy: '127.0.0.1:8389')
-      .then((value) {
-    return Utf8Decoder().convert(value);
-  });
-  print(r);
+  final List<Language> languages = [Language.japanese, Language.chinese];
+  var config = UserPrefenerce(Directory.current.path,
+      proxy: '127.0.0.1:8389', languages: languages);
+  final pool = TaskPools(config);
+  pool.sendNewTask('2129237');
+  await Future.delayed(Duration(minutes: 10));
 }
 
 int idVerify(String id) {

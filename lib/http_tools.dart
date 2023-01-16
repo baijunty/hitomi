@@ -1,17 +1,17 @@
 import 'dart:io';
 import 'dart:isolate';
-import 'package:dart_tools/hitomi_api.dart';
+import 'package:dart_tools/hitomi.dart';
 
 Future<void> asyncDownload(SendPort port) async {
   final receivePort = ReceivePort();
   port.send(receivePort.sendPort);
-  late HitomiApi api;
+  late Hitomi api;
   await receivePort.listen((element) async {
     print(element);
     if (element is String) {
       var b = await api.downloadImages(element);
       Isolate.exit(port, b);
-    } else if (element is HitomiApi) {
+    } else if (element is Hitomi) {
       api = element;
     }
   });
