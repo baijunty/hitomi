@@ -1,13 +1,16 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:dart_tools/gallery.dart';
+import 'package:image/image.dart' as img;
 
 import 'http_tools.dart';
 
 abstract class Hitomi {
-  Future<bool> downloadImages(String id);
+  Future<bool> downloadImagesById(String id);
   Future<Gallery> fetchGallery(String id, {usePrefence = true});
   Stream<Gallery> search(List<Tag> args, [int page = 0]);
   Stream<Gallery> viewByTag(Tag tag, [int page = 0]);
@@ -17,6 +20,7 @@ abstract class Hitomi {
   }
 
   Future<void> pause();
+  Future<void> restart();
 }
 
 class UserPrefenerce {
@@ -74,7 +78,7 @@ class _HitomiImpl implements Hitomi {
   }
 
   @override
-  Future<bool> downloadImages(String id) async {
+  Future<bool> downloadImagesById(String id) async {
     final gallery = await fetchGallery(id);
     var artists = gallery.artists?[0].artist ?? '';
     final outPath = prefenerce.output;
@@ -90,20 +94,46 @@ class _HitomiImpl implements Hitomi {
     }
     print(dir);
     File(dir.path + '/' + 'meta.json').writeAsStringSync(json.encode(gallery));
-    var times = 0;
     final List<Files> images = gallery.files;
-    while (images.isNotEmpty) {
-      Files image = images.removeAt(0);
+    final url = 'https://hitomi.la${Uri.encodeFull(gallery.galleryurl!)}';
+    images.forEach((file) async {
+      final out = File(dir.path + '/' + file.name);
+      final b = await _checkViallImage(dir, file);
+      if (!b) {
+        var data = await downloadImage(file, url);
+        await out.writeAsBytes(data, flush: true);
+      }
+    });
+    print('下载完成');
+    return images.isEmpty;
+  }
+
+  Future<bool> _checkViallImage(File dir, Files image) async {
+    final out = File(dir.path + '/' + image.name);
+    var b = await out.exists();
+    img.Decoder? decoder;
+    if (b) {
+      decoder = img.findDecoderForNamedImage(out.path);
+    }
+    if (decoder != null) {
+      var size = min(512, out.lengthSync());
+      var bytes = await out.openRead(0, size).first;
+      var info = decoder.startDecode(Uint8List.fromList(bytes));
+      if (info != null) {
+        b = info.height > image.height || info.width > image.width;
+      }
+    }
+    return b;
+  }
+
+  Future<List<int>> downloadImage(Files image, String url) async {
+    late Object exception;
+    for (var i = 0; i < 3; i++) {
       try {
-        final out = File(dir.path + '/' + image.name);
-        if (out.existsSync() && out.lengthSync() > 0) {
-          continue;
-        }
         final data = await http_invke(_buildDownloadUrl(image),
             proxy: prefenerce.proxy,
             headers: {
-              'referer':
-                  'https://hitomi.la${Uri.encodeFull(gallery.galleryurl!)}',
+              'referer': url,
               'authority': "${_getUserInfo(image.hash)}.hitomi.la",
               'path':
                   '/webp/${this.code}/${_parseLast3HashCode(image.hash)}/${image.hash}.webp',
@@ -112,18 +142,13 @@ class _HitomiImpl implements Hitomi {
             });
         print(
             '下载${image.name} ${image.height}*${image.width} size ${data.length / 1024}');
-        out.writeAsBytesSync(data, flush: true);
-        times = 0;
+        return data;
       } catch (e) {
         print(e);
-        times++;
-        if (times <= 3) {
-          images.add(image);
-        }
+        exception = e;
       }
     }
-    print('下载完成');
-    return images.isEmpty;
+    throw exception;
   }
 
   String _buildDownloadUrl(Files image) {
@@ -189,6 +214,12 @@ class _HitomiImpl implements Hitomi {
   Future<void> pause() async {
     _timer?.cancel();
     _timer = null;
+  }
+
+  @override
+  Future<void> restart() {
+    // TODO: implement restart
+    throw UnimplementedError();
   }
 }
 

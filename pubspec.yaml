@@ -12,4 +12,5 @@ dependencies:
   test: ^1.6.0
   path: ^1.8.2  
   crypto: ^3.0.2
+  image: ^4.0.10
 dev_dependencies:

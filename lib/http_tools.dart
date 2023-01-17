@@ -9,7 +9,7 @@ Future<void> asyncDownload(SendPort port) async {
   await receivePort.listen((element) async {
     print(element);
     if (element is String) {
-      var b = await api.downloadImages(element);
+      var b = await api.downloadImagesById(element);
       Isolate.exit(port, b);
     } else if (element is Hitomi) {
       api = element;
