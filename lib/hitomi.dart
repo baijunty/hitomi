@@ -1,19 +1,15 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
-import 'dart:typed_data';
+import 'http_tools.dart';
 
 import 'package:dart_tools/gallery.dart';
-import 'package:image/image.dart' as img;
-
-import 'http_tools.dart';
 
 abstract class Hitomi {
   Future<bool> downloadImagesById(String id);
   Future<Gallery> fetchGallery(String id, {usePrefence = true});
-  Stream<Gallery> search(List<Tag> args, [int page = 0]);
-  Stream<Gallery> viewByTag(Tag tag, [int page = 0]);
+  Stream<int> search(List<Tag> args, {int page = 1});
+  Stream<Gallery> viewByTag(Tag tag, {int page = 1});
 
   factory Hitomi.fromPrefenerce(UserPrefenerce prefenerce) {
     return _HitomiImpl(prefenerce);
@@ -40,7 +36,7 @@ class _HitomiImpl implements Hitomi {
   late List<int> codes;
   late int index;
   Timer? _timer;
-  _HitomiImpl(this.prefenerce);
+  _HitomiImpl(this.prefenerce) {}
 
   Future<Timer> initData() async {
     final gg =
@@ -96,63 +92,59 @@ class _HitomiImpl implements Hitomi {
     File(dir.path + '/' + 'meta.json').writeAsStringSync(json.encode(gallery));
     final List<Files> images = gallery.files;
     final url = 'https://hitomi.la${Uri.encodeFull(gallery.galleryurl!)}';
-    images.forEach((file) async {
+    while (images.isNotEmpty) {
+      Files file = images.removeAt(0);
       final out = File(dir.path + '/' + file.name);
+      int count = 0;
       final b = await _checkViallImage(dir, file);
       if (!b) {
-        var data = await downloadImage(file, url);
-        await out.writeAsBytes(data, flush: true);
+        try {
+          var data = await downloadImage(file, url);
+          await out.writeAsBytes(data, flush: true);
+        } catch (e) {
+          count++;
+          if (count > 3) {
+            break;
+          }
+        }
       }
-    });
+    }
     print('下载完成');
     return images.isEmpty;
   }
 
-  Future<bool> _checkViallImage(File dir, Files image) async {
+  Future<bool> _checkViallImage(Directory dir, Files image) async {
     final out = File(dir.path + '/' + image.name);
-    var b = await out.exists();
-    img.Decoder? decoder;
-    if (b) {
-      decoder = img.findDecoderForNamedImage(out.path);
-    }
-    if (decoder != null) {
-      var size = min(512, out.lengthSync());
-      var bytes = await out.openRead(0, size).first;
-      var info = decoder.startDecode(Uint8List.fromList(bytes));
-      if (info != null) {
-        b = info.height > image.height || info.width > image.width;
-      }
-    }
+    var b = out.existsSync();
     return b;
   }
 
-  Future<List<int>> downloadImage(Files image, String url) async {
-    late Object exception;
-    for (var i = 0; i < 3; i++) {
-      try {
-        final data = await http_invke(_buildDownloadUrl(image),
-            proxy: prefenerce.proxy,
-            headers: {
-              'referer': url,
-              'authority': "${_getUserInfo(image.hash)}.hitomi.la",
-              'path':
-                  '/webp/${this.code}/${_parseLast3HashCode(image.hash)}/${image.hash}.webp',
-              'user-agent':
-                  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36 Edg/106.0.1370.47'
-            });
-        print(
-            '下载${image.name} ${image.height}*${image.width} size ${data.length / 1024}');
-        return data;
-      } catch (e) {
-        print(e);
-        exception = e;
-      }
-    }
-    throw exception;
+  Future<List<int>> downloadImage(Files image, String refererUrl) async {
+    Uri uri = Uri.parse(_buildDownloadUrl(image));
+    final data = await http_invke(refererUrl,
+        proxy: prefenerce.proxy, headers: _buildRequestHeader(uri, refererUrl));
+    print(
+        '下载${image.name} ${image.height}*${image.width} size ${data.length ~/ 1024}kb');
+    return data;
   }
 
   String _buildDownloadUrl(Files image) {
     return "https://${_getUserInfo(image.hash)}.hitomi.la/webp/${this.code}/${_parseLast3HashCode(image.hash)}/${image.hash}.webp";
+  }
+
+  Map<String, dynamic> _buildRequestHeader(Uri uri, String referer,
+      {void append(Map<String, dynamic> header)?}) {
+    final headers = {
+      'referer': referer,
+      'authority': uri.authority,
+      'path': uri.path,
+      'user-agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36 Edg/106.0.1370.47'
+    };
+    if (append != null) {
+      append(headers);
+    }
+    return headers;
   }
 
   String _getUserInfo(String hash) {
@@ -175,39 +167,56 @@ class _HitomiImpl implements Hitomi {
     Map<String, dynamic> json = await _fetchGalleryJsonById(id);
     var gallery = Gallery.fromJson(json);
     if (usePrefence) {
-      final languages = gallery.languages
-          ?.where((element) =>
-              prefenerce.languages.map((e) => e.name).contains(element.name))
-          .toList();
-      if (languages?.isNotEmpty == true) {
-        languages!.sort((a, b) => prefenerce.languages
-            .indexWhere((l) => l.name == a.name)
-            .compareTo(
-                prefenerce.languages.indexWhere((l) => l.name == b.name)));
-        final language = languages.first;
-        if (id != language.galleryid) {
-          print('select best language ${language.toJson()}');
-          json = await _fetchGalleryJsonById(language.galleryid);
-          gallery = Gallery.fromJson(json);
-        }
-      } else if (!prefenerce.languages
-          .map((e) => e.name)
-          .contains(gallery.language)) {
-        throw 'not match the language';
+      gallery = await findBeseMatch(gallery);
+    }
+    return gallery;
+  }
+
+  Future<Gallery> findBeseMatch(Gallery gallery) async {
+    final id = gallery.id;
+    final languages = gallery.languages
+        ?.where((element) =>
+            prefenerce.languages.map((e) => e.name).contains(element.name))
+        .toList();
+    if (languages?.isNotEmpty == true) {
+      languages!.sort((a, b) => prefenerce.languages
+          .indexWhere((l) => l.name == a.name)
+          .compareTo(prefenerce.languages.indexWhere((l) => l.name == b.name)));
+      final language = languages.first;
+      if (id != language.galleryid) {
+        print('select best language ${language.toJson()}');
+        final json = await _fetchGalleryJsonById(language.galleryid);
+        gallery = Gallery.fromJson(json);
       }
+    } else if (!prefenerce.languages
+        .map((e) => e.name)
+        .contains(gallery.language)) {
+      throw 'not match the language';
     }
     return gallery;
   }
 
   @override
-  Stream<Gallery> search(List<Tag> args, [int page = 0]) {
+  Stream<int> search(List<Tag> args, {int page = 1}) async* {
     throw UnimplementedError();
   }
 
   @override
-  Stream<Gallery> viewByTag(Tag tag, [int page = 0]) {
-    var url = 'https://hitomi.la/${tag.urlEncode()}-all.html';
-    throw UnimplementedError();
+  Stream<Gallery> viewByTag(Tag tag, {int page = 1}) async* {
+    var referer = 'https://hitomi.la/${tag.urlEncode()}-all.html';
+    if (page > 1) {
+      referer += '?page=$page';
+    }
+    final dataUrl = 'https://ltn.hitomi.la/${tag.urlEncode()}-all.nozomi';
+    final ids = await http_invke(dataUrl,
+            proxy: prefenerce.proxy,
+            headers: _buildRequestHeader(Uri.parse(dataUrl), referer,
+                append: (header) => header['range'] =
+                    'bytes=${(page - 1) * 100}-${page * 100 - 1}'))
+        .then((value) => mapBytesToInts(value, spilt: 4));
+    for (var id in ids) {
+      yield await fetchGallery(id.toString(), usePrefence: false);
+    }
   }
 
   @override
@@ -238,7 +247,7 @@ class Tag {
   }
 
   String urlEncode() {
-    return "$type/${Uri.encodeComponent(name)}";
+    return "$type/${Uri.encodeComponent(name.toLowerCase())}";
   }
 }
 
@@ -289,7 +298,7 @@ class SexTag extends Tag {
 
   @override
   String urlEncode() {
-    return "tag/$type:${Uri.encodeComponent(name)}";
+    return "tag/$type:${Uri.encodeComponent(name.toLowerCase())}";
   }
 }
 

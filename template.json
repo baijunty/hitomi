@@ -1,340 +1,359 @@
 {
-    "parodys": [
-        {
-            "parody": "original",
-            "url": "/series/original-all.html"
-        }
-    ],
+    "date": "2023-01-10 05:07:00-06",
+    "language_url": "/index-japanese.html",
     "videofilename": null,
-    "characters": null,
-    "galleryurl": "/doujinshi/otokonoko-wa-maid-no-love-doll-中文-2436037.html",
-    "artists": [
-        {
-            "url": "/artist/sage%20joh-all.html",
-            "artist": "sage joh"
-        }
-    ],
-    "title": "Otokonoko wa Maid no Love Doll",
-    "id": "2436037",
-    "language_url": "/index-chinese.html",
-    "languages": [
-        {
-            "url": "/galleries/2428195.html",
-            "galleryid": "2428195",
-            "language_localname": "한국어",
-            "name": "korean"
-        },
-        {
-            "galleryid": "2436037",
-            "url": "/galleries/2436037.html",
-            "name": "chinese",
-            "language_localname": "中文"
-        },
-        {
-            "name": "japanese",
-            "language_localname": "日本語",
-            "galleryid": "2427839",
-            "url": "/galleries/2427839.html"
-        }
-    ],
     "related": [
-        2304702,
-        2316328,
-        2311556,
-        2322246,
-        2311555
+        2426192,
+        2381163,
+        2422483,
+        2421196,
+        2421185
     ],
-    "language": "chinese",
-    "tags": [
+    "japanese_title": "未確定で未成熟なお姫様♡",
+    "language_localname": "日本語",
+    "title": "Mikakutei de Miseijuku na Ohime-sam",
+    "groups": [
         {
-            "male": "",
-            "url": "/tag/female%3Agarter%20belt-all.html",
-            "female": 1,
-            "tag": "garter belt"
-        },
-        {
-            "url": "/tag/female%3Amaid-all.html",
-            "male": "",
-            "female": 1,
-            "tag": "maid"
-        },
-        {
-            "tag": "sole female",
-            "female": 1,
-            "male": "",
-            "url": "/tag/female%3Asole%20female-all.html"
-        },
-        {
-            "tag": "stockings",
-            "female": 1,
-            "male": "",
-            "url": "/tag/female%3Astockings-all.html"
-        },
-        {
-            "tag": "crossdressing",
-            "female": "",
-            "url": "/tag/male%3Acrossdressing-all.html",
-            "male": 1
-        },
-        {
-            "female": "",
-            "tag": "shota",
-            "url": "/tag/male%3Ashota-all.html",
-            "male": 1
-        },
-        {
-            "url": "/tag/male%3Asole%20male-all.html",
-            "male": 1,
-            "female": "",
-            "tag": "sole male"
-        },
-        {
-            "tag": "tomgirl",
-            "female": "",
-            "url": "/tag/male%3Atomgirl-all.html",
-            "male": 1
-        }
-    ],
-    "language_localname": "中文",
-    "video": null,
-    "files": [
-        {
-            "name": "01.jpg",
-            "hash": "34f01bbbd712d883304c9418d4ceadb5d8e38e3d2e639994e903bc0469640e77",
-            "height": 1600,
-            "haswebp": 1,
-            "hasavif": 1,
-            "width": 1133
-        },
-        {
-            "hasavif": 1,
-            "width": 1133,
-            "single": 1,
-            "name": "02.jpg",
-            "haswebp": 1,
-            "height": 1600,
-            "hash": "17a3689bc6f2d30eda219de640c27359c8c87a17eb2b54fc2e1bbc429d31a6b6"
-        },
-        {
-            "width": 1133,
-            "hasavif": 1,
-            "hash": "012610e3e75cada5089abec1e60a1977622addd2a26a112cd9938d37df11bd9c",
-            "height": 1600,
-            "haswebp": 1,
-            "name": "03.jpg"
-        },
-        {
-            "width": 1133,
-            "hasavif": 1,
-            "height": 1600,
-            "hash": "c6f332b80168e0fb002d2589d53f8b4c8dacdd1cc48848fbd6310868792425c3",
-            "haswebp": 1,
-            "name": "04.jpg"
-        },
-        {
-            "name": "05.jpg",
-            "height": 1600,
-            "hash": "a1c9cedbaff1cdd5d2e52f35cf82bc165acc42c8bad9ace28fa0be0adb4cc61f",
-            "haswebp": 1,
-            "hasavif": 1,
-            "width": 1133
-        },
-        {
-            "width": 1133,
-            "hasavif": 1,
-            "height": 1600,
-            "hash": "b4bda95d7cc61a826587b143780e46756b13529e10ddd0225e304377b48c458f",
-            "haswebp": 1,
-            "name": "06.jpg"
-        },
-        {
-            "width": 1133,
-            "hasavif": 1,
-            "height": 1600,
-            "hash": "b499477d944b0b1d3cd4b9c6afc14a1952dea7af1fd976ec326a9a03983b80f0",
-            "haswebp": 1,
-            "name": "07.jpg"
-        },
-        {
-            "width": 1133,
-            "hasavif": 1,
-            "height": 1600,
-            "haswebp": 1,
-            "hash": "908a3cb1590ecb2e8e65793537e14e9638142ae1e5de6087b348cd75613e03bf",
-            "name": "08.jpg"
-        },
-        {
-            "width": 1133,
-            "hasavif": 1,
-            "height": 1600,
-            "haswebp": 1,
-            "hash": "5d85922de9d5a57dd55ab91fd3c8c5bf9db5f5595a6d440960790aded28c44e6",
-            "name": "09.jpg"
-        },
-        {
-            "name": "10.jpg",
-            "haswebp": 1,
-            "height": 1600,
-            "hash": "39dd04b72cf7c64f11479be8bd15b580e02b0fe0f3022e8ef1746d44ceea1888",
-            "hasavif": 1,
-            "width": 1133
-        },
-        {
-            "width": 1133,
-            "hasavif": 1,
-            "hash": "65d106a453d9ffc6decbe93eb7c9c7aa53b7f48324b1820463453a1193f1d1c2",
-            "height": 1600,
-            "haswebp": 1,
-            "name": "11.jpg"
-        },
-        {
-            "name": "12.jpg",
-            "haswebp": 1,
-            "height": 1600,
-            "hash": "2faa8ae2dad59cc312e3727fe09db62cf722e61b7b38f2494a879fe7e0d49972",
-            "hasavif": 1,
-            "width": 1133
-        },
-        {
-            "width": 1133,
-            "hasavif": 1,
-            "haswebp": 1,
-            "height": 1600,
-            "hash": "e2174683b01cc42b10ae9eb76bc49c224ec02d21a156fe6dec111a6ae4b61182",
-            "name": "13.jpg"
-        },
-        {
-            "width": 1133,
-            "hasavif": 1,
-            "height": 1600,
-            "haswebp": 1,
-            "hash": "ca484623507746e4aba99e85408a2b0db4ed5dbbb3ab762c4748056452cfa3d6",
-            "name": "14.jpg"
-        },
-        {
-            "width": 1133,
-            "hasavif": 1,
-            "hash": "42d7be9ebb77789ee01b61ef85e83a2311cfabde04b8312ffeb83eb21d91d47b",
-            "height": 1600,
-            "haswebp": 1,
-            "name": "15.jpg"
-        },
-        {
-            "name": "16.jpg",
-            "haswebp": 1,
-            "height": 1600,
-            "hash": "0658c6a24285b013362a01a8a3351c0980a62754b6c8632469261a0b256bf67a",
-            "hasavif": 1,
-            "width": 1133
-        },
-        {
-            "width": 1133,
-            "hasavif": 1,
-            "height": 1600,
-            "haswebp": 1,
-            "hash": "55bdba68dc571bb2e6c4d5b97f3ebf4766a789152a1fb20008bca16219d879aa",
-            "name": "17.jpg"
-        },
-        {
-            "hasavif": 1,
-            "width": 1133,
-            "name": "18.jpg",
-            "height": 1600,
-            "hash": "37fb159be323b681366d22e0635a9e4c047c9c64742bf6b036b1ca2a13131241",
-            "haswebp": 1
-        },
-        {
-            "hasavif": 1,
-            "width": 1133,
-            "name": "19.jpg",
-            "hash": "69c619400135f6faa67560ca1523eb981b5709a3ad998b2734057d81e2133d2b",
-            "height": 1600,
-            "haswebp": 1
-        },
-        {
-            "width": 1133,
-            "hasavif": 1,
-            "height": 1600,
-            "haswebp": 1,
-            "hash": "d23224d534627a8f22947d4296def1bcb1001cb8e0eaba22bc87a91df23a6b5c",
-            "name": "20.jpg"
-        },
-        {
-            "width": 1133,
-            "hasavif": 1,
-            "hash": "527e7345b2bb2d5bc48e68459ea68dff83970bb6f11c97888f216b7bfa3c8036",
-            "height": 1600,
-            "haswebp": 1,
-            "name": "21.jpg"
-        },
-        {
-            "name": "22.jpg",
-            "height": 1600,
-            "haswebp": 1,
-            "hash": "8ae11a9ab0084e505121838034b2ba3bdb90745fc2029650f20c793e70c02101",
-            "hasavif": 1,
-            "width": 1133
-        },
-        {
-            "name": "23.jpg",
-            "hash": "6e1d1a84e46b00cbf87dd5fc95fc5290f8da2b9c4b461acb3992271f18a40f7b",
-            "height": 1600,
-            "haswebp": 1,
-            "hasavif": 1,
-            "width": 1133
-        },
-        {
-            "hasavif": 1,
-            "width": 1133,
-            "name": "24.jpg",
-            "hash": "234ee43d0ed6fc548ba71bc5c34fe8e5e678c55049b30934bfeaa63f58d8344b",
-            "height": 1600,
-            "haswebp": 1
-        },
-        {
-            "width": 1133,
-            "hasavif": 1,
-            "height": 1600,
-            "haswebp": 1,
-            "hash": "797bc5c174380875fea5734a0ed9ef79bc9b7834051bfa0c6761262d64e0e26d",
-            "name": "25.jpg"
-        },
-        {
-            "hasavif": 1,
-            "width": 1133,
-            "name": "26.jpg",
-            "haswebp": 1,
-            "height": 1600,
-            "hash": "539cdaa3e5f518c0d5ae3a0c305518bc99f5374c763abdce6d97a95560ca1eef"
-        },
-        {
-            "name": "27.jpg",
-            "hash": "99b71b010e269acbe04c5390dba8049b301a64fdf8535314387c1245ee4ec416",
-            "height": 1600,
-            "haswebp": 1,
-            "hasavif": 1,
-            "width": 1133
-        },
-        {
-            "height": 1600,
-            "hash": "aa6d07c14301369e84d0c362b0b8f017960c2f99df1e7e4b7c8233dcdc0d1211",
-            "haswebp": 1,
-            "name": "28.jpg",
-            "width": 1133,
-            "hasavif": 1
-        },
-        {
-            "width": 900,
-            "hasavif": 1,
-            "height": 1280,
-            "hash": "43b134718f949799d378c87d58806e0695786090312d203442c0b1f15b1736cd",
-            "haswebp": 1,
-            "name": "29.jpg"
+            "group": "union bust",
+            "url": "/group/union%20bust-all.html"
         }
     ],
     "scene_indexes": [],
-    "japanese_title": null,
+    "galleryurl": "/doujinshi/未確定で未成熟なお姫様♡-日本語-2430395.html",
+    "files": [
+        {
+            "name": "01.png",
+            "hash": "6dfca874403c50a366b3b5a4975e073ad3bd23f41d83c221969c71be3f5e9fcf",
+            "hasavif": 1,
+            "haswebp": 1,
+            "width": 4535,
+            "height": 6307
+        },
+        {
+            "hash": "2550857e25eeb68c53d49cfd8153d7a16c91248aa6f83d11d4829b4e8812f665",
+            "name": "02.png",
+            "hasavif": 1,
+            "haswebp": 1,
+            "width": 4465,
+            "single": 1,
+            "height": 6574
+        },
+        {
+            "height": 6576,
+            "hasavif": 1,
+            "haswebp": 1,
+            "width": 4553,
+            "hash": "481d7138d0cde0eeee1f0f93f0b20bc20c5fddb066742a1f5037d55b87f57925",
+            "name": "03.png"
+        },
+        {
+            "height": 6571,
+            "haswebp": 1,
+            "width": 4550,
+            "hasavif": 1,
+            "hash": "09ad64e186882ffe8522b784de15be12dd399c67d0e2bd74719ac9a872a77081",
+            "name": "04.png"
+        },
+        {
+            "hasavif": 1,
+            "haswebp": 1,
+            "width": 4572,
+            "hash": "9948abc0f169316b9dda9bb643cee000fdda37e742aada9180d313723aaaccd7",
+            "name": "05.png",
+            "height": 6582
+        },
+        {
+            "hasavif": 1,
+            "haswebp": 1,
+            "width": 4532,
+            "hash": "565cbca34325aa4cd9becdbbfa0ad2f4b0520e30b91b028e728a9a7823a1577d",
+            "name": "06.png",
+            "height": 6576
+        },
+        {
+            "height": 6536,
+            "hasavif": 1,
+            "haswebp": 1,
+            "width": 4538,
+            "hash": "c60daeed036d4464001009919790dc3a26f6fb4f0d896367937357ede1c5bac4",
+            "name": "07.png"
+        },
+        {
+            "height": 6569,
+            "hasavif": 1,
+            "width": 4548,
+            "haswebp": 1,
+            "name": "08.png",
+            "hash": "1375903a354638fb1287fe46737368c98c4e1cbcd025b10cd510e36c9e23a20e"
+        },
+        {
+            "name": "09.png",
+            "hash": "56c1cb6dba351e9da5411f5d6d6d33e46b8706d56720050f73e409827f65e349",
+            "width": 4553,
+            "haswebp": 1,
+            "hasavif": 1,
+            "height": 6558
+        },
+        {
+            "name": "10.png",
+            "hash": "458f437b418a119654cbce55ed8eb71e8863c2d73a429e8e24529711c4bd7646",
+            "hasavif": 1,
+            "haswebp": 1,
+            "width": 4511,
+            "height": 6544
+        },
+        {
+            "height": 6560,
+            "name": "11.png",
+            "hash": "04e18890b579e3729c10deb27eff8df422e6c4d7d13a3b75423d3a313ce96ed0",
+            "hasavif": 1,
+            "haswebp": 1,
+            "width": 4542
+        },
+        {
+            "height": 6544,
+            "haswebp": 1,
+            "width": 4509,
+            "hasavif": 1,
+            "hash": "1c6f73ba8daa9db6eab4d36d4f184ce2fff44be99f356b71eb7f99eecabf1071",
+            "name": "12.png"
+        },
+        {
+            "height": 6539,
+            "hasavif": 1,
+            "haswebp": 1,
+            "width": 4514,
+            "name": "13.png",
+            "hash": "9b44ffc86fa6afffeade419a2d1bb24372084e38153dd27449057a152c32fb89"
+        },
+        {
+            "name": "14.png",
+            "hash": "54b114bfd0117f166eec37ab3f7b377fc20bb62ce1129577a63dc5bedbe4e2f2",
+            "hasavif": 1,
+            "width": 4519,
+            "haswebp": 1,
+            "height": 6557
+        },
+        {
+            "name": "15.png",
+            "hash": "205b98ab18bcf7c8028952f79c1b0aff3d9487eae1ecf710a89a2c1fda55515e",
+            "haswebp": 1,
+            "width": 4518,
+            "hasavif": 1,
+            "height": 6558
+        },
+        {
+            "haswebp": 1,
+            "width": 4550,
+            "hasavif": 1,
+            "hash": "9990ca4db0799406ff7077e0ef9311ffe59ed832eca513abcd2b940829552bb9",
+            "name": "16.png",
+            "height": 6564
+        },
+        {
+            "hasavif": 1,
+            "width": 4579,
+            "haswebp": 1,
+            "name": "17.png",
+            "hash": "e3a103ad33d7da017ccd7f7984eefb54cfb9140a4b285aff4093c68780ce83ee",
+            "height": 6560
+        },
+        {
+            "height": 6534,
+            "hasavif": 1,
+            "haswebp": 1,
+            "width": 4504,
+            "hash": "ccfb3fef2b79f6cc6e7eb4ba6a09ad804353d9a6625afc413d19a0e492ff0d44",
+            "name": "18.png"
+        },
+        {
+            "height": 6561,
+            "hasavif": 1,
+            "width": 4569,
+            "haswebp": 1,
+            "name": "19.png",
+            "hash": "2e3f26fc17b3024762b23e9df1a72d133caccc12992c4cde20949c92a528be44"
+        },
+        {
+            "height": 6578,
+            "name": "20.png",
+            "hash": "ff6e1962817b2d83f16327b33532d7d7b7822802f8b6665cb723e1df2d199004",
+            "haswebp": 1,
+            "width": 4572,
+            "hasavif": 1
+        },
+        {
+            "hasavif": 1,
+            "haswebp": 1,
+            "width": 4504,
+            "name": "21.png",
+            "hash": "1b6880230720ce84f0036e3eb2b91bc777a12c6d3e7f2c4ffb3163c9a751110c",
+            "height": 6547
+        },
+        {
+            "hash": "4c9493f5022be4fd0db3e78acb27a59c14f83e416dee5106355c8de93a732972",
+            "name": "22.png",
+            "width": 4490,
+            "haswebp": 1,
+            "hasavif": 1,
+            "height": 6568
+        },
+        {
+            "height": 6561,
+            "name": "23.png",
+            "hash": "3f23c0e8244e251248410cc0063ce1d30b1b59ce83ca906fd91d8c1eb18d66f5",
+            "width": 4521,
+            "haswebp": 1,
+            "hasavif": 1
+        },
+        {
+            "width": 4482,
+            "haswebp": 1,
+            "hasavif": 1,
+            "hash": "d26351c88e0b696671038a571137d80a8483fb14ceda951dbbeaf0667b5190d0",
+            "name": "24.png",
+            "height": 6562
+        },
+        {
+            "haswebp": 1,
+            "width": 4562,
+            "hasavif": 1,
+            "hash": "f3719ad2262697bc5f993f70a4becd9fd5eb883bc63600ac7a61ffab0200d5c4",
+            "name": "25.png",
+            "height": 6563
+        },
+        {
+            "hasavif": 1,
+            "haswebp": 1,
+            "width": 4557,
+            "name": "26.png",
+            "hash": "c5a67f5016cba3efd05a6653bc7f019040d08a322719b6c810d7886d9ea6b646",
+            "height": 6562
+        },
+        {
+            "height": 6536,
+            "name": "27.png",
+            "hash": "b2dad6ee4a57b7967250bb522a7054c92519b08001dd8825c8b4e654d0e1e02e",
+            "hasavif": 1,
+            "width": 4552,
+            "haswebp": 1
+        },
+        {
+            "hash": "47c97aa2525018966441bd8c23da401d0a07df56d17c34793db75371dea3b360",
+            "name": "28.png",
+            "haswebp": 1,
+            "width": 4532,
+            "hasavif": 1,
+            "height": 6561
+        },
+        {
+            "height": 6508,
+            "hasavif": 1,
+            "haswebp": 1,
+            "width": 4506,
+            "name": "29.png",
+            "hash": "f2487de9bb1b83207d787031d26d5574cea959268773682553845498181a8cda"
+        },
+        {
+            "height": 6585,
+            "name": "30.png",
+            "hash": "aa0d8c8cc16a6686daef530b4594992d5bc087283e2f19716f0ea0954e2e2c62",
+            "width": 4547,
+            "haswebp": 1,
+            "hasavif": 1
+        },
+        {
+            "hash": "1c265119305ece78bde72a777bd55f0b1f20eb992f8555afc73e4ca5c33fd116",
+            "name": "31.png",
+            "hasavif": 1,
+            "haswebp": 1,
+            "width": 4543,
+            "height": 6534
+        },
+        {
+            "height": 6560,
+            "name": "32.png",
+            "hash": "a482c6000ddc0ae1e3dc1a942f66cbf67cb877b2c4c0012ca182b52ef7ec83a1",
+            "hasavif": 1,
+            "haswebp": 1,
+            "width": 4547
+        },
+        {
+            "haswebp": 1,
+            "width": 4452,
+            "hasavif": 1,
+            "name": "33.png",
+            "hash": "f277f2551d767b9717738982ad36e69047086eeb6d0bdd830f7a0e25477d4efb",
+            "height": 6541
+        },
+        {
+            "height": 6549,
+            "hasavif": 1,
+            "haswebp": 1,
+            "width": 4571,
+            "hash": "c3ee75433962ec89861265eb73abc587e8fe0b577dc966486853a7962c0f1b8b",
+            "name": "34.png"
+        }
+    ],
+    "tags": [
+        {
+            "url": "/tag/female%3Aassjob-all.html",
+            "female": "1",
+            "male": "",
+            "tag": "assjob"
+        },
+        {
+            "tag": "big breasts",
+            "female": "1",
+            "male": "",
+            "url": "/tag/female%3Abig%20breasts-all.html"
+        },
+        {
+            "female": "1",
+            "male": "",
+            "tag": "paizuri",
+            "url": "/tag/female%3Apaizuri-all.html"
+        },
+        {
+            "url": "/tag/female%3Asole%20female-all.html",
+            "tag": "sole female",
+            "female": "1",
+            "male": ""
+        },
+        {
+            "female": "1",
+            "male": "",
+            "tag": "wings",
+            "url": "/tag/female%3Awings-all.html"
+        },
+        {
+            "male": "1",
+            "female": "",
+            "tag": "sole male",
+            "url": "/tag/male%3Asole%20male-all.html"
+        }
+    ],
     "type": "doujinshi",
-    "date": "2023-01-15 18:15:00-06",
-    "groups": null
+    "languages": [],
+    "parodys": [
+        {
+            "parody": "blue archive",
+            "url": "/series/blue%20archive-all.html"
+        }
+    ],
+    "language": "japanese",
+    "id": "2430395",
+    "artists": [
+        {
+            "artist": "kazutaro",
+            "url": "/artist/kazutaro-all.html"
+        }
+    ],
+    "video": null,
+    "characters": [
+        {
+            "character": "mika misono",
+            "url": "/character/mika%20misono-all.html"
+        }
+    ]
 }

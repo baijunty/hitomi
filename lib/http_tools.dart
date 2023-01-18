@@ -34,7 +34,7 @@ List<int> mapBytesToInts(List<int> resp, {int spilt = 4}) {
 }
 
 Future<List<int>> http_invke(String url,
-    {String proxy = '', Map<String, String>? headers = null}) async {
+    {String proxy = '', Map<String, dynamic>? headers = null}) async {
   final client = HttpClient()
     ..connectionTimeout = Duration(seconds: 60)
     ..findProxy = (u) => proxy.isEmpty ? 'DIRECT' : 'PROXY $proxy';
@@ -53,8 +53,10 @@ Future<List<int>> http_invke(String url,
             return l;
           });
         }
+        final error = '$url with $headers error ${resp.statusCode}';
+        print(error);
         client.close();
-        throw 'error code ${resp.statusCode}';
+        throw error;
       })
       .whenComplete(() => client.close())
       .catchError((err) {
