@@ -121,6 +121,11 @@ class Gallery {
     _data["type"] = type;
     return _data;
   }
+
+  @override
+  String toString() {
+    return '{title:$title,id:$id,size:${files.length},aritist:$artists,language:$languageLocalname,seials:$parodys }';
+  }
 }
 
 class Characters {
