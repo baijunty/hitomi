@@ -1,17 +1,14 @@
+import 'dart:convert';
 import 'dart:math';
 import 'package:dart_tools/hitomi.dart';
+import 'package:dart_tools/http_tools.dart';
 
 void main() async {
   final List<Language> languages = [Language.japanese, Language.chinese];
   var config = UserPrefenerce('z:/photos',
       proxy: '127.0.0.1:8389', languages: languages);
   final hitomi = Hitomi.fromPrefenerce(config);
-  await hitomi
-      .viewByTag(Tag(type: 'series', name: 'Blue Archive'))
-      .forEach((element) {
-    print(element);
-  });
-  await Future.delayed(Duration(minutes: 10));
+  print('sunao na kimochi de | a genuine sentiment'.split(RegExp(r'\s+')));
 }
 
 int idVerify(String id) {

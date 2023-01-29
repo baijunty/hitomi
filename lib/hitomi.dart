@@ -1,14 +1,15 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'http_tools.dart';
-
+import 'package:crypto/crypto.dart';
 import 'package:dart_tools/gallery.dart';
 
 abstract class Hitomi {
   Future<bool> downloadImagesById(String id);
   Future<Gallery> fetchGallery(String id, {usePrefence = true});
-  Stream<int> search(List<Tag> args, {int page = 1});
+  Stream<int> search(List<Tag> include, {List<Tag> exclude, int page = 1});
   Stream<Gallery> viewByTag(Tag tag, {int page = 1});
 
   factory Hitomi.fromPrefenerce(UserPrefenerce prefenerce) {
@@ -32,10 +33,12 @@ class _HitomiImpl implements Hitomi {
   static final _regExp = RegExp(r"case\s+(\d+):$");
   static final _codeExp = RegExp(r"b:\s+'(\d+)\/'$");
   static final _valueExp = RegExp(r"var\s+o\s+=\s+(\d);");
+  static final _blank = RegExp(r"\s+");
   late String code;
   late List<int> codes;
   late int index;
   Timer? _timer;
+  int galleries_index_version = 0;
   _HitomiImpl(this.prefenerce) {}
 
   Future<Timer> initData() async {
@@ -55,6 +58,11 @@ class _HitomiImpl implements Hitomi {
         .map((e) => _regExp.firstMatch(e)![1]!)
         .map((e) => int.parse(e))
         .toList();
+    galleries_index_version = await http_invke(
+            'https://ltn.hitomi.la/galleriesindex/version?_=${DateTime.now().millisecondsSinceEpoch}',
+            proxy: prefenerce.proxy)
+        .then((value) => Utf8Decoder().convert(value))
+        .then((value) => int.parse(value));
     return Timer.periodic(Duration(minutes: 30), (timer) => initData());
   }
 
@@ -120,11 +128,12 @@ class _HitomiImpl implements Hitomi {
   }
 
   Future<List<int>> downloadImage(Files image, String refererUrl) async {
-    Uri uri = Uri.parse(_buildDownloadUrl(image));
-    final data = await http_invke(refererUrl,
+    final url = _buildDownloadUrl(image);
+    Uri uri = Uri.parse(url);
+    final data = await http_invke(url,
         proxy: prefenerce.proxy, headers: _buildRequestHeader(uri, refererUrl));
     print(
-        '下载${image.name} ${image.height}*${image.width} size ${data.length ~/ 1024}kb');
+        '下载${image.name} ${image.height}*${image.width} size ${data.length ~/ 1024}KB');
     return data;
   }
 
@@ -197,8 +206,42 @@ class _HitomiImpl implements Hitomi {
   }
 
   @override
-  Stream<int> search(List<Tag> args, {int page = 1}) async* {
-    throw UnimplementedError();
+  Stream<int> search(List<Tag> include,
+      {List<Tag> exclude = const [], int page = 1}) async* {
+    include.map((e) => _fetchIdsByTag(e));
+  }
+
+  Stream<int> _fetchIdsByTag(Tag tag) async* {
+    if (tag is QueryTag) {
+      final words = tag.name.split(_blank);
+      if (words.length > 1) {
+      } else {}
+    }
+  }
+
+  Stream<int> _fetchQuery(String word) async* {
+    final hash = sha256.convert(word.codeUnits).bytes.take(4).toList();
+    final url =
+        'https://ltn.hitomi.la/galleriesindex/galleries.${galleries_index_version}.index';
+    _fetchNode(url).then((value) => null);
+  }
+
+  Stream<int> _netBTreeSearch(String url, Node node, List<int> hashKey) async* {
+    for (var i = 0; i < node.keys.length; i++) {
+      final len = min(4, node.keys[i].length);
+      for (var i = 0; i < len; i++) {}
+    }
+  }
+
+  Future<Node> _fetchNode(String url, {int start = 0}) {
+    return http_invke(url,
+        proxy: prefenerce.proxy,
+        headers: _buildRequestHeader(
+          Uri.parse(url),
+          'https://hitomi.la/',
+          append: (header) =>
+              header.addAll(<String, String>{'range': '$start-${start + 463}'}),
+        )).then((value) => Node.parse(value));
   }
 
   @override
@@ -226,9 +269,55 @@ class _HitomiImpl implements Hitomi {
   }
 
   @override
-  Future<void> restart() {
-    // TODO: implement restart
-    throw UnimplementedError();
+  Future<void> restart() async {}
+}
+
+class Node {
+  List<List<int>> keys = [];
+  List<int> datas = [];
+  List<int> subnode_addresses = [];
+  Node.parse(List<int> data) {
+    final dataView = DataView(data);
+    var pos = 0;
+    var size = dataView.getData(0, 4);
+    pos += 4;
+    for (var i = 0; i < size; i++) {
+      var length = dataView.getData(pos, 4);
+      pos += 4;
+      keys.add(data.sublist(pos, pos + length));
+      pos += length;
+    }
+    size = dataView.getData(pos, 4);
+    pos += 4;
+    for (var i = 0; i < size; i++) {
+      var start = dataView.getData(pos, 8);
+      pos += 8;
+      var end = dataView.getData(pos, 4);
+      pos += 4;
+      datas.addAll(data.sublist(start, end));
+    }
+    for (var i = 0; i < 17; i++) {
+      var v = dataView.getData(pos, 8);
+      pos += 8;
+      subnode_addresses.add(v);
+    }
+  }
+}
+
+class DataView {
+  List<int> data;
+  DataView(this.data);
+
+  int getData(int start, int length) {
+    if (start > data.length || start + length > data.length) {
+      throw 'size overflow';
+    }
+    final subList = data.sublist(start, start + length);
+    int r = 0;
+    for (var i = 0; i < subList.length; i++) {
+      r |= subList[i] << (length - 1 - i) * 8;
+    }
+    return r;
   }
 }
 
@@ -332,4 +421,9 @@ class GalleryType extends Tag {
   String toString() {
     return name;
   }
+}
+
+class QueryTag extends Tag {
+  String query;
+  QueryTag(this.query) : super(type: '', name: query);
 }
