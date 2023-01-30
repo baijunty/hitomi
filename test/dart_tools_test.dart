@@ -1,14 +1,15 @@
 import 'dart:convert';
 import 'dart:math';
+import 'package:crypto/crypto.dart';
 import 'package:dart_tools/hitomi.dart';
-import 'package:dart_tools/http_tools.dart';
 
 void main() async {
   final List<Language> languages = [Language.japanese, Language.chinese];
   var config = UserPrefenerce('z:/photos',
       proxy: '127.0.0.1:8389', languages: languages);
   final hitomi = Hitomi.fromPrefenerce(config);
-  print('sunao na kimochi de | a genuine sentiment'.split(RegExp(r'\s+')));
+  var ids = await hitomi.search([QueryTag('ご注文は')]);
+  print(ids);
 }
 
 int idVerify(String id) {

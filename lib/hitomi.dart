@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+import 'package:tuple/tuple.dart';
+
 import 'http_tools.dart';
 import 'package:crypto/crypto.dart';
 import 'package:dart_tools/gallery.dart';
@@ -9,7 +11,8 @@ import 'package:dart_tools/gallery.dart';
 abstract class Hitomi {
   Future<bool> downloadImagesById(String id);
   Future<Gallery> fetchGallery(String id, {usePrefence = true});
-  Stream<int> search(List<Tag> include, {List<Tag> exclude, int page = 1});
+  Future<List<int>> search(List<Tag> include,
+      {List<Tag> exclude, int page = 1});
   Stream<Gallery> viewByTag(Tag tag, {int page = 1});
 
   factory Hitomi.fromPrefenerce(UserPrefenerce prefenerce) {
@@ -129,9 +132,8 @@ class _HitomiImpl implements Hitomi {
 
   Future<List<int>> downloadImage(Files image, String refererUrl) async {
     final url = _buildDownloadUrl(image);
-    Uri uri = Uri.parse(url);
     final data = await http_invke(url,
-        proxy: prefenerce.proxy, headers: _buildRequestHeader(uri, refererUrl));
+        proxy: prefenerce.proxy, headers: _buildRequestHeader(url, refererUrl));
     print(
         '下载${image.name} ${image.height}*${image.width} size ${data.length ~/ 1024}KB');
     return data;
@@ -141,8 +143,10 @@ class _HitomiImpl implements Hitomi {
     return "https://${_getUserInfo(image.hash)}.hitomi.la/webp/${this.code}/${_parseLast3HashCode(image.hash)}/${image.hash}.webp";
   }
 
-  Map<String, dynamic> _buildRequestHeader(Uri uri, String referer,
-      {void append(Map<String, dynamic> header)?}) {
+  Map<String, dynamic> _buildRequestHeader(String url, String referer,
+      {Tuple2<int, int>? range = null,
+      void append(Map<String, dynamic> header)?}) {
+    Uri uri = Uri.parse(url);
     final headers = {
       'referer': referer,
       'authority': uri.authority,
@@ -150,6 +154,9 @@ class _HitomiImpl implements Hitomi {
       'user-agent':
           'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36 Edg/106.0.1370.47'
     };
+    if (range != null) {
+      headers.putIfAbsent('range', () => 'bytes=${range.item1}-${range.item2}');
+    }
     if (append != null) {
       append(headers);
     }
@@ -176,12 +183,12 @@ class _HitomiImpl implements Hitomi {
     Map<String, dynamic> json = await _fetchGalleryJsonById(id);
     var gallery = Gallery.fromJson(json);
     if (usePrefence) {
-      gallery = await findBeseMatch(gallery);
+      gallery = await _findBeseMatch(gallery);
     }
     return gallery;
   }
 
-  Future<Gallery> findBeseMatch(Gallery gallery) async {
+  Future<Gallery> _findBeseMatch(Gallery gallery) async {
     final id = gallery.id;
     final languages = gallery.languages
         ?.where((element) =>
@@ -206,42 +213,93 @@ class _HitomiImpl implements Hitomi {
   }
 
   @override
-  Stream<int> search(List<Tag> include,
-      {List<Tag> exclude = const [], int page = 1}) async* {
-    include.map((e) => _fetchIdsByTag(e));
+  Future<List<int>> search(List<Tag> include,
+      {List<Tag> exclude = const [], int page = 1}) async {
+    _timer = _timer ?? await initData();
+    final v = await Stream.fromFutures(include.map((e) => _fetchIdsByTag(e)))
+        .reduce((previous, element) =>
+            previous.takeWhile((value) => element.contains(value)).toList());
+    return v;
   }
 
-  Stream<int> _fetchIdsByTag(Tag tag) async* {
+  Future<List<int>> _fetchIdsByTag(Tag tag) async {
     if (tag is QueryTag) {
       final words = tag.name.split(_blank);
       if (words.length > 1) {
-      } else {}
+        final v = await Stream.fromFutures(words.map((s) => _fetchQuery(s)))
+            .reduce((previous, element) => previous
+                .takeWhile((value) => element.contains(value))
+                .toList());
+        return v;
+      } else {
+        final datas = await _fetchQuery(tag.name);
+        return datas;
+      }
     }
+    throw UnimplementedError('todo');
   }
 
-  Stream<int> _fetchQuery(String word) async* {
-    final hash = sha256.convert(word.codeUnits).bytes.take(4).toList();
+  Future<List<int>> _fetchQuery(String word) async {
+    final hash =
+        sha256.convert(Utf8Encoder().convert(word)).bytes.take(4).toList();
     final url =
         'https://ltn.hitomi.la/galleriesindex/galleries.${galleries_index_version}.index';
-    _fetchNode(url).then((value) => null);
+    return _fetchNode(url).then((value) => _netBTreeSearch(url, value, hash));
   }
 
-  Stream<int> _netBTreeSearch(String url, Node node, List<int> hashKey) async* {
+  Future<List<int>> _netBTreeSearch(
+      String url, Node node, List<int> hashKey) async {
+    var tuple = Tuple2(false, node.keys.length);
     for (var i = 0; i < node.keys.length; i++) {
-      final len = min(4, node.keys[i].length);
-      for (var i = 0; i < len; i++) {}
+      var v = hashKey.compareTo(node.keys[i]);
+      if (v <= 0) {
+        tuple = Tuple2(v == 0, i);
+        break;
+      }
     }
+    print(node.keys);
+    print(node.datas);
+    print(hashKey);
+    print(tuple);
+    if (tuple.item1) {
+      return _fetchData(node.datas[tuple.item2]);
+    }
+    if (node.subnode_addresses.any((element) => element != 0) &&
+        node.subnode_addresses[tuple.item2] != 0) {
+      return _netBTreeSearch(
+          url,
+          await _fetchNode(url, start: node.subnode_addresses[tuple.item2]),
+          hashKey);
+    }
+    return [];
+  }
+
+  Future<List<int>> _fetchData(Tuple2<int, int> tuple) async {
+    final url =
+        'https://ltn.hitomi.la/galleriesindex/galleries.${galleries_index_version}.data';
+    return await http_invke(url,
+            proxy: prefenerce.proxy,
+            headers: _buildRequestHeader(url, 'https://hitomi.la/',
+                range: tuple.withItem2(tuple.item1 + tuple.item2 - 1)))
+        .then((value) {
+      final view = DataView(value);
+      var number = view.getData(0, 4);
+      var pos = 4;
+      final data = <int>[];
+      for (var i = 0; i < number; i++) {
+        data.add(view.getData(pos, 4));
+        pos += 4;
+      }
+      return data;
+    });
   }
 
   Future<Node> _fetchNode(String url, {int start = 0}) {
     return http_invke(url,
-        proxy: prefenerce.proxy,
-        headers: _buildRequestHeader(
-          Uri.parse(url),
-          'https://hitomi.la/',
-          append: (header) =>
-              header.addAll(<String, String>{'range': '$start-${start + 463}'}),
-        )).then((value) => Node.parse(value));
+            proxy: prefenerce.proxy,
+            headers: _buildRequestHeader(url, 'https://hitomi.la/',
+                range: Tuple2(start, start + 463)))
+        .then((value) => Node.parse(value));
   }
 
   @override
@@ -253,9 +311,8 @@ class _HitomiImpl implements Hitomi {
     final dataUrl = 'https://ltn.hitomi.la/${tag.urlEncode()}-all.nozomi';
     final ids = await http_invke(dataUrl,
             proxy: prefenerce.proxy,
-            headers: _buildRequestHeader(Uri.parse(dataUrl), referer,
-                append: (header) => header['range'] =
-                    'bytes=${(page - 1) * 100}-${page * 100 - 1}'))
+            headers: _buildRequestHeader(dataUrl, referer,
+                range: Tuple2((page - 1) * 100, page * 100 - 1)))
         .then((value) => mapBytesToInts(value, spilt: 4));
     for (var id in ids) {
       yield await fetchGallery(id.toString(), usePrefence: false);
@@ -272,9 +329,23 @@ class _HitomiImpl implements Hitomi {
   Future<void> restart() async {}
 }
 
+extension Comparable on List<int> {
+  int compareTo(List<int> other) {
+    final len = min(length, other.length);
+    for (var i = 0; i < len; i++) {
+      if (this[i] > other[i]) {
+        return 1;
+      } else if (this[i] < other[i]) {
+        return -1;
+      }
+    }
+    return 0;
+  }
+}
+
 class Node {
   List<List<int>> keys = [];
-  List<int> datas = [];
+  List<Tuple2<int, int>> datas = [];
   List<int> subnode_addresses = [];
   Node.parse(List<int> data) {
     final dataView = DataView(data);
@@ -294,7 +365,7 @@ class Node {
       pos += 8;
       var end = dataView.getData(pos, 4);
       pos += 4;
-      datas.addAll(data.sublist(start, end));
+      datas.add(Tuple2(start, end));
     }
     for (var i = 0; i < 17; i++) {
       var v = dataView.getData(pos, 8);
