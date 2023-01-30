@@ -11,8 +11,7 @@ import 'package:dart_tools/gallery.dart';
 abstract class Hitomi {
   Future<bool> downloadImagesById(String id);
   Future<Gallery> fetchGallery(String id, {usePrefence = true});
-  Future<List<int>> search(List<Tag> include,
-      {List<Tag> exclude, int page = 1});
+  Future<Set<int>> search(List<Tag> include, {List<Tag> exclude, int page = 1});
   Stream<Gallery> viewByTag(Tag tag, {int page = 1});
 
   factory Hitomi.fromPrefenerce(UserPrefenerce prefenerce) {
@@ -37,6 +36,7 @@ class _HitomiImpl implements Hitomi {
   static final _codeExp = RegExp(r"b:\s+'(\d+)\/'$");
   static final _valueExp = RegExp(r"var\s+o\s+=\s+(\d);");
   static final _blank = RegExp(r"\s+");
+  static final _emptySet = Set<int>();
   late String code;
   late List<int> codes;
   late int index;
@@ -213,33 +213,32 @@ class _HitomiImpl implements Hitomi {
   }
 
   @override
-  Future<List<int>> search(List<Tag> include,
+  Future<Set<int>> search(List<Tag> include,
       {List<Tag> exclude = const [], int page = 1}) async {
     _timer = _timer ?? await initData();
     final v = await Stream.fromFutures(include.map((e) => _fetchIdsByTag(e)))
         .reduce((previous, element) =>
-            previous.takeWhile((value) => element.contains(value)).toList());
+            previous.where((value) => element.contains(value)).toSet());
     return v;
   }
 
-  Future<List<int>> _fetchIdsByTag(Tag tag) async {
+  Future<Set<int>> _fetchIdsByTag(Tag tag) async {
     if (tag is QueryTag) {
       final words = tag.name.split(_blank);
       if (words.length > 1) {
         final v = await Stream.fromFutures(words.map((s) => _fetchQuery(s)))
-            .reduce((previous, element) => previous
-                .takeWhile((value) => element.contains(value))
-                .toList());
+            .reduce((previous, element) =>
+                previous.where((value) => element.contains(value)).toSet());
         return v;
       } else {
         final datas = await _fetchQuery(tag.name);
         return datas;
       }
-    }
+    } else {}
     throw UnimplementedError('todo');
   }
 
-  Future<List<int>> _fetchQuery(String word) async {
+  Future<Set<int>> _fetchQuery(String word) async {
     final hash =
         sha256.convert(Utf8Encoder().convert(word)).bytes.take(4).toList();
     final url =
@@ -247,7 +246,7 @@ class _HitomiImpl implements Hitomi {
     return _fetchNode(url).then((value) => _netBTreeSearch(url, value, hash));
   }
 
-  Future<List<int>> _netBTreeSearch(
+  Future<Set<int>> _netBTreeSearch(
       String url, Node node, List<int> hashKey) async {
     var tuple = Tuple2(false, node.keys.length);
     for (var i = 0; i < node.keys.length; i++) {
@@ -257,10 +256,6 @@ class _HitomiImpl implements Hitomi {
         break;
       }
     }
-    print(node.keys);
-    print(node.datas);
-    print(hashKey);
-    print(tuple);
     if (tuple.item1) {
       return _fetchData(node.datas[tuple.item2]);
     }
@@ -271,10 +266,10 @@ class _HitomiImpl implements Hitomi {
           await _fetchNode(url, start: node.subnode_addresses[tuple.item2]),
           hashKey);
     }
-    return [];
+    return _emptySet;
   }
 
-  Future<List<int>> _fetchData(Tuple2<int, int> tuple) async {
+  Future<Set<int>> _fetchData(Tuple2<int, int> tuple) async {
     final url =
         'https://ltn.hitomi.la/galleriesindex/galleries.${galleries_index_version}.data';
     return await http_invke(url,
@@ -285,7 +280,7 @@ class _HitomiImpl implements Hitomi {
       final view = DataView(value);
       var number = view.getData(0, 4);
       var pos = 4;
-      final data = <int>[];
+      final data = Set<int>();
       for (var i = 0; i < number; i++) {
         data.add(view.getData(pos, 4));
         pos += 4;
