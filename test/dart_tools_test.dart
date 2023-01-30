@@ -1,6 +1,4 @@
-import 'dart:convert';
 import 'dart:math';
-import 'package:crypto/crypto.dart';
 import 'package:dart_tools/hitomi.dart';
 
 void main() async {
@@ -8,8 +6,9 @@ void main() async {
   var config = UserPrefenerce('z:/photos',
       proxy: '127.0.0.1:8389', languages: languages);
   final hitomi = Hitomi.fromPrefenerce(config);
-  var ids = await hitomi.search([QueryTag('ご注文は')]);
-  print(ids);
+  var ids = await hitomi.search([QueryTag('gochuumon wa koucha desu ka?')]);
+  print(ids.take(4).toList());
+  print(ids.length);
 }
 
 int idVerify(String id) {
