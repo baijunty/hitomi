@@ -8,7 +8,7 @@ void main(List<String> args) async {
   final parser = ArgParser()
     ..addOption('output',
         abbr: 'o',
-        defaultsTo: '/home/bai/ssd/photos',
+        defaultsTo: r'\\192.168.3.228\ssd\photos',
         help: 'set output path with -p')
     ..addOption('proxy',
         abbr: 'p', defaultsTo: '127.0.0.1:8389', help: 'set proxy with -o')

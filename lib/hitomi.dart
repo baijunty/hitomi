@@ -218,6 +218,7 @@ class _HitomiImpl implements Hitomi {
   Future<Gallery?> findSimilarGalleryBySearch(Gallery gallery) async {
     print('search target language by search');
     List<Tag> keys = gallery.title!
+        .toLowerCase()
         .split(_blank)
         .map((e) => QueryTag(e))
         .fold(<Tag>[], (previousValue, element) {
@@ -225,6 +226,7 @@ class _HitomiImpl implements Hitomi {
       return previousValue;
     });
     keys.add(GalleryType.fromName(gallery.type!));
+    keys.add(prefenerce.languages.first);
     if ((gallery.parodys?.length ?? 0) > 0) {
       keys.addAll(
           gallery.parodys!.map((s) => Tag(type: 'series', name: s.parody!)));
@@ -238,7 +240,9 @@ class _HitomiImpl implements Hitomi {
       final result = await Stream.fromFutures(
               ids.map((e) => _fetchGalleryJsonById(e.toString())))
           .firstWhere((event) =>
-              event.title == gallery.title &&
+              event.title!
+                  .toLowerCase()
+                  .contains(gallery.title!.toLowerCase()) &&
               (event.files.length - gallery.files.length).abs() < 3);
       print(
           'found language at ${result.japaneseTitle ?? result.title} size ${result.files.length}');

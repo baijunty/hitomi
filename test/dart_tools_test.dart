@@ -3,15 +3,11 @@ import 'package:dart_tools/hitomi.dart';
 
 void main() async {
   final List<Language> languages = [Language.japanese, Language.chinese];
-  var config = UserPrefenerce('z:/photos',
+  var config = UserPrefenerce(r'\\192.168.3.228\ssd\photos',
       proxy: '127.0.0.1:8389', languages: languages);
   final hitomi = Hitomi.fromPrefenerce(config);
-  var ids = await hitomi.search('sunao na kimochi de | a genuine sentiment'
-      .split(RegExp(r"\s+"))
-      .map((e) => QueryTag(e))
-      .toList());
+  var ids = await hitomi.downloadImagesById('2449212');
   print(ids);
-  print(ids.length);
 }
 
 int idVerify(String id) {
