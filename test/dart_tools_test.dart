@@ -6,8 +6,11 @@ void main() async {
   var config = UserPrefenerce('z:/photos',
       proxy: '127.0.0.1:8389', languages: languages);
   final hitomi = Hitomi.fromPrefenerce(config);
-  var ids = await hitomi.search([QueryTag('gochuumon wa koucha desu ka?')]);
-  print(ids.take(4).toList());
+  var ids = await hitomi.search('sunao na kimochi de | a genuine sentiment'
+      .split(RegExp(r"\s+"))
+      .map((e) => QueryTag(e))
+      .toList());
+  print(ids);
   print(ids.length);
 }
 

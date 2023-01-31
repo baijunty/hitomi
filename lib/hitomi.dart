@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 import 'package:tuple/tuple.dart';
-
+import 'package:collection/collection.dart';
 import 'http_tools.dart';
 import 'package:crypto/crypto.dart';
 import 'package:dart_tools/gallery.dart';
@@ -11,7 +11,8 @@ import 'package:dart_tools/gallery.dart';
 abstract class Hitomi {
   Future<bool> downloadImagesById(String id);
   Future<Gallery> fetchGallery(String id, {usePrefence = true});
-  Future<Set<int>> search(List<Tag> include, {List<Tag> exclude, int page = 1});
+  Future<List<int>> search(List<Tag> include,
+      {List<Tag> exclude, int page = 1});
   Stream<Gallery> viewByTag(Tag tag, {int page = 1});
 
   factory Hitomi.fromPrefenerce(UserPrefenerce prefenerce) {
@@ -36,7 +37,7 @@ class _HitomiImpl implements Hitomi {
   static final _codeExp = RegExp(r"b:\s+'(\d+)\/'$");
   static final _valueExp = RegExp(r"var\s+o\s+=\s+(\d);");
   static final _blank = RegExp(r"\s+");
-  static final _emptySet = Set<int>();
+  static final _emptyList = const <int>[];
   late String code;
   late List<int> codes;
   late int index;
@@ -69,7 +70,7 @@ class _HitomiImpl implements Hitomi {
     return Timer.periodic(Duration(minutes: 30), (timer) => initData());
   }
 
-  Future<Map<String, dynamic>> _fetchGalleryJsonById(String id) async {
+  Future<Gallery> _fetchGalleryJsonById(String id) async {
     _timer = _timer ?? await initData();
     return http_invke('https://ltn.hitomi.la/galleries/$id.js',
             proxy: prefenerce.proxy)
@@ -81,7 +82,8 @@ class _HitomiImpl implements Hitomi {
             : value)
         .then((value) {
           return jsonDecode(value);
-        });
+        })
+        .then((value) => Gallery.fromJson(value));
   }
 
   @override
@@ -180,8 +182,7 @@ class _HitomiImpl implements Hitomi {
 
   @override
   Future<Gallery> fetchGallery(String id, {usePrefence = true}) async {
-    Map<String, dynamic> json = await _fetchGalleryJsonById(id);
-    var gallery = Gallery.fromJson(json);
+    var gallery = await _fetchGalleryJsonById(id);
     if (usePrefence) {
       gallery = await _findBeseMatch(gallery);
     }
@@ -200,45 +201,101 @@ class _HitomiImpl implements Hitomi {
           .compareTo(prefenerce.languages.indexWhere((l) => l.name == b.name)));
       final language = languages.first;
       if (id != language.galleryid) {
-        print('select best language ${language.toJson()}');
-        final json = await _fetchGalleryJsonById(language.galleryid);
-        gallery = Gallery.fromJson(json);
+        print('use language ${language.toJson()}');
+        return _fetchGalleryJsonById(language.galleryid);
       }
     } else if (!prefenerce.languages
         .map((e) => e.name)
         .contains(gallery.language)) {
-      throw 'not match the language';
+      final r = await findSimilarGalleryBySearch(gallery);
+      if (r == null) {
+        throw 'target language not found';
+      }
     }
     return gallery;
   }
 
+  Future<Gallery?> findSimilarGalleryBySearch(Gallery gallery) async {
+    print('search target language by search');
+    List<Tag> keys = gallery.title!
+        .split(_blank)
+        .map((e) => QueryTag(e))
+        .fold(<Tag>[], (previousValue, element) {
+      previousValue.add(element);
+      return previousValue;
+    });
+    keys.add(GalleryType.fromName(gallery.type!));
+    if ((gallery.parodys?.length ?? 0) > 0) {
+      keys.addAll(
+          gallery.parodys!.map((s) => Tag(type: 'series', name: s.parody!)));
+    }
+    if ((gallery.artists?.length ?? 0) > 0) {
+      keys.addAll(
+          gallery.artists!.map((a) => Tag(type: "artist", name: a.artist!)));
+    }
+    final ids = await search(keys);
+    if (ids.isNotEmpty) {
+      final result = await Stream.fromFutures(
+              ids.map((e) => _fetchGalleryJsonById(e.toString())))
+          .firstWhere((event) =>
+              event.title == gallery.title &&
+              (event.files.length - gallery.files.length).abs() < 3);
+      print(
+          'found language at ${result.japaneseTitle ?? result.title} size ${result.files.length}');
+      return result;
+    }
+    return null;
+  }
+
   @override
-  Future<Set<int>> search(List<Tag> include,
+  Future<List<int>> search(List<Tag> include,
       {List<Tag> exclude = const [], int page = 1}) async {
     _timer = _timer ?? await initData();
-    final v = await Stream.fromFutures(include.map((e) => _fetchIdsByTag(e)))
-        .reduce((previous, element) =>
-            previous.where((value) => element.contains(value)).toSet());
-    return v;
+    final languages = include
+        .where((element) => element is Language)
+        .map((e) => e as Language)
+        .toList();
+    final tags = include.whereNot((element) => element is Language);
+    var includeIds =
+        await Stream.fromFutures(tags.map((e) => _fetchIdsByTag(e, languages)))
+            .reduce((previous, element) {
+      final r = element
+          .where((value) =>
+              previous.binarySearch(value, (v, v1) => v.compareTo(v1)) >= 0)
+          .toList();
+      return r;
+    });
+    if (exclude.isNotEmpty) {
+      final filtered =
+          await Stream.fromFutures(exclude.map((e) => _fetchIdsByTag(e, [])))
+              .fold<Set<int>>(includeIds.toSet(), (acc, item) {
+        acc.removeAll(item);
+        return acc;
+      });
+      includeIds = filtered.toList();
+    }
+    return includeIds.reversed.toList();
   }
 
-  Future<Set<int>> _fetchIdsByTag(Tag tag) async {
+  Future<List<int>> _fetchIdsByTag(Tag tag, List<Language> language) {
     if (tag is QueryTag) {
-      final words = tag.name.split(_blank);
-      if (words.length > 1) {
-        final v = await Stream.fromFutures(words.map((s) => _fetchQuery(s)))
-            .reduce((previous, element) =>
-                previous.where((value) => element.contains(value)).toSet());
-        return v;
+      return _fetchQuery(tag.name);
+    } else {
+      final useLanguage = language.length == 1 ? language.first.name : 'all';
+      String url;
+      if (tag is Language) {
+        url = 'https://ltn.hitomi.la/n/${tag.urlEncode()}.nozomi';
+      } else if (tag is SexTag) {
+        url = 'https://ltn.hitomi.la/n/tag/${tag}-$useLanguage.nozomi';
       } else {
-        final datas = await _fetchQuery(tag.name);
-        return datas;
+        url =
+            'https://ltn.hitomi.la/n/${tag.type}/${tag.name}-$useLanguage.nozomi';
       }
-    } else {}
-    throw UnimplementedError('todo');
+      return _fetchTagIdsByNet(url);
+    }
   }
 
-  Future<Set<int>> _fetchQuery(String word) async {
+  Future<List<int>> _fetchQuery(String word) async {
     final hash =
         sha256.convert(Utf8Encoder().convert(word)).bytes.take(4).toList();
     final url =
@@ -246,7 +303,7 @@ class _HitomiImpl implements Hitomi {
     return _fetchNode(url).then((value) => _netBTreeSearch(url, value, hash));
   }
 
-  Future<Set<int>> _netBTreeSearch(
+  Future<List<int>> _netBTreeSearch(
       String url, Node node, List<int> hashKey) async {
     var tuple = Tuple2(false, node.keys.length);
     for (var i = 0; i < node.keys.length; i++) {
@@ -258,18 +315,17 @@ class _HitomiImpl implements Hitomi {
     }
     if (tuple.item1) {
       return _fetchData(node.datas[tuple.item2]);
-    }
-    if (node.subnode_addresses.any((element) => element != 0) &&
+    } else if (node.subnode_addresses.any((element) => element != 0) &&
         node.subnode_addresses[tuple.item2] != 0) {
       return _netBTreeSearch(
           url,
           await _fetchNode(url, start: node.subnode_addresses[tuple.item2]),
           hashKey);
     }
-    return _emptySet;
+    return _emptyList;
   }
 
-  Future<Set<int>> _fetchData(Tuple2<int, int> tuple) async {
+  Future<List<int>> _fetchData(Tuple2<int, int> tuple) async {
     final url =
         'https://ltn.hitomi.la/galleriesindex/galleries.${galleries_index_version}.data';
     return await http_invke(url,
@@ -279,13 +335,26 @@ class _HitomiImpl implements Hitomi {
         .then((value) {
       final view = DataView(value);
       var number = view.getData(0, 4);
-      var pos = 4;
+      final data = Set<int>();
+      for (int i = 1; i <= number; i++) {
+        data.add(view.getData(i * 4, 4));
+      }
+      return data.sorted((a, b) => a.compareTo(b));
+    });
+  }
+
+  Future<List<int>> _fetchTagIdsByNet(String url) async {
+    return await http_invke(url,
+            proxy: prefenerce.proxy,
+            headers: _buildRequestHeader(url, 'https://hitomi.la/'))
+        .then((value) {
+      final view = DataView(value);
+      var number = value.length / 4;
       final data = Set<int>();
       for (var i = 0; i < number; i++) {
-        data.add(view.getData(pos, 4));
-        pos += 4;
+        data.add(view.getData(i * 4, 4));
       }
-      return data;
+      return data.sorted((a, b) => a.compareTo(b));
     });
   }
 
@@ -368,6 +437,10 @@ class Node {
       subnode_addresses.add(v);
     }
   }
+  @override
+  String toString() {
+    return "{keys:$keys,data:$datas,address:$subnode_addresses}";
+  }
 }
 
 class DataView {
@@ -398,7 +471,7 @@ class Tag {
 
   @override
   String toString() {
-    return "{$type:$name}";
+    return "$type:$name";
   }
 
   String urlEncode() {
@@ -440,12 +513,12 @@ class Language extends Tag {
 class SexTag extends Tag {
   const SexTag._(String sex, String name) : super(type: sex, name: name);
 
-  factory SexTag.fromName(String sex, String name) {
-    switch (sex) {
-      case 'male':
-        return SexTag._(sex, name);
-      case 'female':
-        return SexTag._(sex, name);
+  factory SexTag.fromName(bool male, String name) {
+    switch (male) {
+      case true:
+        return SexTag._('male', name);
+      case false:
+        return SexTag._('female', name);
       default:
         throw 'wrong type';
     }
