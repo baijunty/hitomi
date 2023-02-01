@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:hitomi/gallery/language.dart';
 import 'package:hitomi/lib.dart';
 
@@ -8,7 +6,7 @@ void main() async {
   var config = UserContext('~/', proxy: '127.0.0.1:8389', languages: languages);
   final hitomi = Hitomi.fromPrefenerce(config);
   var ids = await hitomi.findSimilarGalleryBySearch(
-      await hitomi.fetchGallery('1862797', usePrefence: false));
+      await hitomi.fetchGallery('2452816', usePrefence: false));
   await ids.forEach((element) {
     print(element);
   });

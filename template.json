@@ -1,307 +1,171 @@
 {
+    "id": "2452949",
+    "galleryurl": "/cg/kzmirh-日本語-2452949.html",
+    "videofilename": null,
     "artists": [
         {
-            "url": "/artist/kuroha%20reiji-all.html",
-            "artist": "kuroha reiji"
+            "url": "/artist/soso-all.html",
+            "artist": "soso"
         }
     ],
+    "language_url": "/index-japanese.html",
     "tags": [
         {
-            "male": "",
-            "tag": "big breasts",
-            "url": "/tag/female%3Abig%20breasts-all.html",
-            "female": "1"
+            "tag": "animated",
+            "url": "/tag/animated-all.html"
         },
         {
             "male": "",
-            "url": "/tag/female%3Abikini-all.html",
-            "female": "1",
-            "tag": "bikini"
+            "tag": "bike shorts",
+            "female": 1,
+            "url": "/tag/female%3Abike%20shorts-all.html"
         },
         {
+            "tag": "sole female",
             "male": "",
-            "female": "1",
             "url": "/tag/female%3Asole%20female-all.html",
-            "tag": "sole female"
+            "female": 1
         },
         {
-            "tag": "swimsuit",
-            "female": "1",
-            "url": "/tag/female%3Aswimsuit-all.html",
+            "female": 1,
+            "url": "/tag/female%3Avtuber-all.html",
+            "tag": "vtuber",
             "male": ""
         },
         {
-            "url": "/tag/female%3Avery%20long%20hair-all.html",
-            "female": "1",
-            "tag": "very long hair",
-            "male": ""
-        },
-        {
-            "male": "1",
-            "tag": "sole male",
             "female": "",
-            "url": "/tag/male%3Asole%20male-all.html"
+            "url": "/tag/male%3Adark%20skin-all.html",
+            "male": 1,
+            "tag": "dark skin"
         },
         {
-            "url": "/tag/multi%2Dwork%20series-all.html",
-            "tag": "multi-work series"
+            "tag": "first person perspective",
+            "male": 1,
+            "url": "/tag/male%3Afirst%20person%20perspective-all.html",
+            "female": ""
+        },
+        {
+            "url": "/tag/variant%20set-all.html",
+            "tag": "variant set"
+        }
+    ],
+    "japanese_title": null,
+    "parodys": [
+        {
+            "url": "/series/hololive-all.html",
+            "parody": "hololive"
         }
     ],
     "scene_indexes": [],
-    "japanese_title": "千夜ちゃんと保健体育♪～海編～",
-    "languages": [
-        {
-            "galleryid": "2418790",
-            "language_localname": "English",
-            "url": "/galleries/2418790.html",
-            "name": "english"
-        },
-        {
-            "url": "/galleries/1454945.html",
-            "language_localname": "한국어",
-            "galleryid": "1454945",
-            "name": "korean"
-        },
-        {
-            "url": "/galleries/1195452.html",
-            "galleryid": "1195452",
-            "language_localname": "中文",
-            "name": "chinese"
-        },
-        {
-            "name": "japanese",
-            "galleryid": "2418789",
-            "language_localname": "日本語",
-            "url": "/galleries/2418789.html"
-        }
-    ],
-    "type": "doujinshi",
-    "language_localname": "日本語",
-    "title": "Chiya-chan to Hoken Taiiku ~Umi Hen~",
-    "language": "japanese",
-    "characters": [
-        {
-            "character": "chiya ujimatsu",
-            "url": "/character/chiya%20ujimatsu-all.html"
-        }
-    ],
-    "galleryurl": "/doujinshi/千夜ちゃんと保健体育♪～海編～-日本語-2418789.html",
-    "language_url": "/index-japanese.html",
-    "date": "2022-12-31 03:32:00-06",
-    "related": [
-        1125787,
-        2399806,
-        946649,
-        1013585,
-        1024752
-    ],
-    "video": null,
-    "parodys": [
-        {
-            "url": "/series/gochuumon%20wa%20usagi%20desu%20ka-all.html",
-            "parody": "gochuumon wa usagi desu ka"
-        }
-    ],
-    "videofilename": null,
     "files": [
         {
-            "hash": "aca6de4a2d8fdab178512cf8d65699389613a062e60a46be4e9f457833c1b0d1",
+            "hasavif": 0,
+            "hash": "b6f99c9996f9155ec06a3d988d2d289b9bbc1bc88c794e8fc5824a318b2fbc62",
+            "name": "01_5212607_2_.gif",
+            "height": 800,
+            "haswebp": 1,
+            "width": 600
+        },
+        {
+            "width": 1275,
+            "haswebp": 1,
+            "height": 1802,
+            "hash": "f10bbcf0f45eadd411ceb16afd6783c00ce398f25a3f0bf8c5b5422ecf7f15bb",
             "hasavif": 1,
-            "width": 1420,
-            "haswebp": 1,
-            "name": "01.jpg",
-            "height": 2024
+            "name": "02_4024823_02_.jpg"
         },
         {
-            "hash": "0a16cef8cbd96ef45496ec2e78d973922800dfc047e1c96acf47ed0981c76963",
             "haswebp": 1,
-            "name": "02.jpg",
-            "height": 2024,
+            "width": 1275,
             "hasavif": 1,
-            "width": 1420
+            "hash": "9a6516bc60b0f361745b7c728c95f677915c7e78dda646b8944702a2d99415fd",
+            "name": "03_4024823_03_.jpg",
+            "height": 1802
         },
         {
-            "hash": "0ffc27380777411a2394778eeb0a3e5b59070010ecb7d25e669ffb71c1ba00fd",
-            "haswebp": 1,
-            "height": 2024,
-            "name": "03.jpg",
+            "height": 1802,
+            "hash": "da95af7e7201b5e7c36c5592527498cc5524e1bb53528e2eb4553b20cdd1ee69",
             "hasavif": 1,
-            "width": 1420
-        },
-        {
-            "haswebp": 1,
-            "name": "04.jpg",
-            "height": 2024,
-            "hasavif": 1,
-            "width": 1420,
-            "hash": "207b2a63b07f034cace1f315b226fb2b2aef25e88dde61790d061fd99fa91f86"
-        },
-        {
-            "hash": "616d5edb6af49b38a52d3acb0125fec6c5309ca722e49aded858090b5799ee80",
-            "haswebp": 1,
-            "name": "05.jpg",
-            "height": 2024,
-            "hasavif": 1,
-            "width": 1420
-        },
-        {
-            "hash": "51c574b6a9e931e3bb4d848b41494d3edd4e1b8b04c5f520ae64e397961e57c9",
-            "name": "06.jpg",
-            "height": 2024,
-            "haswebp": 1,
-            "hasavif": 1,
-            "width": 1420
-        },
-        {
-            "haswebp": 1,
-            "height": 2024,
-            "name": "07.jpg",
-            "hasavif": 1,
-            "width": 1420,
-            "hash": "f003964be2be73aff10d3a72671224422ccbb72b89eebf88b9850d862cb98162"
-        },
-        {
-            "width": 1420,
-            "hasavif": 1,
-            "haswebp": 1,
-            "name": "08.jpg",
-            "height": 2024,
-            "hash": "2ca2ac7673587c07fd224a62e071589371a94a4598155d5d7dace11ff7ac084e"
-        },
-        {
-            "width": 1420,
-            "hasavif": 1,
-            "haswebp": 1,
-            "height": 2024,
-            "name": "09.jpg",
-            "hash": "bfa96eeb2ca8d2b1769ceace55c0775824cd59bb01f21fae99f983f8af525218"
-        },
-        {
-            "hash": "65aed7f467c7dc8ad18f37646662486b7e6dfcc7c29f31b96a8cd4f2d3748cbd",
-            "haswebp": 1,
-            "height": 2024,
-            "name": "10.jpg",
-            "width": 1420,
-            "hasavif": 1
-        },
-        {
-            "haswebp": 1,
-            "name": "11.jpg",
-            "height": 2024,
-            "width": 1420,
-            "hasavif": 1,
-            "hash": "8a2056ce2fd9e126f17c4b4c9694d7d6ec54dba93998d019f7d5b06d120b36b1"
-        },
-        {
-            "hash": "d3f92c1feae485018f7e00d76c49c3a52b0143e524267ff65bb349c3b5068f9e",
-            "hasavif": 1,
-            "width": 1420,
-            "haswebp": 1,
-            "height": 2024,
-            "name": "12.jpg"
-        },
-        {
-            "hash": "5de0d58cd2125e95ce98f3ce05dfac4a039e0725394c7cef1fbcc3e2297efe56",
-            "width": 1420,
-            "hasavif": 1,
-            "haswebp": 1,
-            "height": 2024,
-            "name": "13.jpg"
-        },
-        {
-            "height": 2024,
-            "name": "14.jpg",
-            "haswebp": 1,
-            "width": 1420,
-            "hasavif": 1,
-            "hash": "ba1a5e28d0ae99e72ee04c67044e59abb9b1e84c619096997de3a322e2ff4fc1"
-        },
-        {
-            "name": "15.jpg",
-            "height": 2024,
-            "haswebp": 1,
-            "width": 1420,
-            "hasavif": 1,
-            "hash": "fa1cd81d6c298ad2ad42a351e57411eb3867ca84bccad9ee0f8916f47cc9f929"
-        },
-        {
-            "width": 1420,
-            "hasavif": 1,
-            "haswebp": 1,
-            "height": 2024,
-            "name": "16.jpg",
-            "hash": "7ad95cbc16ee89cc1fac0511a7376bc3fef3a3bdee00d79878a1f06d0aa851b1"
-        },
-        {
-            "height": 2024,
-            "name": "17.jpg",
-            "haswebp": 1,
-            "hasavif": 1,
-            "width": 1420,
-            "hash": "f2e24fff0e3a28c559b6fcdc85b1495c77ca8da7e072924ece3357e906149590"
-        },
-        {
-            "name": "18.jpg",
-            "height": 2024,
-            "haswebp": 1,
-            "hasavif": 1,
-            "width": 1420,
-            "hash": "586d462e4da99d5ff6025551d6fdfc46d834b579b5afc79a264f04360ee8a9a4"
-        },
-        {
-            "hash": "e744de93bd4715c75dc7541b83a834172f3f10e58f0eb86e1ddd5d0d14e59dd9",
-            "haswebp": 1,
-            "height": 2024,
-            "name": "19.jpg",
-            "width": 1420,
-            "hasavif": 1
+            "name": "04_4024823_04_.jpg",
+            "width": 1275,
+            "haswebp": 1
         },
         {
             "hasavif": 1,
-            "width": 1420,
+            "name": "05_4024823_05_.jpg",
+            "hash": "88d03b8af5e4f4e91e5fc7851df6886578f23fe4a298a7f874cd36e58ce838c0",
+            "height": 1802,
             "haswebp": 1,
-            "name": "20.jpg",
-            "height": 2024,
-            "hash": "64c65f5ea62c44de92eb66bd64c3cf64c1d5fb9f31a9f93b155dc928214d448f"
-        },
-        {
-            "hash": "0344ea4099431a27750dab9cfb45f7a14a723bfa8c19c9b2548ec02c061b830a",
-            "name": "21.jpg",
-            "height": 2024,
-            "haswebp": 1,
-            "hasavif": 1,
-            "width": 1420
-        },
-        {
-            "hasavif": 1,
-            "width": 1420,
-            "height": 2024,
-            "name": "22.jpg",
-            "haswebp": 1,
-            "hash": "ff53ae3e8127c00294a5e3033f7097149dfcf0c5d033e9b22901dde00b2ee59c"
+            "width": 1275
         },
         {
             "haswebp": 1,
-            "height": 2024,
-            "name": "23.jpg",
-            "width": 1420,
+            "width": 1275,
+            "hash": "de4c9b4d7dc9976a814c8771d0cfbc0c90ddf89c799b9a8ab1bffba9afc61eb4",
             "hasavif": 1,
-            "hash": "0a16cef8cbd96ef45496ec2e78d973922800dfc047e1c96acf47ed0981c76963"
+            "name": "06_4024823_06_.jpg",
+            "height": 1802
         },
         {
             "haswebp": 1,
-            "name": "24.jpg",
-            "height": 2024,
-            "width": 1420,
+            "width": 1275,
+            "hash": "df069f49240f378d11ff16aae5958ad490845221b6138e21d6fd9f6b270a4a7a",
             "hasavif": 1,
-            "hash": "66eb5edab8f75df21420aba6e7039ee330d93750fb17930e466c5c23c262146e"
+            "name": "07_4024823_07_.jpg",
+            "height": 1802
+        },
+        {
+            "width": 1275,
+            "haswebp": 1,
+            "height": 1802,
+            "hasavif": 1,
+            "name": "08_4024823_08_.jpg",
+            "hash": "1dbd66892277ac221a9b67418a16da2741eafea7d69b0e9cd55b39ee02b10b57"
+        },
+        {
+            "width": 1275,
+            "haswebp": 1,
+            "height": 1802,
+            "name": "09_4024823_09_.jpg",
+            "hasavif": 1,
+            "hash": "0a55263e2f9c926583e58468b761d9fc81b4da2959aa52b15e3eda121549f311"
+        },
+        {
+            "width": 1275,
+            "haswebp": 1,
+            "height": 1802,
+            "hash": "923fdbf9c7e50aed4b79587591916e3551afa91461f65d3cd8113e1523d0845c",
+            "hasavif": 1,
+            "name": "10_4024823_10_.jpg"
+        },
+        {
+            "haswebp": 1,
+            "width": 1275,
+            "hasavif": 1,
+            "hash": "02f946cc6107cb9186943bd5d1f7b93a2d2c12a234cee166ba3dcfdf9c959b6c",
+            "name": "11_4024823_11_.jpg",
+            "height": 1802
         }
     ],
-    "id": "2418789",
-    "groups": [
+    "characters": [
         {
-            "group": "0000",
-            "url": "/group/0000-all.html"
+            "url": "/character/kazama%20iroha-all.html",
+            "character": "kazama iroha"
         }
-    ]
+    ],
+    "groups": null,
+    "related": [
+        2254527,
+        2193377,
+        2113363,
+        2421380,
+        2388614
+    ],
+    "date": "2023-02-01 05:58:00-06",
+    "languages": [],
+    "language_localname": "日本語",
+    "language": "japanese",
+    "title": "kzmirh",
+    "type": "artistcg",
+    "video": null
 }

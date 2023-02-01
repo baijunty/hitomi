@@ -5,10 +5,10 @@ import 'package:hitomi/gallery/label.dart';
 
 @immutable
 class Tag with Lable {
-  final dynamic? male;
+  final dynamic male;
   final String tag;
   final String? url;
-  final dynamic? female;
+  final dynamic female;
 
   const Tag({this.male, required this.tag, this.url, this.female});
 

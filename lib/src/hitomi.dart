@@ -34,6 +34,8 @@ class _HitomiImpl implements Hitomi {
   static final _codeExp = RegExp(r"b:\s+'(\d+)\/'$");
   static final _valueExp = RegExp(r"var\s+o\s+=\s+(\d);");
   static final _blank = RegExp(r"\s+");
+  static final _titleExp =
+      RegExp(r'[\u0800-\u4e00|\u4e00-\u9fa5|30A0-30FF|\w]+');
   static final _emptyList = const <int>[];
   late String code;
   late List<int> codes;
@@ -213,12 +215,13 @@ class _HitomiImpl implements Hitomi {
     List<Lable> keys = gallery.title
         .toLowerCase()
         .split(_blank)
+        .where((element) => _titleExp.hasMatch(element))
         .map((e) => QueryText(e))
         .fold(<Lable>[], (previousValue, element) {
       previousValue.add(element);
       return previousValue;
     });
-    keys.add(TypeLabel(gallery.type!));
+    keys.add(TypeLabel(gallery.type));
     keys.add(prefenerce.languages.first);
     if ((gallery.parodys?.length ?? 0) > 0) {
       keys.addAll(gallery.parodys!);

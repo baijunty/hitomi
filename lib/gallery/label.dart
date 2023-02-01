@@ -5,6 +5,11 @@ abstract class Lable {
   String urlEncode() {
     return "${this.type}/${Uri.encodeComponent(name.toLowerCase())}";
   }
+
+  @override
+  String toString() {
+    return '{type:$type,name:$name}';
+  }
 }
 
 class QueryText extends Lable {

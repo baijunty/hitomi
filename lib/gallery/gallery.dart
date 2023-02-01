@@ -17,14 +17,14 @@ class Gallery {
   final List<dynamic>? sceneIndexes;
   final String? japaneseTitle;
   final List<Language>? languages;
-  final String? type;
+  final String type;
   final String? languageLocalname;
   final String title;
   final String? language;
   final List<Character>? characters;
   final String? galleryurl;
   final String? languageUrl;
-  final String? date;
+  final String date;
   final List<int>? related;
   final String? video;
   final List<Parody>? parodys;
@@ -39,14 +39,14 @@ class Gallery {
     this.sceneIndexes,
     this.japaneseTitle,
     this.languages,
-    this.type,
+    required this.type,
     this.languageLocalname,
     required this.title,
     this.language,
     this.characters,
     this.galleryurl,
     this.languageUrl,
-    this.date,
+    required this.date,
     this.related,
     this.video,
     this.parodys,
@@ -73,7 +73,7 @@ class Gallery {
         languages: (data['languages'] as List<dynamic>?)
             ?.map((e) => Language.fromMap(e as Map<String, dynamic>))
             .toList(),
-        type: data['type'] as String?,
+        type: data['type'] as String,
         languageLocalname: data['language_localname'] as String?,
         title: data['title'] as String,
         language: data['language'] as String?,
@@ -82,7 +82,7 @@ class Gallery {
             .toList(),
         galleryurl: data['galleryurl'] as String?,
         languageUrl: data['language_url'] as String?,
-        date: data['date'] as String?,
+        date: data['date'] as String,
         related:
             (data['related'] as List<dynamic>?)?.map((e) => e as int).toList(),
         video: data['video'] as dynamic,
