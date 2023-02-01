@@ -1,8 +1,8 @@
 import 'dart:io';
 
 import 'package:args/args.dart';
-import 'package:dart_tools/galery_utils.dart';
-import 'package:dart_tools/hitomi.dart';
+import 'package:hitomi/gallery/language.dart';
+import 'package:hitomi/lib.dart';
 
 void main(List<String> args) async {
   final parser = ArgParser()
@@ -22,9 +22,9 @@ void main(List<String> args) async {
   final outDir = argResults['output'];
   final proxy = argResults['proxy'];
   final List<String> languages = argResults["languages"];
-  var config = UserPrefenerce(outDir,
+  var config = UserContext(outDir,
       proxy: proxy,
-      languages: languages.map((e) => Language.fromName(e)).toList());
+      languages: languages.map((e) => Language(name: e)).toList());
   final pool = TaskPools(config);
   getUserInputId().forEach((element) {
     pool.sendNewTask(element.trim());

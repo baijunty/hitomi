@@ -1,12 +1,13 @@
 import 'dart:async';
 import 'dart:isolate';
-import 'package:dart_tools/hitomi.dart';
+import 'hitomi.dart';
 
 import 'http_tools.dart';
+import 'prefenerce.dart';
 
 class TaskPools {
   final List<SendPort> _pools = [];
-  final UserPrefenerce _config;
+  final UserContext _config;
   final _port = ReceivePort();
   final StreamController<SendPort> _controller = StreamController.broadcast();
   late Hitomi api;

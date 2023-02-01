@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'dart:isolate';
-import 'package:dart_tools/hitomi.dart';
+import 'hitomi.dart';
 
 Future<void> asyncDownload(SendPort port) async {
   final receivePort = ReceivePort();

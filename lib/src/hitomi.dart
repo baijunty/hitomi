@@ -2,20 +2,25 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+import 'package:hitomi/gallery/image.dart';
+import 'package:hitomi/gallery/label.dart';
+import 'package:hitomi/gallery/language.dart';
 import 'package:tuple/tuple.dart';
 import 'package:collection/collection.dart';
+import '../gallery/gallery.dart';
 import 'http_tools.dart';
 import 'package:crypto/crypto.dart';
-import 'package:dart_tools/gallery.dart';
+
+import 'prefenerce.dart';
 
 abstract class Hitomi {
   Future<bool> downloadImagesById(String id);
   Future<Gallery> fetchGallery(String id, {usePrefence = true});
-  Future<List<int>> search(List<Tag> include,
-      {List<Tag> exclude, int page = 1});
-  Stream<Gallery> viewByTag(Tag tag, {int page = 1});
-
-  factory Hitomi.fromPrefenerce(UserPrefenerce prefenerce) {
+  Future<List<int>> search(List<Lable> include,
+      {List<Lable> exclude, int page = 1});
+  Stream<Gallery> viewByTag(Lable tag, {int page = 1});
+  Stream<Gallery> findSimilarGalleryBySearch(Gallery gallery);
+  factory Hitomi.fromPrefenerce(UserContext prefenerce) {
     return _HitomiImpl(prefenerce);
   }
 
@@ -23,16 +28,8 @@ abstract class Hitomi {
   Future<void> restart();
 }
 
-class UserPrefenerce {
-  List<Language> languages;
-  String proxy = 'DIRECT';
-  String output;
-  UserPrefenerce(this.output,
-      {this.proxy = 'direct', this.languages = const [Language.chinese]});
-}
-
 class _HitomiImpl implements Hitomi {
-  final UserPrefenerce prefenerce;
+  final UserContext prefenerce;
   static final _regExp = RegExp(r"case\s+(\d+):$");
   static final _codeExp = RegExp(r"b:\s+'(\d+)\/'$");
   static final _valueExp = RegExp(r"var\s+o\s+=\s+(\d);");
@@ -43,7 +40,7 @@ class _HitomiImpl implements Hitomi {
   late int index;
   Timer? _timer;
   int galleries_index_version = 0;
-  _HitomiImpl(this.prefenerce) {}
+  _HitomiImpl(this.prefenerce);
 
   Future<Timer> initData() async {
     final gg =
@@ -81,20 +78,19 @@ class _HitomiImpl implements Hitomi {
             ? value.substring(value.indexOf("{"))
             : value)
         .then((value) {
-          return jsonDecode(value);
-        })
-        .then((value) => Gallery.fromJson(value));
+          return Gallery.fromJson(value);
+        });
   }
 
   @override
   Future<bool> downloadImagesById(String id) async {
     final gallery = await fetchGallery(id);
     var artists = gallery.artists?[0].artist ?? '';
-    final outPath = prefenerce.output;
+    final outPath = prefenerce.outPut.path;
     var dir;
     try {
       final title =
-          '${artists.isEmpty ? '' : '($artists)'}${(gallery.japaneseTitle ?? gallery.title)?.replaceAll('/', ' ').replaceAll('.', '。').replaceAll('?', '!').replaceAll('*', '').replaceAll(':', ' ')}';
+          '${artists.isEmpty ? '' : '($artists)'}${(gallery.japaneseTitle ?? gallery.title).replaceAll('/', ' ').replaceAll('.', '。').replaceAll('?', '!').replaceAll('*', '').replaceAll(':', ' ')}';
       dir = Directory("${outPath}/${title}")..createSync();
     } catch (e) {
       print(e);
@@ -103,10 +99,10 @@ class _HitomiImpl implements Hitomi {
     }
     print(dir);
     File(dir.path + '/' + 'meta.json').writeAsStringSync(json.encode(gallery));
-    final List<Files> images = gallery.files;
+    final List<Image> images = gallery.files;
     final url = 'https://hitomi.la${Uri.encodeFull(gallery.galleryurl!)}';
     while (images.isNotEmpty) {
-      Files file = images.removeAt(0);
+      Image file = images.removeAt(0);
       final out = File(dir.path + '/' + file.name);
       int count = 0;
       final b = await _checkViallImage(dir, file);
@@ -126,13 +122,13 @@ class _HitomiImpl implements Hitomi {
     return images.isEmpty;
   }
 
-  Future<bool> _checkViallImage(Directory dir, Files image) async {
+  Future<bool> _checkViallImage(Directory dir, Image image) async {
     final out = File(dir.path + '/' + image.name);
     var b = out.existsSync();
     return b;
   }
 
-  Future<List<int>> downloadImage(Files image, String refererUrl) async {
+  Future<List<int>> downloadImage(Image image, String refererUrl) async {
     final url = _buildDownloadUrl(image);
     final data = await http_invke(url,
         proxy: prefenerce.proxy, headers: _buildRequestHeader(url, refererUrl));
@@ -141,7 +137,7 @@ class _HitomiImpl implements Hitomi {
     return data;
   }
 
-  String _buildDownloadUrl(Files image) {
+  String _buildDownloadUrl(Image image) {
     return "https://${_getUserInfo(image.hash)}.hitomi.la/webp/${this.code}/${_parseLast3HashCode(image.hash)}/${image.hash}.webp";
   }
 
@@ -202,58 +198,44 @@ class _HitomiImpl implements Hitomi {
       final language = languages.first;
       if (id != language.galleryid) {
         print('use language ${language.toJson()}');
-        return _fetchGalleryJsonById(language.galleryid);
+        return _fetchGalleryJsonById(language.galleryid!);
       }
     } else if (!prefenerce.languages
         .map((e) => e.name)
         .contains(gallery.language)) {
-      final r = await findSimilarGalleryBySearch(gallery);
-      if (r == null) {
-        throw 'target language not found';
-      }
+      return await findSimilarGalleryBySearch(gallery).firstWhere((element) =>
+          element.title.toLowerCase().contains(gallery.title.toLowerCase()));
     }
     return gallery;
   }
 
-  Future<Gallery?> findSimilarGalleryBySearch(Gallery gallery) async {
-    print('search target language by search');
-    List<Tag> keys = gallery.title!
+  Stream<Gallery> findSimilarGalleryBySearch(Gallery gallery) async* {
+    List<Lable> keys = gallery.title
         .toLowerCase()
         .split(_blank)
-        .map((e) => QueryTag(e))
-        .fold(<Tag>[], (previousValue, element) {
+        .map((e) => QueryText(e))
+        .fold(<Lable>[], (previousValue, element) {
       previousValue.add(element);
       return previousValue;
     });
-    keys.add(GalleryType.fromName(gallery.type!));
+    keys.add(TypeLabel(gallery.type!));
     keys.add(prefenerce.languages.first);
     if ((gallery.parodys?.length ?? 0) > 0) {
-      keys.addAll(
-          gallery.parodys!.map((s) => Tag(type: 'series', name: s.parody!)));
+      keys.addAll(gallery.parodys!);
     }
     if ((gallery.artists?.length ?? 0) > 0) {
-      keys.addAll(
-          gallery.artists!.map((a) => Tag(type: "artist", name: a.artist!)));
+      keys.addAll(gallery.artists!);
     }
+    print('search target language by $keys');
     final ids = await search(keys);
-    if (ids.isNotEmpty) {
-      final result = await Stream.fromFutures(
-              ids.map((e) => _fetchGalleryJsonById(e.toString())))
-          .firstWhere((event) =>
-              event.title!
-                  .toLowerCase()
-                  .contains(gallery.title!.toLowerCase()) &&
-              (event.files.length - gallery.files.length).abs() < 3);
-      print(
-          'found language at ${result.japaneseTitle ?? result.title} size ${result.files.length}');
-      return result;
+    for (int id in ids) {
+      yield await _fetchGalleryJsonById(id.toString());
     }
-    return null;
   }
 
   @override
-  Future<List<int>> search(List<Tag> include,
-      {List<Tag> exclude = const [], int page = 1}) async {
+  Future<List<int>> search(List<Lable> include,
+      {List<Lable> exclude = const [], int page = 1}) async {
     _timer = _timer ?? await initData();
     final languages = include
         .where((element) => element is Language)
@@ -281,19 +263,16 @@ class _HitomiImpl implements Hitomi {
     return includeIds.reversed.toList();
   }
 
-  Future<List<int>> _fetchIdsByTag(Tag tag, List<Language> language) {
-    if (tag is QueryTag) {
+  Future<List<int>> _fetchIdsByTag(Lable tag, List<Language> language) {
+    if (tag is QueryText) {
       return _fetchQuery(tag.name);
     } else {
       final useLanguage = language.length == 1 ? language.first.name : 'all';
       String url;
       if (tag is Language) {
         url = 'https://ltn.hitomi.la/n/${tag.urlEncode()}.nozomi';
-      } else if (tag is SexTag) {
-        url = 'https://ltn.hitomi.la/n/tag/${tag}-$useLanguage.nozomi';
       } else {
-        url =
-            'https://ltn.hitomi.la/n/${tag.type}/${tag.name}-$useLanguage.nozomi';
+        url = 'https://ltn.hitomi.la/n/${tag.urlEncode()}-$useLanguage.nozomi';
       }
       return _fetchTagIdsByNet(url);
     }
@@ -308,7 +287,7 @@ class _HitomiImpl implements Hitomi {
   }
 
   Future<List<int>> _netBTreeSearch(
-      String url, Node node, List<int> hashKey) async {
+      String url, _Node node, List<int> hashKey) async {
     var tuple = Tuple2(false, node.keys.length);
     for (var i = 0; i < node.keys.length; i++) {
       var v = hashKey.compareTo(node.keys[i]);
@@ -337,7 +316,7 @@ class _HitomiImpl implements Hitomi {
             headers: _buildRequestHeader(url, 'https://hitomi.la/',
                 range: tuple.withItem2(tuple.item1 + tuple.item2 - 1)))
         .then((value) {
-      final view = DataView(value);
+      final view = _DataView(value);
       var number = view.getData(0, 4);
       final data = Set<int>();
       for (int i = 1; i <= number; i++) {
@@ -352,7 +331,7 @@ class _HitomiImpl implements Hitomi {
             proxy: prefenerce.proxy,
             headers: _buildRequestHeader(url, 'https://hitomi.la/'))
         .then((value) {
-      final view = DataView(value);
+      final view = _DataView(value);
       var number = value.length / 4;
       final data = Set<int>();
       for (var i = 0; i < number; i++) {
@@ -362,16 +341,16 @@ class _HitomiImpl implements Hitomi {
     });
   }
 
-  Future<Node> _fetchNode(String url, {int start = 0}) {
+  Future<_Node> _fetchNode(String url, {int start = 0}) {
     return http_invke(url,
             proxy: prefenerce.proxy,
             headers: _buildRequestHeader(url, 'https://hitomi.la/',
                 range: Tuple2(start, start + 463)))
-        .then((value) => Node.parse(value));
+        .then((value) => _Node.parse(value));
   }
 
   @override
-  Stream<Gallery> viewByTag(Tag tag, {int page = 1}) async* {
+  Stream<Gallery> viewByTag(Lable tag, {int page = 1}) async* {
     var referer = 'https://hitomi.la/${tag.urlEncode()}-all.html';
     if (page > 1) {
       referer += '?page=$page';
@@ -411,12 +390,12 @@ extension Comparable on List<int> {
   }
 }
 
-class Node {
+class _Node {
   List<List<int>> keys = [];
   List<Tuple2<int, int>> datas = [];
   List<int> subnode_addresses = [];
-  Node.parse(List<int> data) {
-    final dataView = DataView(data);
+  _Node.parse(List<int> data) {
+    final dataView = _DataView(data);
     var pos = 0;
     var size = dataView.getData(0, 4);
     pos += 4;
@@ -447,9 +426,9 @@ class Node {
   }
 }
 
-class DataView {
+class _DataView {
   List<int> data;
-  DataView(this.data);
+  _DataView(this.data);
 
   int getData(int start, int length) {
     if (start > data.length || start + length > data.length) {
@@ -462,111 +441,4 @@ class DataView {
     }
     return r;
   }
-}
-
-class Tag {
-  final String type;
-  final String name;
-  const Tag({this.type = 'tag', required this.name});
-
-  Tag.fromStr(String input)
-      : this.type = input.split(":").first,
-        this.name = input.split(":").last;
-
-  @override
-  String toString() {
-    return "$type:$name";
-  }
-
-  String urlEncode() {
-    return "$type/${Uri.encodeComponent(name.toLowerCase())}";
-  }
-}
-
-class Language extends Tag {
-  static const all = Language._('all');
-  static const japanese = Language._('japanese');
-  static const chinese = Language._('chinese');
-  static const english = Language._('english');
-
-  const Language._(String name) : super(type: 'language', name: name);
-  @override
-  String toString() {
-    return "$name";
-  }
-
-  @override
-  String urlEncode() {
-    return "index-$name";
-  }
-
-  factory Language.fromName(String language) {
-    switch (language) {
-      case 'japanese':
-        return japanese;
-      case 'chinese':
-        return chinese;
-      case 'english':
-        return english;
-      default:
-        return all;
-    }
-  }
-}
-
-class SexTag extends Tag {
-  const SexTag._(String sex, String name) : super(type: sex, name: name);
-
-  factory SexTag.fromName(bool male, String name) {
-    switch (male) {
-      case true:
-        return SexTag._('male', name);
-      case false:
-        return SexTag._('female', name);
-      default:
-        throw 'wrong type';
-    }
-  }
-
-  @override
-  String urlEncode() {
-    return "tag/$type:${Uri.encodeComponent(name.toLowerCase())}";
-  }
-}
-
-class GalleryType extends Tag {
-  static const doujinshi = GalleryType._('doujinshi');
-  static const manga = GalleryType._('manga');
-  static const artistCG = GalleryType._('artistcg');
-  static const gameCG = GalleryType._('gamecg');
-  static const anime = GalleryType._('anime');
-
-  const GalleryType._(String name) : super(type: "type", name: name);
-
-  factory GalleryType.fromName(String name) {
-    switch (name.toLowerCase()) {
-      case "doujinshi":
-        return GalleryType.doujinshi;
-      case "manga":
-        return GalleryType.manga;
-      case "artistcg":
-        return GalleryType.artistCG;
-      case "gamecg":
-        return GalleryType.gameCG;
-      case "anime":
-        return GalleryType.anime;
-      default:
-        throw 'unknow type';
-    }
-  }
-
-  @override
-  String toString() {
-    return name;
-  }
-}
-
-class QueryTag extends Tag {
-  String query;
-  QueryTag(this.query) : super(type: '', name: query);
 }
