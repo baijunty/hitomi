@@ -1,15 +1,27 @@
-import 'package:hitomi/gallery/language.dart';
+import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/dhash.dart';
+import 'package:collection/collection.dart';
 
 void main() async {
-  final List<Language> languages = [Language.japanese, Language.chinese];
-  var config = UserContext('.', proxy: '127.0.0.1:8389', languages: languages);
-  final hitomi = Hitomi.fromPrefenerce(config);
-  // await _downFirstImage('1089557', 'test1.webp', hitomi);
-  // await _downFirstImage('1089912', 'test2.webp', hitomi);
+  final hash =
+      await imageHash(Uint8List.fromList(File('test2.webp').readAsBytesSync()));
+  final hash1 =
+      await imageHash(Uint8List.fromList(File('test1.webp').readAsBytesSync()));
+  final distance = Iterable.generate(hash.length).fold<int>(
+      0,
+      (previous, element) =>
+          previous + (hash[element] == hash1[element] ? 0 : 1));
+  print('$hash and $hash1 distance is ${distance}');
+  // final List<Language> languages = [Language.japanese, Language.chinese];
+  // var config = UserContext('.', proxy: '127.0.0.1:8389', languages: languages);
+  // final hitomi = Hitomi.fromPrefenerce(config);
   // await _downFirstImage('2411838', 'test3.webp', hitomi);
   // await _downFirstImage('1014319', 'test4.webp', hitomi);
+  // await _downFirstImage('2420160', 'test5.webp', hitomi);
+  // await _downFirstImage('2416104', 'test6.webp', hitomi);
   // var ids = await hitomi.findSimilarGalleryBySearch();
   // await ids.forEach((element) {
   //   print(element);

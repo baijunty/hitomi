@@ -18,6 +18,7 @@ abstract class Hitomi {
   Future<Gallery> fetchGallery(String id, {usePrefence = true});
   Future<List<int>> search(List<Lable> include,
       {List<Lable> exclude, int page = 1});
+  Future<List<int>> downloadImage(Image image, String refererUrl);
   Stream<Gallery> viewByTag(Lable tag, {int page = 1});
   Stream<Gallery> findSimilarGalleryBySearch(Gallery gallery);
   factory Hitomi.fromPrefenerce(UserContext prefenerce) {
@@ -130,6 +131,7 @@ class _HitomiImpl implements Hitomi {
     return b;
   }
 
+  @override
   Future<List<int>> downloadImage(Image image, String refererUrl) async {
     final url = _buildDownloadUrl(image);
     final data = await http_invke(url,
