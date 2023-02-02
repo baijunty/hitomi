@@ -1,10 +1,3 @@
-<<<<<<< HEAD
-=======
-import 'dart:io';
-import 'dart:typed_data';
-
-import 'package:collection/collection.dart';
->>>>>>> 88537fa (dhash fialed?)
 import 'package:hitomi/gallery/language.dart';
 import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/dhash.dart';
