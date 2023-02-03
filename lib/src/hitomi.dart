@@ -5,6 +5,7 @@ import 'dart:math';
 import 'package:hitomi/gallery/image.dart';
 import 'package:hitomi/gallery/label.dart';
 import 'package:hitomi/gallery/language.dart';
+import 'package:hitomi/src/dhash.dart';
 import 'package:tuple/tuple.dart';
 import 'package:collection/collection.dart';
 import '../gallery/gallery.dart';
@@ -18,60 +19,23 @@ abstract class Hitomi {
   Future<Gallery> fetchGallery(String id, {usePrefence = true});
   Future<List<int>> search(List<Lable> include,
       {List<Lable> exclude, int page = 1});
-  Future<List<int>> downloadImage(Image image, String refererUrl);
+  Future<List<int>> downloadImage(String url, String refererUrl);
   Stream<Gallery> viewByTag(Lable tag, {int page = 1});
-  Stream<Gallery> findSimilarGalleryBySearch(Gallery gallery);
+  Stream<Tuple2<Gallery, int>> findSimilarGalleryBySearch(Gallery gallery);
   factory Hitomi.fromPrefenerce(UserContext prefenerce) {
     return _HitomiImpl(prefenerce);
   }
-
-  Future<void> pause();
-  Future<void> restart();
 }
 
 class _HitomiImpl implements Hitomi {
   final UserContext prefenerce;
-  static final _regExp = RegExp(r"case\s+(\d+):$");
-  static final _codeExp = RegExp(r"b:\s+'(\d+)\/'$");
-  static final _valueExp = RegExp(r"var\s+o\s+=\s+(\d);");
   static final _blank = RegExp(r"\s+");
   static final _titleExp =
       RegExp(r'[\u0800-\u4e00|\u4e00-\u9fa5|30A0-30FF|\w]+');
   static final _emptyList = const <int>[];
-  late String code;
-  late List<int> codes;
-  late int index;
-  Timer? _timer;
-  int galleries_index_version = 0;
   _HitomiImpl(this.prefenerce);
 
-  Future<Timer> initData() async {
-    final gg =
-        await http_invke('https://ltn.hitomi.la/gg.js', proxy: prefenerce.proxy)
-            .then((ints) {
-              return Utf8Decoder().convert(ints);
-            })
-            .then((value) => LineSplitter.split(value))
-            .then((value) => value.toList());
-    final codeStr = gg.lastWhere((element) => _codeExp.hasMatch(element));
-    code = _codeExp.firstMatch(codeStr)![1]!;
-    var valueStr = gg.firstWhere((element) => _valueExp.hasMatch(element));
-    index = int.parse(_valueExp.firstMatch(valueStr)![1]!);
-    codes = gg
-        .where((element) => _regExp.hasMatch(element))
-        .map((e) => _regExp.firstMatch(e)![1]!)
-        .map((e) => int.parse(e))
-        .toList();
-    galleries_index_version = await http_invke(
-            'https://ltn.hitomi.la/galleriesindex/version?_=${DateTime.now().millisecondsSinceEpoch}',
-            proxy: prefenerce.proxy)
-        .then((value) => Utf8Decoder().convert(value))
-        .then((value) => int.parse(value));
-    return Timer.periodic(Duration(minutes: 30), (timer) => initData());
-  }
-
   Future<Gallery> _fetchGalleryJsonById(String id) async {
-    _timer = _timer ?? await initData();
     return http_invke('https://ltn.hitomi.la/galleries/$id.js',
             proxy: prefenerce.proxy)
         .then((ints) {
@@ -103,15 +67,18 @@ class _HitomiImpl implements Hitomi {
     print(dir);
     File(dir.path + '/' + 'meta.json').writeAsStringSync(json.encode(gallery));
     final List<Image> images = gallery.files;
-    final url = 'https://hitomi.la${Uri.encodeFull(gallery.galleryurl!)}';
+    final referer = 'https://hitomi.la${Uri.encodeFull(gallery.galleryurl!)}';
     while (images.isNotEmpty) {
-      Image file = images.removeAt(0);
-      final out = File(dir.path + '/' + file.name);
+      Image image = images.removeAt(0);
+      final out = File(dir.path + '/' + image.name);
       int count = 0;
-      final b = await _checkViallImage(dir, file);
+      final b = await _checkViallImage(dir, image);
       if (!b) {
         try {
-          var data = await downloadImage(file, url);
+          final url = image.getDownLoadUrl(prefenerce);
+          var data = await downloadImage(url, referer);
+          print(
+              '下载${image.name} ${image.height}*${image.width} size ${data.length ~/ 1024}KB');
           await out.writeAsBytes(data, flush: true);
         } catch (e) {
           count++;
@@ -132,17 +99,10 @@ class _HitomiImpl implements Hitomi {
   }
 
   @override
-  Future<List<int>> downloadImage(Image image, String refererUrl) async {
-    final url = _buildDownloadUrl(image);
+  Future<List<int>> downloadImage(String url, String refererUrl) async {
     final data = await http_invke(url,
         proxy: prefenerce.proxy, headers: _buildRequestHeader(url, refererUrl));
-    print(
-        '下载${image.name} ${image.height}*${image.width} size ${data.length ~/ 1024}KB');
     return data;
-  }
-
-  String _buildDownloadUrl(Image image) {
-    return "https://${_getUserInfo(image.hash)}.hitomi.la/webp/${this.code}/${_parseLast3HashCode(image.hash)}/${image.hash}.webp";
   }
 
   Map<String, dynamic> _buildRequestHeader(String url, String referer,
@@ -163,21 +123,6 @@ class _HitomiImpl implements Hitomi {
       append(headers);
     }
     return headers;
-  }
-
-  String _getUserInfo(String hash) {
-    final code = _parseLast3HashCode(hash);
-    final userInfo = ['aa', 'ba'];
-    var useIndex =
-        index - (this.codes.any((element) => element == code) ? 1 : 0);
-    return userInfo[useIndex.abs()];
-  }
-
-  int _parseLast3HashCode(String hash) {
-    return int.parse(String.fromCharCode(hash.codeUnitAt(hash.length - 1)),
-                radix: 16) <<
-            8 |
-        int.parse(hash.substring(hash.length - 3, hash.length - 1), radix: 16);
   }
 
   @override
@@ -207,13 +152,18 @@ class _HitomiImpl implements Hitomi {
     } else if (!prefenerce.languages
         .map((e) => e.name)
         .contains(gallery.language)) {
-      return await findSimilarGalleryBySearch(gallery).firstWhere((element) =>
-          element.title.toLowerCase().contains(gallery.title.toLowerCase()));
+      final found = await findSimilarGalleryBySearch(gallery).toList();
+      if (found.isNotEmpty) {
+        found.sort((e1, e2) => e1.item2.compareTo(e2.item2));
+        return found.first.item1;
+      }
+      throw 'not found othere target language';
     }
     return gallery;
   }
 
-  Stream<Gallery> findSimilarGalleryBySearch(Gallery gallery) async* {
+  Stream<Tuple2<Gallery, int>> findSimilarGalleryBySearch(
+      Gallery gallery) async* {
     List<Lable> keys = gallery.title
         .toLowerCase()
         .split(_blank)
@@ -233,15 +183,24 @@ class _HitomiImpl implements Hitomi {
     }
     print('search target language by $keys');
     final ids = await search(keys);
+    final referer = 'https://hitomi.la${Uri.encodeFull(gallery.galleryurl!)}';
+    final url = gallery.files.first.getThumbnailUrl(prefenerce);
+    var data = await downloadImage(url, referer);
     for (int id in ids) {
-      yield await _fetchGalleryJsonById(id.toString());
+      final g1 = await _fetchGalleryJsonById(id.toString());
+      final thumbnail = await downloadImage(
+          g1.files.first.getThumbnailUrl(prefenerce), referer);
+      final huamman_distance = await distance(data, thumbnail);
+      print('${g1.title} ${g1.id} distance is $huamman_distance');
+      if (huamman_distance <= 4) {
+        yield Tuple2(g1, huamman_distance);
+      }
     }
   }
 
   @override
   Future<List<int>> search(List<Lable> include,
       {List<Lable> exclude = const [], int page = 1}) async {
-    _timer = _timer ?? await initData();
     final languages = include
         .where((element) => element is Language)
         .map((e) => e as Language)
@@ -287,7 +246,7 @@ class _HitomiImpl implements Hitomi {
     final hash =
         sha256.convert(Utf8Encoder().convert(word)).bytes.take(4).toList();
     final url =
-        'https://ltn.hitomi.la/galleriesindex/galleries.${galleries_index_version}.index';
+        'https://ltn.hitomi.la/galleriesindex/galleries.${prefenerce.galleries_index_version}.index';
     return _fetchNode(url).then((value) => _netBTreeSearch(url, value, hash));
   }
 
@@ -315,7 +274,7 @@ class _HitomiImpl implements Hitomi {
 
   Future<List<int>> _fetchData(Tuple2<int, int> tuple) async {
     final url =
-        'https://ltn.hitomi.la/galleriesindex/galleries.${galleries_index_version}.data';
+        'https://ltn.hitomi.la/galleriesindex/galleries.${prefenerce.galleries_index_version}.data';
     return await http_invke(url,
             proxy: prefenerce.proxy,
             headers: _buildRequestHeader(url, 'https://hitomi.la/',
@@ -370,15 +329,6 @@ class _HitomiImpl implements Hitomi {
       yield await fetchGallery(id.toString(), usePrefence: false);
     }
   }
-
-  @override
-  Future<void> pause() async {
-    _timer?.cancel();
-    _timer = null;
-  }
-
-  @override
-  Future<void> restart() async {}
 }
 
 extension Comparable on List<int> {

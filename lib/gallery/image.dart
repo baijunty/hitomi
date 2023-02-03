@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:hitomi/lib.dart';
 
 @immutable
 class Image {
@@ -81,6 +82,43 @@ class Image {
     return mapEquals(other.toMap(), toMap());
   }
 
+  String getDownLoadUrl(UserContext context) {
+    return "https://${_getUserInfo(context, hash, 'a')}.hitomi.la/webp/${context.code}/${_parseLast3HashCode(hash)}/${hash}.webp";
+  }
+
+  String getThumbnailUrl(UserContext context,
+      {ThumbnaiSize size = ThumbnaiSize.smaill}) {
+    final lastThreeCode = hash.substring(hash.length - 3);
+    var sizeStr;
+    switch (size) {
+      case ThumbnaiSize.smaill:
+        sizeStr = 'webpsmallsmalltn';
+        break;
+      case ThumbnaiSize.medium:
+        sizeStr = 'webpsmalltn';
+        break;
+      case ThumbnaiSize.big:
+        sizeStr = 'webpbigtn';
+        break;
+    }
+    return "https://${_getUserInfo(context, hash, 'tn')}.hitomi.la/$sizeStr/${lastThreeCode.substring(2)}/${lastThreeCode.substring(0, 2)}/${hash}.webp";
+  }
+
+  String _getUserInfo(UserContext context, String hash, String postFix) {
+    final code = _parseLast3HashCode(hash);
+    final userInfo = ['a', 'b'];
+    var useIndex = context.index -
+        (context.codes.any((element) => element == code) ? 1 : 0);
+    return userInfo[useIndex.abs()] + postFix;
+  }
+
+  int _parseLast3HashCode(String hash) {
+    return int.parse(String.fromCharCode(hash.codeUnitAt(hash.length - 1)),
+                radix: 16) <<
+            8 |
+        int.parse(hash.substring(hash.length - 3, hash.length - 1), radix: 16);
+  }
+
   @override
   int get hashCode =>
       hash.hashCode ^
@@ -89,4 +127,10 @@ class Image {
       haswebp.hashCode ^
       name.hashCode ^
       height.hashCode;
+}
+
+enum ThumbnaiSize {
+  smaill,
+  medium,
+  big;
 }

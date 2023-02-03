@@ -5,10 +5,12 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "hitomi",
+            "name": "Python: 当前文件",
+            "type": "python",
             "request": "launch",
-            "type": "dart",
-            "args": ["-p", "127.0.0.1:8389","-o","Z:/photos/"],
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": false
         }
     ]
 }
