@@ -7,9 +7,7 @@ import 'package:hitomi/lib.dart';
 void main(List<String> args) async {
   final parser = ArgParser()
     ..addOption('output',
-        abbr: 'o',
-        defaultsTo: r'\\192.168.3.228\ssd\photos',
-        help: 'set output path with -p')
+        abbr: 'o', defaultsTo: r'~/ssd/photos', help: 'set output path with -p')
     ..addOption('proxy',
         abbr: 'p', defaultsTo: '127.0.0.1:8389', help: 'set proxy with -o')
     ..addMultiOption('languages',
@@ -25,6 +23,7 @@ void main(List<String> args) async {
   var config = UserContext(outDir,
       proxy: proxy,
       languages: languages.map((e) => Language(name: e)).toList());
+  await config.initData();
   final pool = TaskPools(config);
   getUserInputId().forEach((element) {
     pool.sendNewTask(element.trim());

@@ -56,8 +56,7 @@ class _HitomiImpl implements Hitomi {
     final outPath = prefenerce.outPut.path;
     var dir;
     try {
-      final title =
-          '${artists.isEmpty ? '' : '($artists)'}${(gallery.japaneseTitle ?? gallery.title).replaceAll('/', ' ').replaceAll('.', '。').replaceAll('?', '!').replaceAll('*', '').replaceAll(':', ' ')}';
+      final title = gallery.fixedTitle;
       dir = Directory("${outPath}/${title}")..createSync();
     } catch (e) {
       print(e);
@@ -155,6 +154,8 @@ class _HitomiImpl implements Hitomi {
       final found = await findSimilarGalleryBySearch(gallery).toList();
       if (found.isNotEmpty) {
         found.sort((e1, e2) => e1.item2.compareTo(e2.item2));
+        print(
+            'use  ${found.first.item1.fixedTitle} id ${found.first.item1.id} distance ${found.first.item2}');
         return found.first.item1;
       }
       throw 'not found othere target language';
@@ -169,12 +170,13 @@ class _HitomiImpl implements Hitomi {
         .split(_blank)
         .where((element) => _titleExp.hasMatch(element))
         .map((e) => QueryText(e))
+        .take(6)
         .fold(<Lable>[], (previousValue, element) {
       previousValue.add(element);
       return previousValue;
     });
     keys.add(TypeLabel(gallery.type));
-    keys.add(prefenerce.languages.first);
+    keys.addAll(prefenerce.languages);
     if ((gallery.parodys?.length ?? 0) > 0) {
       keys.addAll(gallery.parodys!);
     }
@@ -190,10 +192,13 @@ class _HitomiImpl implements Hitomi {
       final g1 = await _fetchGalleryJsonById(id.toString());
       final thumbnail = await downloadImage(
           g1.files.first.getThumbnailUrl(prefenerce), referer);
-      final huamman_distance = await distance(data, thumbnail);
-      print('${g1.title} ${g1.id} distance is $huamman_distance');
-      if (huamman_distance <= 4) {
-        yield Tuple2(g1, huamman_distance);
+      final hamming_distance = await distance(data, thumbnail);
+      final langIndex = prefenerce.languages
+          .indexWhere((element) => element.name == g1.language);
+      if (hamming_distance <= 16 && langIndex >= 0) {
+        print(
+            'found ${g1.title} ${g1.id} distance is $hamming_distance language ${g1.languageLocalname}');
+        yield Tuple2(g1, hamming_distance + langIndex);
       }
     }
   }

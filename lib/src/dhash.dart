@@ -1,8 +1,7 @@
 import 'dart:typed_data';
-import 'package:collection/collection.dart';
 import 'package:image/image.dart';
 
-Future<String> imageHash(Uint8List data,
+Future<List<bool>> imageHash(Uint8List data,
     {ImageHash hash = ImageHash.AHash}) async {
   final cmd = Command()
     ..decodeImage(data)
@@ -13,17 +12,7 @@ Future<String> imageHash(Uint8List data,
     ..grayscale();
   final image = await cmd.getImage();
   final bits = hash.hash(image!);
-  return bits
-      .splitBeforeIndexed((index, element) => index % 8 == 0)
-      .map((element) => element
-          .foldIndexed<int>(
-              0,
-              (index, previousValue, element) =>
-                  previousValue |= element ? (1 << (7 - index)) : 0)
-          .toRadixString(16))
-      .fold<StringBuffer>(StringBuffer(),
-          (previousValue, element) => previousValue..write(element))
-      .toString();
+  return bits;
 }
 
 Future<int> distance(List<int> data1, List<int> data2,

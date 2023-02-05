@@ -35,13 +35,18 @@ List<int> mapBytesToInts(List<int> resp, {int spilt = 4}) {
 
 Future<List<int>> http_invke(String url,
     {String proxy = '', Map<String, dynamic>? headers = null}) async {
+  final useHeader = headers ??
+      {
+        'user-agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36 Edg/106.0.1370.47'
+      };
   final client = HttpClient()
     ..connectionTimeout = Duration(seconds: 60)
     ..findProxy = (u) => proxy.isEmpty ? 'DIRECT' : 'PROXY $proxy';
   return client
       .getUrl(Uri.parse(url))
       .then((client) {
-        headers?.forEach((key, value) {
+        useHeader.forEach((key, value) {
           client.headers.add(key, value);
         });
         return client.close();

@@ -5,18 +5,21 @@ import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/dhash.dart';
 
 void main() async {
-  await testImageSearch();
+  await testImageHash(ImageHash.DHash);
 }
 
-void testImageHash() async {
+Future<void> testImageHash(ImageHash hash) async {
   var dis = await distance(File('test1.webp').readAsBytesSync(),
-      File('test2.webp').readAsBytesSync());
+      File('test2.webp').readAsBytesSync(),
+      hash: hash);
   print(dis);
   dis = await distance(File('test3.webp').readAsBytesSync(),
-      File('test4.webp').readAsBytesSync());
+      File('test4.webp').readAsBytesSync(),
+      hash: hash);
   print(dis);
   dis = await distance(File('test5.webp').readAsBytesSync(),
-      File('test6.webp').readAsBytesSync());
+      File('test6.webp').readAsBytesSync(),
+      hash: hash);
   print(dis);
 }
 
