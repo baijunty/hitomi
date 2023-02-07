@@ -169,6 +169,7 @@ class _HitomiImpl implements Hitomi {
         .toLowerCase()
         .split(_blank)
         .where((element) => _titleExp.hasMatch(element))
+        .where((element) => element.isNotEmpty)
         .map((e) => QueryText(e))
         .take(6)
         .fold(<Lable>[], (previousValue, element) {

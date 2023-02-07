@@ -181,7 +181,7 @@ class Gallery {
   }
 
   String get fixedTitle =>
-      '${artists?.isEmpty ?? false ? '' : '(${artists!.first.name})'}${(japaneseTitle ?? title).replaceAll('/', ' ').replaceAll('.', '。').replaceAll('?', '!').replaceAll('*', '').replaceAll(':', ' ')}';
+      '${artists?.isEmpty ?? false ? '' : '(${artists!.first.name})'}${(japaneseTitle ?? title).replaceAll('/', ' ').replaceAll('.', '。').replaceAll('?', '!').replaceAll('*', '').replaceAll(':', ' ').replaceAll('|', ' ')}';
 
   @override
   bool operator ==(Object other) {
