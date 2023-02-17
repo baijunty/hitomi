@@ -16,7 +16,6 @@ class TaskPools {
     _port.listen((element) {
       if (element is SendPort) {
         _pools.add(element);
-        element.send(api);
         _controller.add(element);
       }
     });
@@ -27,6 +26,7 @@ class TaskPools {
     if (_pools.isEmpty) {
       await Isolate.spawn(asyncDownload, _port.sendPort);
       port = await _controller.stream.first;
+      port.send(api);
     } else {
       port = _pools[0];
     }

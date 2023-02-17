@@ -66,6 +66,10 @@ Future<List<int>> http_invke(String url,
       .whenComplete(() => client.close())
       .catchError((err) {
         client.close();
-        throw err;
+        if (err is HttpException) {
+          return http_invke(url, proxy: proxy, headers: headers);
+        } else {
+          throw err;
+        }
       });
 }

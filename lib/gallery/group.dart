@@ -8,7 +8,7 @@ class Group with Lable {
   final String group;
   final String? url;
 
-  const Group({required this.group, this.url});
+  Group({required this.group, this.url});
 
   @override
   String toString() => 'Group(group: $group, url: $url)';

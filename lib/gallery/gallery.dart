@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:hitomi/src/sqlite_helper.dart';
 
 import 'artist.dart';
 import 'character.dart';
@@ -12,6 +13,18 @@ import 'tag.dart';
 
 @immutable
 class Gallery {
+  static const List<String> illegalCode = [
+    r'\',
+    '/',
+    '*',
+    ':',
+    '?',
+    '"',
+    '<',
+    '>',
+    '|',
+    '.',
+  ];
   final List<Artist>? artists;
   final List<Tag>? tags;
   final List<dynamic>? sceneIndexes;
@@ -55,6 +68,15 @@ class Gallery {
     this.id,
     this.groups,
   });
+
+  void translateLable(SqliteHelper helper) {
+    artists?.forEach((element) => element.translateLable(helper));
+    tags?.forEach((element) => element.translateLable(helper));
+    languages?.forEach((element) => element.translateLable(helper));
+    characters?.forEach((element) => element.translateLable(helper));
+    parodys?.forEach((element) => element.translateLable(helper));
+    groups?.forEach((element) => element.translateLable(helper));
+  }
 
   @override
   String toString() {
@@ -180,8 +202,12 @@ class Gallery {
     );
   }
 
-  String get fixedTitle =>
-      '${artists?.isEmpty ?? false ? '' : '(${artists!.first.name})'}${(japaneseTitle ?? title).replaceAll('/', ' ').replaceAll('.', '。').replaceAll('?', '!').replaceAll('*', '').replaceAll(':', ' ').replaceAll('|', ' ')}';
+  String get fixedTitle {
+    var direct =
+        '${(artists?.isNotEmpty ?? false) ? '(${artists!.first.name})' : ''}${(japaneseTitle ?? title)}';
+    return illegalCode.where((e) => direct.contains(e)).fold<String>(direct,
+        (previousValue, element) => previousValue.replaceAll(element, ''));
+  }
 
   @override
   bool operator ==(Object other) {

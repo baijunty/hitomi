@@ -8,7 +8,7 @@ class Parody with Lable {
   final String? url;
   final String parody;
 
-  const Parody({this.url, required this.parody});
+  Parody({this.url, required this.parody});
 
   @override
   String toString() => 'Parody(url: $url, parody: $parody)';

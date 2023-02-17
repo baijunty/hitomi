@@ -1,11 +1,12 @@
 import 'dart:io';
-
 import 'package:hitomi/gallery/language.dart';
 import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/dhash.dart';
+import 'package:hitomi/src/sqlite_helper.dart';
+import 'package:test/test.dart';
 
 void main() async {
-  await testImageHash(ImageHash.DHash);
+  test('image', testSqlHelper);
 }
 
 Future<void> testImageHash(ImageHash hash) async {
@@ -21,6 +22,13 @@ Future<void> testImageHash(ImageHash hash) async {
       File('test6.webp').readAsBytesSync(),
       hash: hash);
   print(dis);
+}
+
+Future<void> testSqlHelper() async {
+  final List<Language> languages = [Language.japanese, Language.chinese];
+  var config = UserContext('.', proxy: '127.0.0.1:8389', languages: languages);
+  await config.initData();
+  await SqliteHelper(config).updateTagTable();
 }
 
 Future<void> testImageSearch() async {

@@ -45,14 +45,16 @@ class _HitomiImpl implements Hitomi {
             ? value.substring(value.indexOf("{"))
             : value)
         .then((value) {
-          return Gallery.fromJson(value);
+          final gallery = Gallery.fromJson(value);
+          gallery.translateLable(prefenerce.helper);
+          return gallery;
         });
   }
 
   @override
   Future<bool> downloadImagesById(String id) async {
     final gallery = await fetchGallery(id);
-    var artists = gallery.artists?[0].artist ?? '';
+    var artists = gallery.artists;
     final outPath = prefenerce.outPut.path;
     var dir;
     try {
@@ -60,7 +62,8 @@ class _HitomiImpl implements Hitomi {
       dir = Directory("${outPath}/${title}")..createSync();
     } catch (e) {
       print(e);
-      dir = Directory("${outPath}/${artists.isEmpty ? '' : '($artists)'}$id")
+      dir = Directory(
+          "${outPath}/${artists?.isNotEmpty ?? false ? '' : '(${artists!.first.name})'}$id")
         ..createSync();
     }
     print(dir);

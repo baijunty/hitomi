@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:hitomi/gallery/language.dart';
+import 'package:hitomi/src/sqlite_helper.dart';
 
 import 'http_tools.dart';
 
@@ -13,6 +14,7 @@ class UserContext {
   late List<int> codes;
   late int index;
   late Timer _timer;
+  late SqliteHelper _helper;
   int galleries_index_version = 0;
   List<Language> _languages = [Language.japanese, Language.chinese];
   String _proxy = 'DIRECT';
@@ -20,11 +22,13 @@ class UserContext {
   List<Language> get languages => _languages;
   String get proxy => _proxy;
   Directory get outPut => _output;
+  SqliteHelper get helper => _helper;
   UserContext(String output, {String? proxy, List<Language>? languages}) {
     _output = Directory(output);
     _output.createSync();
     _proxy = proxy ?? _proxy;
     _languages = languages ?? _languages;
+    _helper = SqliteHelper(this);
     _timer = Timer.periodic(
         Duration(minutes: 30), (timer) async => await initData());
   }

@@ -8,7 +8,7 @@ class Character with Lable {
   final String character;
   final String? url;
 
-  const Character({required this.character, this.url});
+  Character({required this.character, this.url});
 
   @override
   String toString() => 'Character(character: $character, url: $url)';

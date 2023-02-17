@@ -13,7 +13,7 @@ class Language with Lable {
   final String? url;
   final String name;
 
-  const Language({
+  Language({
     this.galleryid,
     this.languageLocalname,
     this.url,

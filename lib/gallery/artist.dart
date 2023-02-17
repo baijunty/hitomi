@@ -7,7 +7,7 @@ class Artist with Lable {
   final String? url;
   final String artist;
 
-  const Artist({this.url, required this.artist});
+  Artist({this.url, required this.artist});
 
   @override
   String toString() => 'Artist(url: $url, artist: $artist)';

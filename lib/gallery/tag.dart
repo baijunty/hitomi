@@ -10,7 +10,7 @@ class Tag with Lable {
   final String? url;
   final dynamic female;
 
-  const Tag({this.male, required this.tag, this.url, this.female});
+  Tag({this.male, required this.tag, this.url, this.female});
 
   @override
   String toString() {
