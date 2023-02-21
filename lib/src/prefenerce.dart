@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:hitomi/gallery/language.dart';
 import 'package:hitomi/src/sqlite_helper.dart';
+import 'package:hitomi/src/user_config.dart';
 
 import 'http_tools.dart';
 
@@ -13,46 +14,18 @@ class UserContext {
   late String code;
   late List<int> codes;
   late int index;
-  late Timer _timer;
   late SqliteHelper _helper;
   int galleries_index_version = 0;
-  List<Language> _languages = [Language.japanese, Language.chinese];
-  String _proxy = 'DIRECT';
-  Directory _output = Directory.current;
-  List<Language> get languages => _languages;
-  String get proxy => _proxy;
-  Directory get outPut => _output;
+  List<Language> get languages =>
+      _config.languages.map((e) => Language(name: e)).toList();
+  String get proxy => _config.proxy;
+  String get outPut => _config.output;
+  final UserConfig _config;
   SqliteHelper get helper => _helper;
-  UserContext(String output, {String? proxy, List<Language>? languages}) {
-    _output = Directory(output);
-    _output.createSync();
-    _proxy = proxy ?? _proxy;
-    _languages = languages ?? _languages;
+  UserContext(this._config) {
+    Directory(_config.output)..createSync();
     _helper = SqliteHelper(this);
-    _timer = Timer.periodic(
-        Duration(minutes: 30), (timer) async => await initData());
-  }
-
-  UserContext.fromJson(Map<String, dynamic> config) {
-    if (config.containsKey('languages')) {
-      _languages = (config['languages'] as List<dynamic>)
-          .map((e) => Language.fromJson(e))
-          .toList();
-    }
-    if (config.containsKey('proxy')) {
-      _proxy = config['proxy'];
-    }
-    if (config.containsKey('output')) {
-      _output = Directory(config['output']);
-    }
-  }
-
-  Map<String, dynamic> toJson() {
-    final Map<String, dynamic> _data = <String, dynamic>{};
-    _data["languages"] = languages;
-    _data["proxy"] = proxy;
-    _data["output"] = outPut.path;
-    return _data;
+    Timer.periodic(Duration(minutes: 30), (timer) async => await initData());
   }
 
   Future<void> initData() async {

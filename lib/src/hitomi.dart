@@ -5,6 +5,7 @@ import 'dart:math';
 import 'package:hitomi/gallery/image.dart';
 import 'package:hitomi/gallery/label.dart';
 import 'package:hitomi/gallery/language.dart';
+import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/dhash.dart';
 import 'package:tuple/tuple.dart';
 import 'package:collection/collection.dart';
@@ -12,18 +13,33 @@ import '../gallery/gallery.dart';
 import 'http_tools.dart';
 import 'package:crypto/crypto.dart';
 
-import 'prefenerce.dart';
-
 abstract class Hitomi {
-  Future<bool> downloadImagesById(String id);
-  Future<Gallery> fetchGallery(String id, {usePrefence = true});
+  Future<bool> downloadImagesById(int id, void onProcess(Message msg));
+  Future<Gallery> fetchGallery(int id, {usePrefence = true});
   Future<List<int>> search(List<Lable> include,
       {List<Lable> exclude, int page = 1});
-  Future<List<int>> downloadImage(String url, String refererUrl);
+  Future<List<int>> downloadImage(String url, String refererUrl,
+      {void onProcess(int now, int total)?});
   Stream<Gallery> viewByTag(Lable tag, {int page = 1});
   Stream<Tuple2<Gallery, int>> findSimilarGalleryBySearch(Gallery gallery);
   factory Hitomi.fromPrefenerce(UserContext prefenerce) {
     return _HitomiImpl(prefenerce);
+  }
+}
+
+class Message {
+  int id;
+  int current;
+  int maxPage;
+  int currentBytes;
+  int length;
+  bool success;
+  Message(this.id, this.current, this.maxPage, this.currentBytes, this.length,
+      this.success);
+
+  @override
+  String toString() {
+    return 'Message{$id,$current,$maxPage,$currentBytes,$length,$success}';
   }
 }
 
@@ -35,7 +51,7 @@ class _HitomiImpl implements Hitomi {
   static final _emptyList = const <int>[];
   _HitomiImpl(this.prefenerce);
 
-  Future<Gallery> _fetchGalleryJsonById(String id) async {
+  Future<Gallery> _fetchGalleryJsonById(int id) async {
     return http_invke('https://ltn.hitomi.la/galleries/$id.js',
             proxy: prefenerce.proxy)
         .then((ints) {
@@ -46,16 +62,16 @@ class _HitomiImpl implements Hitomi {
             : value)
         .then((value) {
           final gallery = Gallery.fromJson(value);
-          gallery.translateLable(prefenerce.helper);
+          // gallery.translateLable(prefenerce.helper);
           return gallery;
         });
   }
 
   @override
-  Future<bool> downloadImagesById(String id) async {
+  Future<bool> downloadImagesById(int id, void onProcess(Message msg)) async {
     final gallery = await fetchGallery(id);
     var artists = gallery.artists;
-    final outPath = prefenerce.outPut.path;
+    final outPath = prefenerce.outPut;
     var dir;
     try {
       final title = gallery.fixedTitle;
@@ -68,30 +84,34 @@ class _HitomiImpl implements Hitomi {
     }
     print(dir);
     File(dir.path + '/' + 'meta.json').writeAsStringSync(json.encode(gallery));
-    final List<Image> images = gallery.files;
     final referer = 'https://hitomi.la${Uri.encodeFull(gallery.galleryurl!)}';
-    while (images.isNotEmpty) {
-      Image image = images.removeAt(0);
+    final result = <bool>[];
+    for (var i = 0; i < gallery.files.length; i++) {
+      Image image = gallery.files[i];
       final out = File(dir.path + '/' + image.name);
-      int count = 0;
-      final b = await _checkViallImage(dir, image);
+      var b = await _checkViallImage(dir, image);
       if (!b) {
-        try {
-          final url = image.getDownLoadUrl(prefenerce);
-          var data = await downloadImage(url, referer);
-          print(
-              '下载${image.name} ${image.height}*${image.width} size ${data.length ~/ 1024}KB');
-          await out.writeAsBytes(data, flush: true);
-        } catch (e) {
-          count++;
-          if (count > 3) {
+        for (var i = 0; i < 3; i++) {
+          try {
+            final url = image.getDownLoadUrl(prefenerce);
+            var data = await downloadImage(url, referer,
+                onProcess: (now, total) => onProcess(
+                    Message(id, i, gallery.files.length, now, total, false)));
+            print(
+                '下载${image.name} ${image.height}*${image.width} size ${data.length ~/ 1024}KB');
+            await out.writeAsBytes(data, flush: true);
+            b = true;
             break;
+          } catch (e) {
+            print(e);
           }
         }
       }
+      result.add(b);
     }
-    print('下载完成');
-    return images.isEmpty;
+    final b = !result.any((element) => !element);
+    onProcess(Message(id, 0, 0, 0, 0, b));
+    return b;
   }
 
   Future<bool> _checkViallImage(Directory dir, Image image) async {
@@ -101,9 +121,12 @@ class _HitomiImpl implements Hitomi {
   }
 
   @override
-  Future<List<int>> downloadImage(String url, String refererUrl) async {
+  Future<List<int>> downloadImage(String url, String refererUrl,
+      {void onProcess(int now, int total)?}) async {
     final data = await http_invke(url,
-        proxy: prefenerce.proxy, headers: _buildRequestHeader(url, refererUrl));
+        proxy: prefenerce.proxy,
+        headers: _buildRequestHeader(url, refererUrl),
+        onProcess: onProcess);
     return data;
   }
 
@@ -128,7 +151,7 @@ class _HitomiImpl implements Hitomi {
   }
 
   @override
-  Future<Gallery> fetchGallery(String id, {usePrefence = true}) async {
+  Future<Gallery> fetchGallery(int id, {usePrefence = true}) async {
     var gallery = await _fetchGalleryJsonById(id);
     if (usePrefence) {
       gallery = await _findBeseMatch(gallery);
@@ -149,7 +172,7 @@ class _HitomiImpl implements Hitomi {
       final language = languages.first;
       if (id != language.galleryid) {
         print('use language ${language.toJson()}');
-        return _fetchGalleryJsonById(language.galleryid!);
+        return _fetchGalleryJsonById(language.galleryid!.toInt());
       }
     } else if (!prefenerce.languages
         .map((e) => e.name)
@@ -193,7 +216,7 @@ class _HitomiImpl implements Hitomi {
     final url = gallery.files.first.getThumbnailUrl(prefenerce);
     var data = await downloadImage(url, referer);
     for (int id in ids) {
-      final g1 = await _fetchGalleryJsonById(id.toString());
+      final g1 = await _fetchGalleryJsonById(id);
       final thumbnail = await downloadImage(
           g1.files.first.getThumbnailUrl(prefenerce), referer);
       final hamming_distance = await distance(data, thumbnail);
@@ -335,7 +358,7 @@ class _HitomiImpl implements Hitomi {
                 range: Tuple2((page - 1) * 100, page * 100 - 1)))
         .then((value) => mapBytesToInts(value, spilt: 4));
     for (var id in ids) {
-      yield await fetchGallery(id.toString(), usePrefence: false);
+      yield await fetchGallery(id, usePrefence: false);
     }
   }
 }

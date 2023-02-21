@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:args/args.dart';
-import 'package:hitomi/gallery/language.dart';
 import 'package:hitomi/lib.dart';
 
 void main(List<String> args) async {
@@ -12,6 +11,8 @@ void main(List<String> args) async {
         help: 'set output path with -p')
     ..addOption('proxy',
         abbr: 'p', defaultsTo: '127.0.0.1:8389', help: 'set proxy with -o')
+    ..addOption('tasks',
+        abbr: 't', defaultsTo: '5', help: 'set max running tasks -o')
     ..addMultiOption('languages',
         abbr: 'l',
         defaultsTo: ["japanese", "chinese"],
@@ -22,13 +23,13 @@ void main(List<String> args) async {
   final outDir = argResults['output'];
   final proxy = argResults['proxy'];
   final List<String> languages = argResults["languages"];
-  var config = UserContext(outDir,
+  var config = UserConfig(outDir,
       proxy: proxy,
-      languages: languages.map((e) => Language(name: e)).toList());
-  await config.initData();
-  final pool = TaskPools(config);
-  getUserInputId().forEach((element) {
-    pool.sendNewTask(element.trim());
+      languages: languages,
+      maxTasks: int.parse(argResults['tasks']));
+  final pool = TaskManager(config);
+  getUserInputId().forEach((element) async {
+    await pool.addNewTask(element.trim().toInt());
   });
 }
 

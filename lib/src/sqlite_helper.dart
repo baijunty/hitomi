@@ -11,11 +11,12 @@ class SqliteHelper {
   final UserContext context;
   late final Database _db;
   SqliteHelper(this.context) {
-    final dbPath = join(context.outPut.path, 'user.db');
+    final dbPath = join(context.outPut, 'user.db');
     _db = sqlite3.open(dbPath);
+    initTables();
   }
 
-  Future<bool> updateTagTable() async {
+  void initTables() {
     _db.execute('''create table  if not exists Tags(
       type TEXT NOT NULL,
       name TEXT NOT NULL,
@@ -23,6 +24,17 @@ class SqliteHelper {
       intro TEXT NOT NULL,
       PRIMARY KEY (type,name)
       )''');
+    // _db.execute('''create table  if not exists Gallery(
+    //   id Integer primary key,
+    //   type TEXT NOT NULL,
+    //   name TEXT NOT NULL,
+    //   artists TEXT,
+    //   tags TEXT NOT NULL,
+    //   tags TEXT NOT NULL
+    //   )''');
+  }
+
+  Future<bool> updateTagTable() async {
     // var rows = _db.select(
     //     'select intro from Tags where type=? by intro desc', ['author']);
     // Map<String, dynamic> author =

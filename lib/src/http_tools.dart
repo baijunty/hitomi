@@ -1,20 +1,35 @@
 import 'dart:io';
 import 'dart:isolate';
+import 'package:hitomi/src/prefenerce.dart';
+import 'package:hitomi/src/user_config.dart';
+
 import 'hitomi.dart';
 
 Future<void> asyncDownload(SendPort port) async {
   final receivePort = ReceivePort();
   port.send(receivePort.sendPort);
   late Hitomi api;
+  var lastDate = DateTime.now();
   await receivePort.listen((element) async {
     print(element);
-    if (element is String) {
-      var b = await api.downloadImagesById(element);
-      Isolate.exit(port, b);
-    } else if (element is Hitomi) {
-      api = element;
+    if (element is int) {
+      await api.downloadImagesById(element, (msg) {
+        var now = DateTime.now();
+        if (now.difference(lastDate).inSeconds > 1) {
+          lastDate = now;
+          port.send(msg);
+        }
+      });
+    } else if (element is UserConfig) {
+      final prefenerce = UserContext(element);
+      await prefenerce.initData();
+      api = Hitomi.fromPrefenerce(prefenerce);
+      port.send(true);
     }
-  });
+  })
+    ..onError((e) {
+      port.send(false);
+    });
 }
 
 List<int> mapBytesToInts(List<int> resp, {int spilt = 4}) {
@@ -34,7 +49,9 @@ List<int> mapBytesToInts(List<int> resp, {int spilt = 4}) {
 }
 
 Future<List<int>> http_invke(String url,
-    {String proxy = '', Map<String, dynamic>? headers = null}) async {
+    {String proxy = '',
+    Map<String, dynamic>? headers = null,
+    void onProcess(int now, int total)?}) async {
   final useHeader = headers ??
       {
         'user-agent':
@@ -53,8 +70,10 @@ Future<List<int>> http_invke(String url,
       })
       .then((resp) {
         if (resp.statusCode == 200 || resp.statusCode == 206) {
+          int total = resp.contentLength;
           return resp.fold<List<int>>(<int>[], (l, ints) {
             l.addAll(ints);
+            onProcess?.call(l.length, total);
             return l;
           });
         }

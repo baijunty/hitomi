@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:hitomi/gallery/label.dart';
 import 'package:hitomi/src/sqlite_helper.dart';
 
 import 'artist.dart';
@@ -12,7 +13,7 @@ import 'parody.dart';
 import 'tag.dart';
 
 @immutable
-class Gallery {
+class Gallery with Lable {
   static const List<String> illegalCode = [
     r'\',
     '/',
@@ -43,10 +44,10 @@ class Gallery {
   final List<Parody>? parodys;
   final String? videofilename;
   final List<Image> files;
-  final String? id;
+  final String id;
   final List<Group>? groups;
 
-  const Gallery({
+  Gallery({
     this.artists,
     this.tags,
     this.sceneIndexes,
@@ -65,7 +66,7 @@ class Gallery {
     this.parodys,
     this.videofilename,
     required this.files,
-    this.id,
+    required this.id,
     this.groups,
   });
 
@@ -115,7 +116,7 @@ class Gallery {
         files: (data['files'] as List<dynamic>)
             .map((e) => Image.fromMap(e as Map<String, dynamic>))
             .toList(),
-        id: data['id'] as String?,
+        id: data['id'] as String,
         groups: (data['groups'] as List<dynamic>?)
             ?.map((e) => Group.fromMap(e as Map<String, dynamic>))
             .toList(),
@@ -239,4 +240,7 @@ class Gallery {
       files.hashCode ^
       id.hashCode ^
       groups.hashCode;
+
+  @override
+  String get name => japaneseTitle ?? title;
 }

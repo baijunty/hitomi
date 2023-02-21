@@ -11,4 +11,3 @@ build/
 doc/api/
 .idea/
 user.db
-db.text.json
