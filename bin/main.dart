@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:hitomi/lib.dart';
+import 'package:hitomi/src/hitomi.dart';
 
 void main(List<String> args) async {
   final parser = ArgParser()
@@ -29,13 +30,24 @@ void main(List<String> args) async {
       maxTasks: int.parse(argResults['tasks']));
   final pool = TaskManager(config);
   getUserInputId().forEach((element) async {
-    await pool.addNewTask(element.trim().toInt());
+    final task = await pool.addNewTask(element.trim().toInt());
+    task.listen((msg) {
+      if (msg is DownLoadMessage) {
+        var content =
+            '${msg.id}下载${msg.title}${msg.current}/${msg.maxPage} ${(msg.speed).toStringAsFixed(2)}Kb/s 共${(msg.length / 1024).toStringAsFixed(2)}KB';
+        var splitIndex = msg.maxPage == 0
+            ? 0
+            : (msg.current / msg.maxPage * content.length).toInt();
+        print(
+            '\x1b[47;31m${content.substring(0, splitIndex)}\x1b[0m${content.substring(splitIndex)}');
+      }
+    });
   });
 }
 
 Stream<String> getUserInputId() {
-  final numbers = RegExp(r'\d+');
+  final numbers = RegExp(r'^\d+$');
   return stdin
       .map((data) => systemEncoding.decode(data))
-      .where((event) => numbers.hasMatch(event));
+      .where((event) => numbers.hasMatch(event.trim()));
 }

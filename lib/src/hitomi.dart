@@ -28,19 +28,32 @@ abstract class Hitomi {
 }
 
 class Message {
-  int id;
-  int current;
-  int maxPage;
-  int currentBytes;
-  int length;
+  int? id;
   bool success;
-  Message(this.id, this.current, this.maxPage, this.currentBytes, this.length,
-      this.success);
+  Message({this.id, required this.success});
 
   @override
   String toString() {
-    return 'Message{$id,$current,$maxPage,$currentBytes,$length,$success}';
+    return 'Message{$id,$success}';
   }
+
+  @override
+  bool operator ==(dynamic other) {
+    if (identical(other, this)) return true;
+    if (other is! Message) return false;
+    return other.id == id;
+  }
+}
+
+class DownLoadMessage extends Message {
+  int current;
+  int maxPage;
+  double speed;
+  int length;
+  String title;
+  DownLoadMessage(id, success, this.title, this.current, this.maxPage,
+      this.speed, this.length)
+      : super(id: id, success: success);
 }
 
 class _HitomiImpl implements Hitomi {
@@ -72,9 +85,9 @@ class _HitomiImpl implements Hitomi {
     final gallery = await fetchGallery(id);
     var artists = gallery.artists;
     final outPath = prefenerce.outPut;
+    final title = gallery.fixedTitle;
     var dir;
     try {
-      final title = gallery.fixedTitle;
       dir = Directory("${outPath}/${title}")..createSync();
     } catch (e) {
       print(e);
@@ -91,14 +104,22 @@ class _HitomiImpl implements Hitomi {
       final out = File(dir.path + '/' + image.name);
       var b = await _checkViallImage(dir, image);
       if (!b) {
-        for (var i = 0; i < 3; i++) {
+        for (var j = 0; j < 3; j++) {
           try {
             final url = image.getDownLoadUrl(prefenerce);
+            final time = DateTime.now();
             var data = await downloadImage(url, referer,
-                onProcess: (now, total) => onProcess(
-                    Message(id, i, gallery.files.length, now, total, false)));
-            print(
-                '下载${image.name} ${image.height}*${image.width} size ${data.length ~/ 1024}KB');
+                onProcess: (now, total) => onProcess(DownLoadMessage(
+                    id,
+                    true,
+                    title,
+                    i + 1,
+                    gallery.files.length,
+                    now /
+                        1024 /
+                        DateTime.now().difference(time).inMilliseconds *
+                        1000,
+                    total)));
             await out.writeAsBytes(data, flush: true);
             b = true;
             break;
@@ -110,7 +131,7 @@ class _HitomiImpl implements Hitomi {
       result.add(b);
     }
     final b = !result.any((element) => !element);
-    onProcess(Message(id, 0, 0, 0, 0, b));
+    print('下载$id完成$b');
     return b;
   }
 
@@ -223,8 +244,6 @@ class _HitomiImpl implements Hitomi {
       final langIndex = prefenerce.languages
           .indexWhere((element) => element.name == g1.language);
       if (hamming_distance <= 16 && langIndex >= 0) {
-        print(
-            'found ${g1.title} ${g1.id} distance is $hamming_distance language ${g1.languageLocalname}');
         yield Tuple2(g1, hamming_distance + langIndex);
       }
     }
@@ -361,6 +380,22 @@ class _HitomiImpl implements Hitomi {
       yield await fetchGallery(id, usePrefence: false);
     }
   }
+}
+
+List<int> mapBytesToInts(List<int> resp, {int spilt = 4}) {
+  if (resp.length % spilt != 0) {
+    throw 'not $spilt times';
+  }
+  final result = <int>[];
+  for (var i = 0; i < resp.length / spilt; i++) {
+    var subList = resp.sublist(i * spilt, i * spilt + spilt);
+    int r = 0;
+    for (var i = 0; i < subList.length; i++) {
+      r |= subList[i] << (spilt - 1 - i) * 8;
+    }
+    result.add(r);
+  }
+  return result;
 }
 
 extension Comparable on List<int> {

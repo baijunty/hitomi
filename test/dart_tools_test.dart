@@ -1,11 +1,12 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/dhash.dart';
 import 'package:hitomi/src/sqlite_helper.dart';
-import 'package:test/test.dart';
 
 void main() async {
-  test('image', testImageDownload);
+  var r = RegExp(r'^\d+$').hasMatch('2473175');
+  print(r);
 }
 
 Future<void> testImageHash(ImageHash hash) async {
@@ -48,9 +49,14 @@ Future<void> testImageDownload() async {
   var config = UserConfig('.',
       proxy: '127.0.0.1:8389', languages: ['chinese', 'japanese'], maxTasks: 5);
   var pool = TaskManager(config);
-  final task = await pool.addNewTask(2473175);
+  var task = await pool.addNewTask(45465465489456);
   await Future.delayed(Duration(seconds: 5));
   task.cancel();
+  await Future.delayed(Duration(seconds: 1));
   task.start();
-  await Future.delayed(Duration(seconds: 15));
+  await Future.delayed(Duration(seconds: 5));
+  task.cancel();
+  task = await pool.addNewTask(2473175);
+  await Future.delayed(Duration(seconds: 5));
+  task.cancel();
 }
