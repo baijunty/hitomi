@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:hitomi/lib.dart';
+import 'package:hitomi/src/gallery_fix.dart';
 import 'package:hitomi/src/hitomi.dart';
 
 void main(List<String> args) async {
@@ -28,21 +29,23 @@ void main(List<String> args) async {
       proxy: proxy,
       languages: languages,
       maxTasks: int.parse(argResults['tasks']));
-  final pool = TaskManager(config);
-  getUserInputId().forEach((element) async {
-    final task = await pool.addNewTask(element.trim().toInt());
-    task.listen((msg) {
-      if (msg is DownLoadMessage) {
-        var content =
-            '${msg.id}下载${msg.title}${msg.current}/${msg.maxPage} ${(msg.speed).toStringAsFixed(2)}Kb/s 共${(msg.length / 1024).toStringAsFixed(2)}KB';
-        var splitIndex = msg.maxPage == 0
-            ? 0
-            : (msg.current / msg.maxPage * content.length).toInt();
-        print(
-            '\x1b[47;31m${content.substring(0, splitIndex)}\x1b[0m${content.substring(splitIndex)}');
-      }
-    });
-  });
+  final fix = GalleryFix(UserContext(config));
+  await fix.fix();
+  // final pool = TaskManager(config);
+  // getUserInputId().forEach((element) async {
+  //   final task = await pool.addNewTask(element.trim().toInt());
+  //   task.listen((msg) {
+  //     if (msg is DownLoadMessage) {
+  //       var content =
+  //           '${msg.id}下载${msg.title}${msg.current}/${msg.maxPage} ${(msg.speed).toStringAsFixed(2)}Kb/s 共${(msg.length / 1024).toStringAsFixed(2)}KB';
+  //       var splitIndex = msg.maxPage == 0
+  //           ? 0
+  //           : (msg.current / msg.maxPage * content.length).toInt();
+  //       print(
+  //           '\x1b[47;31m${content.substring(0, splitIndex)}\x1b[0m${content.substring(splitIndex)}');
+  //     }
+  //   });
+  // });
 }
 
 Stream<String> getUserInputId() {

@@ -21,6 +21,50 @@ class GalleryFix {
       yield element;
     }
   }
+
+  Future<bool> fix() async {
+    Map<GalleryInfo, List<GalleryInfo>> result = await listInfo()
+        .fold<Map<GalleryInfo, List<GalleryInfo>>>({}, ((previous, element) {
+      final list = previous[element] ?? [];
+      list.add(element);
+      previous[element] = list;
+      return previous;
+    }));
+    result.forEach((key, value) {
+      print('$key and ${value.length}');
+      value.forEach((element) {
+        final reletion = key.relationToOther(element);
+        switch (reletion) {
+          case Relation.Same:
+            if (element.length > key.length) {
+              key.directory.rename(r'\\192.168.3.228\ssd\music');
+            } else {
+              element.directory.rename(r'\\192.168.3.228\ssd\music');
+            }
+            break;
+          case Relation.DiffChapter:
+            if (element.chapter.length > key.chapter.length) {
+              key.directory.rename(r'\\192.168.3.228\ssd\music');
+            } else {
+              element.directory.rename(r'\\192.168.3.228\ssd\music');
+            }
+            print('$key and ${element} is diffrence chapter');
+            break;
+          case Relation.DiffSource:
+            if (element.translated) {
+              element.directory.rename(r'\\192.168.3.228\ssd\music');
+            } else {
+              key.directory.rename(r'\\192.168.3.228\ssd\music');
+            }
+            break;
+          case Relation.UnRelated:
+            print('$key and ${element} is diffrence');
+            break;
+        }
+      });
+    });
+    return true;
+  }
 }
 
 class GalleryInfo {
@@ -57,7 +101,7 @@ class GalleryInfo {
       this.hash = 0;
       this.length = 0;
     } else {
-      this.hash = await File(img.path)
+      this.hash = await (img as File)
           .readAsBytes()
           .then((value) => imageHash(value))
           .then((value) => value.foldIndexed<int>(0,
@@ -66,10 +110,18 @@ class GalleryInfo {
     }
     var metaFile = File(directory.path + '/meta.json');
     if (metaFile.existsSync()) {
-      metaFile
-          .readAsString()
-          .then((value) => Gallery.fromJson(value))
-          .then((value) {
+      await metaFile.readAsString().then((value) async {
+        try {
+          return Gallery.fromJson(value);
+        } catch (e) {
+          print('$directory has $e');
+          final r = Process.runSync('python', ['test/hash.py', metaFile.path]);
+          print('result ${r.stdout} err ${r.stderr}');
+          final gallery = Gallery.fromJson(metaFile.readAsStringSync());
+          print('now fixed $directory');
+          return gallery;
+        }
+      }).then((value) {
         author = value.artists?.firstOrNull?.artist;
         group = value.groups?.first.name;
         serial = value.parodys?.first.name;
@@ -139,7 +191,7 @@ class GalleryInfo {
     }
   }
 
-  Relation distance(GalleryInfo other) {
+  Relation relationToOther(GalleryInfo other) {
     int hashXor = this.hash ^ other.hash;
     if (hashXor == this.hash) {
       return Relation.UnRelated;
@@ -159,7 +211,7 @@ class GalleryInfo {
         return Relation.DiffChapter;
       }
     }
-    if (distance < 16) {
+    if (distance < 12) {
       if (translated ^ other.translated) {
         return Relation.DiffSource;
       }

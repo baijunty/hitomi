@@ -4,7 +4,6 @@ import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/dhash.dart';
 import 'package:hitomi/src/gallery_fix.dart';
 import 'package:hitomi/src/sqlite_helper.dart';
-import 'package:collection/collection.dart';
 import 'package:test/test.dart';
 
 void main() async {
@@ -12,17 +11,52 @@ void main() async {
 }
 
 Future<void> testGalleryInfoDistance() async {
-  var config = UserContext(UserConfig('.',
+  var config = UserContext(UserConfig(r'\\192.168.3.228\ssd\photos',
       proxy: '127.0.0.1:8389',
       languages: ['chinese', 'japanese'],
       maxTasks: 5));
   var fix = GalleryFix(config);
-  var gallerys = await fix.listInfo().toList();
-  gallerys.groupFoldBy<GalleryInfo, List<GalleryInfo>>(((element) => element),
-      ((previous, element) {
-    return (previous ?? [])..add(element);
+  final result = await fix
+      .listInfo()
+      .fold<Map<GalleryInfo, List<GalleryInfo>>>({}, ((previous, element) {
+    final list = previous[element] ?? [];
+    list.add(element);
+    previous[element] = list;
+    return previous;
   }));
-  print(fix);
+  result.forEach((key, value) {
+    print('$key and ${value.length}');
+    value.forEach((element) {
+      final reletion = key.relationToOther(element);
+      switch (reletion) {
+        case Relation.Same:
+          if (element.length > key.length) {
+            key.directory.rename(r'\\192.168.3.228\ssd\music');
+          } else {
+            element.directory.rename(r'\\192.168.3.228\ssd\music');
+          }
+          break;
+        case Relation.DiffChapter:
+          if (element.chapter.length > key.chapter.length) {
+            key.directory.rename(r'\\192.168.3.228\ssd\music');
+          } else {
+            element.directory.rename(r'\\192.168.3.228\ssd\music');
+          }
+          print('$key and ${element} is diffrence chapter');
+          break;
+        case Relation.DiffSource:
+          if (element.translated) {
+            element.directory.rename(r'\\192.168.3.228\ssd\music');
+          } else {
+            key.directory.rename(r'\\192.168.3.228\ssd\music');
+          }
+          break;
+        case Relation.UnRelated:
+          print('$key and ${element} is diffrence');
+          break;
+      }
+    });
+  });
 }
 
 Future<void> testGalleryInfo() async {
@@ -31,8 +65,7 @@ Future<void> testGalleryInfo() async {
       languages: ['chinese', 'japanese'],
       maxTasks: 5));
   var gallery = GalleryInfo.formDirect(
-      Directory(
-          r'\\192.168.3.228\ssd\photos\1998736-[NANACAN (ななかまい)] 理想の恋人ができて幸せ者だった俺が彼女の妹と……。2 [DL版]'),
+      Directory(r'\\192.168.3.228\ssd\photos\(takeyuu)鈴谷level110'),
       config.helper);
   await gallery.computeData();
   print(gallery);
