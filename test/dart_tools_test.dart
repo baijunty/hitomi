@@ -2,11 +2,25 @@ import 'dart:async';
 import 'dart:io';
 import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/dhash.dart';
+import 'package:hitomi/src/gallery_fix.dart';
 import 'package:hitomi/src/sqlite_helper.dart';
+import 'package:test/test.dart';
 
 void main() async {
-  var r = RegExp(r'^\d+$').hasMatch('2473175');
-  print(r);
+  test('match', testGalleryInfo);
+}
+
+Future<void> testGalleryInfo() async {
+  var config = UserContext(UserConfig('.',
+      proxy: '127.0.0.1:8389',
+      languages: ['chinese', 'japanese'],
+      maxTasks: 5));
+  var gallery = GalleryInfo.formDirect(
+      Directory(
+          r'/home/bai/ssd/photos/1998736-[NANACAN (ななかまい)] 理想の恋人ができて幸せ者だった俺が彼女の妹と……。2 [DL版]'),
+      config.helper);
+  await gallery.computeData();
+  print(gallery);
 }
 
 Future<void> testImageHash(ImageHash hash) async {

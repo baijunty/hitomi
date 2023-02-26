@@ -78,4 +78,12 @@ class SqliteHelper {
     }
     return null;
   }
+
+  ResultSet? querySql(String sql, [List<dynamic> params = const []]) {
+    var set = _db.select(sql, params = params);
+    if (set.isNotEmpty) {
+      return set;
+    }
+    return null;
+  }
 }
