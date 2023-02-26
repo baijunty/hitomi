@@ -29,21 +29,22 @@ class GalleryInfo {
   String? serial;
   bool translated = false;
   int? id;
+  bool realTitle = true;
   late String title;
-  List<int> chapter = const [];
+  Set<int> chapter = {1};
   late int hash;
   late int length;
-  static final _imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+  static final _imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
   static final _numberChap = RegExp(r'((?<start>\d+)-)?(?<end>\d+)話?$');
   static final _ehTitleReg = RegExp(
-      r'^\((?<event>.+?)\)?\s*\[(?<author>.+?)\s*(\((?<group>.+?)\))?\]\s*(?<name>.*)$');
+      r'(\((?<event>.+?)\))?\s*\[(?<group>.+?)\s*(\((?<author>.+?)\))?\]\s*(?<name>.*)$');
   static final serialExp =
       RegExp(r'(?<title>.+?)(\((?<serial>.+?)\))?(\[(?<addition>.+?)\])?$');
   bool get isEmpty => length == 0;
   final Directory directory;
   SqliteHelper helper;
   GalleryInfo.formDirect(this.directory, this.helper) {
-    this.title = dirname(directory.path);
+    this.title = basename(directory.path);
   }
 
   Future<void> computeData() async {
@@ -73,22 +74,26 @@ class GalleryInfo {
         group = value.groups?.first.name;
         serial = value.parodys?.first.name;
         translated = value.language != 'japanese';
-        title = value.name;
-        chapterParse(value.name);
+        title = value.name.trim();
+        chapterParse(title);
       });
     } else if (_ehTitleReg.hasMatch(title)) {
       ehTitleParse(title);
     }
+    if (RegExp(r'^-?\d+$').hasMatch(title)) {
+      realTitle = author != null;
+    }
   }
 
   Future<void> ehTitleParse(String name) async {
+    name = name.substring(name.indexOf('['));
     var mathces = _ehTitleReg.firstMatch(name)!;
     this.group = mathces.namedGroup('group');
-    this.author = mathces.namedGroup('author')!;
+    this.author = mathces.namedGroup('author');
     var left = mathces.namedGroup('name')!;
     if (serialExp.hasMatch(left)) {
       mathces = serialExp.firstMatch(left)!;
-      this.title = mathces.namedGroup('title')!;
+      this.title = mathces.namedGroup('title')!.trim();
       serial = mathces.namedGroup('serial');
       String lang = mathces.namedGroup('addition') ?? '';
       translated = lang.contains('翻訳') ||
@@ -96,6 +101,7 @@ class GalleryInfo {
           lang.contains('中文') ||
           lang.contains('中国');
     }
+    chapterParse(title);
     if (author != null) {
       author = tryTranslate('artist', author!);
     }
@@ -133,9 +139,38 @@ class GalleryInfo {
     }
   }
 
+  Relation distance(GalleryInfo other) {
+    int hashXor = this.hash ^ other.hash;
+    if (hashXor == this.hash) {
+      return Relation.UnRelated;
+    }
+    if (other.realTitle && realTitle) {}
+    int distance = 0;
+    while (hashXor > 0) {
+      if (hashXor & 1 == 1) distance++;
+      hashXor >>= 1;
+    }
+    if (realTitle && other.realTitle) {
+      if (this.title != other.title) {
+        distance += 4;
+      } else if ((author ?? '') != (other.author ?? '')) {
+        distance += 4;
+      } else if (chapter != other.chapter) {
+        return Relation.DiffChapter;
+      }
+    }
+    if (distance < 16) {
+      if (translated ^ other.translated) {
+        return Relation.DiffSource;
+      }
+      return Relation.Same;
+    }
+    return Relation.UnRelated;
+  }
+
   @override
   String toString() {
-    return '[$author($group]$title($serial)${chapter.join()}';
+    return '[$author($group)]$title($serial)${chapter.join()}-$hash';
   }
 
   @override
@@ -145,3 +180,5 @@ class GalleryInfo {
     return title == other.title && (author ?? '') == (other.author ?? '');
   }
 }
+
+enum Relation { Same, DiffChapter, DiffSource, UnRelated }

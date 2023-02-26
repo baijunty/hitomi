@@ -1,1 +1,1 @@
-SELECT * from Tags WHERE type='parody'  LIMIT 200
+SELECT * from Tags WHERE type='group' and translate='NANACAN' LIMIT 200

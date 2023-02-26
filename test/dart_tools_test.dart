@@ -4,10 +4,25 @@ import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/dhash.dart';
 import 'package:hitomi/src/gallery_fix.dart';
 import 'package:hitomi/src/sqlite_helper.dart';
+import 'package:collection/collection.dart';
 import 'package:test/test.dart';
 
 void main() async {
-  test('match', testGalleryInfo);
+  test('match', testGalleryInfoDistance);
+}
+
+Future<void> testGalleryInfoDistance() async {
+  var config = UserContext(UserConfig('.',
+      proxy: '127.0.0.1:8389',
+      languages: ['chinese', 'japanese'],
+      maxTasks: 5));
+  var fix = GalleryFix(config);
+  var gallerys = await fix.listInfo().toList();
+  gallerys.groupFoldBy<GalleryInfo, List<GalleryInfo>>(((element) => element),
+      ((previous, element) {
+    return (previous ?? [])..add(element);
+  }));
+  print(fix);
 }
 
 Future<void> testGalleryInfo() async {
@@ -17,7 +32,7 @@ Future<void> testGalleryInfo() async {
       maxTasks: 5));
   var gallery = GalleryInfo.formDirect(
       Directory(
-          r'/home/bai/ssd/photos/1998736-[NANACAN (ななかまい)] 理想の恋人ができて幸せ者だった俺が彼女の妹と……。2 [DL版]'),
+          r'\\192.168.3.228\ssd\photos\1998736-[NANACAN (ななかまい)] 理想の恋人ができて幸せ者だった俺が彼女の妹と……。2 [DL版]'),
       config.helper);
   await gallery.computeData();
   print(gallery);
