@@ -4,23 +4,16 @@ import 'package:hitomi/gallery/label.dart';
 
 @immutable
 class Artist with Lable {
-  final String? url;
   final String artist;
 
-  Artist({this.url, required this.artist});
+  Artist({required this.artist});
 
   @override
-  String toString() => 'Artist(url: $url, artist: $artist)';
+  String toString() => 'Artist(artist: $artist)';
 
   factory Artist.fromMap(Map<String, dynamic> data) => Artist(
-        url: data['url'] as String?,
         artist: data['artist'] as String,
       );
-
-  Map<String, dynamic> toMap() => {
-        'url': url,
-        'artist': artist,
-      };
 
   /// `dart:convert`
   ///
@@ -35,11 +28,9 @@ class Artist with Lable {
   String toJson() => json.encode(toMap());
 
   Artist copyWith({
-    String? url,
     String? artist,
   }) {
     return Artist(
-      url: url ?? this.url,
       artist: artist ?? this.artist,
     );
   }
@@ -53,7 +44,7 @@ class Artist with Lable {
   }
 
   @override
-  int get hashCode => url.hashCode ^ artist.hashCode;
+  int get hashCode => artist.hashCode;
 
   @override
   String get name => artist;

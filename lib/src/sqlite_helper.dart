@@ -18,20 +18,25 @@ class SqliteHelper {
 
   void initTables() {
     _db.execute('''create table  if not exists Tags(
+      id Integer PRIMARY KEY autoincrement,
       type TEXT NOT NULL,
       name TEXT NOT NULL,
       translate TEXT NOT NULL,
       intro TEXT NOT NULL,
-      PRIMARY KEY (type,name)
+      CONSTRAINT tag UNIQUE (type,name)
       )''');
-    // _db.execute('''create table  if not exists Gallery(
-    //   id Integer primary key,
-    //   type TEXT NOT NULL,
-    //   name TEXT NOT NULL,
-    //   artists TEXT,
-    //   tags TEXT NOT NULL,
-    //   tags TEXT NOT NULL
-    //   )''');
+    _db.execute('''create table if not exists Gallery(
+      id integer PRIMARY KEY,
+      path TEXT,
+      author TEXT,
+      groupes TEXT,
+      serial TEXT,
+      language TEXT not null,
+      title TEXT not NULL,
+      tags TEXT,
+      files TEXT,
+      hash INTEGER not NULL
+      )''');
   }
 
   Future<bool> updateTagTable() async {
@@ -47,7 +52,7 @@ class SqliteHelper {
     if (data['data'] is List<dynamic>) {
       var rows = data['data'] as List<dynamic>;
       final stam = _db.prepare(
-          'REPLACE INTO Tags(type,name,translate,intro) values(?,?,?,?) ');
+          'REPLACE INTO Tags(id,type,name,translate,intro) values(?,?,?,?,?) ');
       rows
           .sublist(1)
           .map((e) => e as Map<String, dynamic>)
@@ -61,7 +66,7 @@ class SqliteHelper {
           final name = element.key;
           final value = element.value as Map<String, dynamic>;
           return previousValue
-            ..execute([key, name, value['name'], value['intro']]);
+            ..execute([null, key, name, value['name'], value['intro']]);
         });
         return st;
       });
@@ -71,8 +76,8 @@ class SqliteHelper {
   }
 
   Map<String, dynamic>? getMatchLable(Lable lable) {
-    final set = _db.select(
-        'select * from Tags where type=? and name=?', [lable.type, lable.name]);
+    final set = _db.select('select * from Tags where type=? and name=?',
+        [lable.sqlType, lable.name]);
     if (set.isNotEmpty) {
       return set.first;
     }
@@ -85,5 +90,15 @@ class SqliteHelper {
       return set;
     }
     return null;
+  }
+
+  void excuteSql(String sql, void doWithStam(PreparedStatement statement)) {
+    final stam = _db.prepare(sql);
+    try {
+      doWithStam(stam);
+    } catch (e) {
+      print(e);
+    }
+    stam.dispose();
   }
 }

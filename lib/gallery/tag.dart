@@ -7,27 +7,24 @@ import 'package:hitomi/gallery/label.dart';
 class Tag with Lable {
   final dynamic male;
   final String tag;
-  final String? url;
   final dynamic female;
 
-  Tag({this.male, required this.tag, this.url, this.female});
+  Tag({this.male, required this.tag, this.female});
 
   @override
   String toString() {
-    return 'Tag(male: $male, tag: $tag, url: $url, female: $female)';
+    return 'Tag(male: $male, tag: $tag, female: $female)';
   }
 
   factory Tag.fromMap(Map<String, dynamic> data) => Tag(
         male: data['male'],
         tag: data['tag'] as String,
-        url: data['url'] as String?,
         female: data['female'],
       );
 
   Map<String, dynamic> toMap() => {
         'male': male,
         'tag': tag,
-        'url': url,
         'female': female,
       };
 
@@ -46,13 +43,11 @@ class Tag with Lable {
   Tag copyWith({
     String? male,
     String? tag,
-    String? url,
     String? female,
   }) {
     return Tag(
       male: male ?? this.male,
       tag: tag ?? this.tag,
-      url: url ?? this.url,
       female: female ?? this.female,
     );
   }
@@ -66,15 +61,14 @@ class Tag with Lable {
   }
 
   @override
-  int get hashCode =>
-      male.hashCode ^ tag.hashCode ^ url.hashCode ^ female.hashCode;
+  int get hashCode => male.hashCode ^ tag.hashCode ^ female.hashCode;
 
   @override
   String get type {
-    String? sexTag = male ?? female;
+    String? sexTag = (male ?? female)?.toString();
     return sexTag == null
         ? 'tag'
-        : male != null
+        : '1' == (male?.toString())
             ? 'male'
             : 'female';
   }
@@ -84,7 +78,7 @@ class Tag with Lable {
 
   @override
   String urlEncode() {
-    String? sexTag = male ?? female;
+    String? sexTag = (male ?? female)?.toString();
     return 'tag/${sexTag == null ? '' : '$sexTag:'}${Uri.encodeComponent(name.toLowerCase())}';
   }
 }

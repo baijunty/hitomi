@@ -4,11 +4,12 @@ Future<List<int>> http_invke(String url,
     {String proxy = '',
     Map<String, dynamic>? headers = null,
     void onProcess(int now, int total)?}) async {
-  final useHeader = headers ??
-      {
-        'user-agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36 Edg/106.0.1370.47'
-      };
+  final ua = {
+    'user-agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36 Edg/106.0.1370.47'
+  };
+  headers?.addAll(ua);
+  final useHeader = headers ?? ua;
   final client = HttpClient()
     ..connectionTimeout = Duration(seconds: 60)
     ..findProxy = (u) => proxy.isEmpty ? 'DIRECT' : 'PROXY $proxy';

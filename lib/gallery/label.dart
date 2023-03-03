@@ -3,9 +3,11 @@ import 'package:hitomi/src/sqlite_helper.dart';
 abstract class Lable {
   String get type;
   String get name;
-  final Map<String, dynamic> trans = const {};
+  final Map<String, dynamic> trans = {};
   String get translate => trans['translate'] ?? name;
   String get intro => trans['intro'] ?? '';
+  int get index => (trans['id'] as int?) ?? -1;
+  String get sqlType => type;
 
   void translateLable(SqliteHelper helper) {
     final query = helper.getMatchLable(this);
@@ -13,6 +15,11 @@ abstract class Lable {
       trans.addAll(query);
     }
   }
+
+  Map<String, dynamic> toMap() => {
+        'type': type,
+        type: name,
+      };
 
   String urlEncode() {
     return "${this.type}/${Uri.encodeComponent(name.toLowerCase())}";

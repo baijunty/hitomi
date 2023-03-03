@@ -6,22 +6,15 @@ import 'package:hitomi/gallery/label.dart';
 @immutable
 class Character with Lable {
   final String character;
-  final String? url;
 
-  Character({required this.character, this.url});
+  Character({required this.character});
 
   @override
-  String toString() => 'Character(character: $character, url: $url)';
+  String toString() => 'Character(character: $character)';
 
   factory Character.fromMap(Map<String, dynamic> data) => Character(
         character: data['character'] as String,
-        url: data['url'] as String?,
       );
-
-  Map<String, dynamic> toMap() => {
-        'character': character,
-        'url': url,
-      };
 
   /// `dart:convert`
   ///
@@ -37,11 +30,9 @@ class Character with Lable {
 
   Character copyWith({
     String? character,
-    String? url,
   }) {
     return Character(
       character: character ?? this.character,
-      url: url ?? this.url,
     );
   }
 
@@ -54,7 +45,7 @@ class Character with Lable {
   }
 
   @override
-  int get hashCode => character.hashCode ^ url.hashCode;
+  int get hashCode => character.hashCode;
 
   @override
   String get name => character;

@@ -3,19 +3,23 @@ import 'dart:isolate';
 import 'package:collection/collection.dart';
 import 'package:tuple/tuple.dart';
 import '../lib.dart';
+import 'gallery_fix.dart';
 
 class TaskManager {
+  static final numbers = RegExp(r'^\d+$');
   final UserConfig _config;
-  final Set<_TaskImpl> _tasks = {};
+  final Set<Task<Object>> _tasks = {};
   final List<Tuple2<StreamController<Message>, SendPort>> _tuples = [];
-  List<Task> get tasks => _tasks.toList();
+  List<Task<Object>> get tasks => _tasks.toList();
   TaskManager(this._config);
 
-  Future<Task> _pull(int id) async {
-    final t = _tasks.firstWhereOrNull((element) => element.id == id);
-    late _TaskImpl task;
+  Future<Task<Object>> _pull(String cmd) async {
+    final t = _tasks.firstWhereOrNull((element) => element.id == cmd);
+    late Task<Object> task;
     if (t == null) {
-      task = _TaskImpl(id, Completer());
+      task = (numbers.hasMatch(cmd)
+          ? _GalleryTaskImpl(cmd.toInt(), Completer())
+          : _CommandTaskImpl(cmd, Completer())) as Task<Object>;
       _tasks.add(task);
     } else {
       task = t;
@@ -77,8 +81,8 @@ class TaskManager {
     }
   }
 
-  Future<Task> addNewTask(int id) async {
-    return await _pull(id);
+  Future<Task?> addNewTask(String cmd) async {
+    return _pull(cmd.trim().trimRight());
   }
 }
 
@@ -87,49 +91,45 @@ Future<void> asyncDownload(SendPort port) async {
   port.send(receivePort.sendPort);
   late Hitomi api;
   var lastDate = DateTime.now();
+  late GalleryFix fix;
   receivePort.listen((element) async {
     try {
       if (element is int) {
-        var b = await api.downloadImagesById(element, (msg) {
+        int id = element;
+        var b = await api.downloadImagesById(id, onProcess: (msg) {
           var now = DateTime.now();
           if (now.difference(lastDate).inMilliseconds > 300) {
             lastDate = now;
             port.send(msg);
           }
         });
+        port.send(Message(id: id, success: b));
+      } else if (element == ':fix') {
+        bool b = await fix.fix();
         port.send(Message(id: element, success: b));
       } else if (element is UserConfig) {
         final prefenerce = UserContext(element);
         await prefenerce.initData();
         api = Hitomi.fromPrefenerce(prefenerce);
+        fix = GalleryFix(prefenerce);
         port.send(true);
       }
     } catch (e) {
       print(e);
-      port.send(Message(success: false));
+      port.send(Message(id: element, success: false));
     }
   });
 }
 
-abstract class Task {
-  int get id;
+abstract class Task<T> {
+  T get id;
   bool get isRunning => status == TaskStatus.Running;
-  TaskStatus get status;
-  Future<void> start();
-  void cancel();
-  void listen(void onData(Message msg),
-      {void onDone()?, void onError(Exception e)?});
-}
-
-class _TaskImpl extends Task {
-  int id;
   late SendPort sender;
   Completer<Tuple2<StreamController<Message>, SendPort>> _completer;
   Tuple2<StreamController<Message>, SendPort>? _tuple2;
   TaskStatus status = TaskStatus.UnStarted;
-  _TaskImpl(this.id, this._completer);
+  Task(this._completer);
 
-  @override
   Future<void> start() async {
     if (!isRunning) {
       status = TaskStatus.UnStarted;
@@ -145,7 +145,6 @@ class _TaskImpl extends Task {
     status = TaskStatus.Finished;
   }
 
-  @override
   void cancel() async {
     if (_tuple2 != null) {
       _tuple2?.item1.onCancel?.call();
@@ -153,17 +152,35 @@ class _TaskImpl extends Task {
     }
   }
 
-  @override
-  bool operator ==(Object other) {
-    if (identical(other, this)) return true;
-    if (other is! _TaskImpl) return false;
-    return other.id == id;
-  }
-
   void listen(void onData(Message msg),
       {void onDone()?, void onError(Exception e)?}) async {
     await start();
     _tuple2!.item1.stream.listen(onData, onDone: onDone, onError: onError);
+  }
+}
+
+class _CommandTaskImpl extends Task<String> {
+  String command;
+  @override
+  String get id => this.command;
+  _CommandTaskImpl(this.command,
+      Completer<Tuple2<StreamController<Message>, SendPort>> _completer)
+      : super(_completer);
+}
+
+class _GalleryTaskImpl extends Task<int> {
+  int galleyId;
+  @override
+  int get id => this.galleyId;
+  _GalleryTaskImpl(this.galleyId,
+      Completer<Tuple2<StreamController<Message>, SendPort>> _completer)
+      : super(_completer);
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(other, this)) return true;
+    if (other is! _GalleryTaskImpl) return false;
+    return other.id == id;
   }
 
   @override

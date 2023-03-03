@@ -1,1 +1,1 @@
-SELECT * from Tags WHERE type='group' and translate='NANACAN' LIMIT 200
+select count(*) from Gallery 

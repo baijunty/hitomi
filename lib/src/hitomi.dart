@@ -7,6 +7,7 @@ import 'package:hitomi/gallery/label.dart';
 import 'package:hitomi/gallery/language.dart';
 import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/dhash.dart';
+import 'package:hitomi/src/gallery_fix.dart';
 import 'package:tuple/tuple.dart';
 import 'package:collection/collection.dart';
 import '../gallery/gallery.dart';
@@ -14,10 +15,12 @@ import 'http_tools.dart';
 import 'package:crypto/crypto.dart';
 
 abstract class Hitomi {
-  Future<bool> downloadImagesById(int id, void onProcess(Message msg));
+  Future<bool> downloadImagesById(int id,
+      {void onProcess(Message msg)?, usePrefence = true});
   Future<Gallery> fetchGallery(int id, {usePrefence = true});
   Future<List<int>> search(List<Lable> include,
       {List<Lable> exclude, int page = 1});
+  Future<List<int>> fetchIdsByTag(Lable tag, [Language? language]);
   Future<List<int>> downloadImage(String url, String refererUrl,
       {void onProcess(int now, int total)?});
   Stream<Gallery> viewByTag(Lable tag, {int page = 1});
@@ -27,10 +30,10 @@ abstract class Hitomi {
   }
 }
 
-class Message {
-  int? id;
+class Message<T> {
+  final T id;
   bool success;
-  Message({this.id, required this.success});
+  Message({required this.id, required this.success});
 
   @override
   String toString() {
@@ -45,7 +48,7 @@ class Message {
   }
 }
 
-class DownLoadMessage extends Message {
+class DownLoadMessage extends Message<int> {
   int current;
   int maxPage;
   double speed;
@@ -81,8 +84,9 @@ class _HitomiImpl implements Hitomi {
   }
 
   @override
-  Future<bool> downloadImagesById(int id, void onProcess(Message msg)) async {
-    final gallery = await fetchGallery(id);
+  Future<bool> downloadImagesById(int id,
+      {void onProcess(Message msg)?, usePrefence = true}) async {
+    final gallery = await fetchGallery(id, usePrefence: usePrefence);
     var artists = gallery.artists;
     final outPath = prefenerce.outPut;
     final title = gallery.fixedTitle;
@@ -109,17 +113,19 @@ class _HitomiImpl implements Hitomi {
             final url = image.getDownLoadUrl(prefenerce);
             final time = DateTime.now();
             var data = await downloadImage(url, referer,
-                onProcess: (now, total) => onProcess(DownLoadMessage(
-                    id,
-                    true,
-                    title,
-                    i + 1,
-                    gallery.files.length,
-                    now /
-                        1024 /
-                        DateTime.now().difference(time).inMilliseconds *
-                        1000,
-                    total)));
+                onProcess: onProcess == null
+                    ? null
+                    : (now, total) => onProcess(DownLoadMessage(
+                        id,
+                        true,
+                        title,
+                        i + 1,
+                        gallery.files.length,
+                        now /
+                            1024 /
+                            DateTime.now().difference(time).inMilliseconds *
+                            1000,
+                        total)));
             await out.writeAsBytes(data, flush: true);
             b = true;
             break;
@@ -132,6 +138,10 @@ class _HitomiImpl implements Hitomi {
     }
     final b = !result.any((element) => !element);
     print('下载$id完成$b');
+    gallery.translateLable(prefenerce.helper);
+    var info = GalleryInfo.formDirect(dir, prefenerce);
+    await info.computeHash(File(dir.path + '/${gallery.files.first.name}'));
+    info.insertToDataBase(gallery);
     return b;
   }
 
@@ -251,24 +261,36 @@ class _HitomiImpl implements Hitomi {
 
   @override
   Future<List<int>> search(List<Lable> include,
-      {List<Lable> exclude = const [], int page = 1}) async {
+      {List<Lable> exclude = const [],
+      int page = 1,
+      usePrefence = true}) async {
     final languages = include
         .where((element) => element is Language)
         .map((e) => e as Language)
         .toList();
+    if (usePrefence) {
+      languages.sortBy<num>((element) => prefenerce.languages.indexOf(element));
+    }
     final tags = include.whereNot((element) => element is Language);
-    var includeIds =
-        await Stream.fromFutures(tags.map((e) => _fetchIdsByTag(e, languages)))
-            .reduce((previous, element) {
+    var includeIds = await Stream.fromFutures(tags.map((e) => fetchIdsByTag(e)))
+        .reduce((previous, element) {
       final r = element
           .where((value) =>
               previous.binarySearch(value, (v, v1) => v.compareTo(v1)) >= 0)
           .toList();
       return r;
     });
-    if (exclude.isNotEmpty) {
+    includeIds = languages.isNotEmpty && includeIds.isNotEmpty
+        ? await Stream.fromIterable(languages)
+            .asyncMap((e) async => await prefenerce.getCacheIdsFromLang(e))
+            .map((event) => includeIds.where((element) =>
+                event.binarySearch(element, (p0, p1) => p0.compareTo(p1)) >= 0))
+            .fold<List<int>>(
+                [], (previous, element) => previous..addAll(element))
+        : includeIds;
+    if (exclude.isNotEmpty && includeIds.isNotEmpty) {
       final filtered =
-          await Stream.fromFutures(exclude.map((e) => _fetchIdsByTag(e, [])))
+          await Stream.fromFutures(exclude.map((e) => fetchIdsByTag(e)))
               .fold<Set<int>>(includeIds.toSet(), (acc, item) {
         acc.removeAll(item);
         return acc;
@@ -278,11 +300,12 @@ class _HitomiImpl implements Hitomi {
     return includeIds.reversed.toList();
   }
 
-  Future<List<int>> _fetchIdsByTag(Lable tag, List<Language> language) {
+  @override
+  Future<List<int>> fetchIdsByTag(Lable tag, [Language? language]) {
     if (tag is QueryText) {
-      return _fetchQuery(tag.name);
+      return _fetchQuery(tag.name.toLowerCase());
     } else {
-      final useLanguage = language.length == 1 ? language.first.name : 'all';
+      final useLanguage = language?.name ?? 'all';
       String url;
       if (tag is Language) {
         url = 'https://ltn.hitomi.la/n/${tag.urlEncode()}.nozomi';
@@ -454,7 +477,7 @@ class _DataView {
 
   int getData(int start, int length) {
     if (start > data.length || start + length > data.length) {
-      throw 'size overflow';
+      throw 'size overflow $start + $length >${data.length}';
     }
     final subList = data.sublist(start, start + length);
     int r = 0;

@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:hitomi/gallery/language.dart';
+import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/sqlite_helper.dart';
-import 'package:hitomi/src/user_config.dart';
 
 import 'http_tools.dart';
 
@@ -15,16 +15,20 @@ class UserContext {
   late List<int> codes;
   late int index;
   late SqliteHelper _helper;
+  late Hitomi _hitomi;
+  Map<Language, List<int>> _cache = {};
   int galleries_index_version = 0;
   List<Language> get languages =>
       _config.languages.map((e) => Language(name: e)).toList();
   String get proxy => _config.proxy;
   String get outPut => _config.output;
+  Hitomi get api => _hitomi;
   final UserConfig _config;
   SqliteHelper get helper => _helper;
   UserContext(this._config) {
     Directory(_config.output)..createSync();
     _helper = SqliteHelper(this);
+    _hitomi = Hitomi.fromPrefenerce(this);
     Timer.periodic(Duration(minutes: 30), (timer) async => await initData());
   }
 
@@ -49,5 +53,12 @@ class UserContext {
             proxy: proxy)
         .then((value) => Utf8Decoder().convert(value))
         .then((value) => int.parse(value));
+  }
+
+  Future<List<int>> getCacheIdsFromLang(Language lang) async {
+    if (!_cache.containsKey(lang)) {
+      _cache[lang] = await api.fetchIdsByTag(lang);
+    }
+    return _cache[lang]!;
   }
 }

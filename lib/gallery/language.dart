@@ -10,32 +10,28 @@ class Language with Lable {
   static final english = Language(name: 'english');
   final String? galleryid;
   final String? languageLocalname;
-  final String? url;
   final String name;
 
   Language({
     this.galleryid,
     this.languageLocalname,
-    this.url,
     required this.name,
   });
 
   @override
   String toString() {
-    return 'Language(galleryid: $galleryid, languageLocalname: $languageLocalname, url: $url, name: $name)';
+    return 'Language(galleryid: $galleryid, languageLocalname: $languageLocalname,  name: $name)';
   }
 
   factory Language.fromMap(Map<String, dynamic> data) => Language(
         galleryid: data['galleryid'] as String?,
         languageLocalname: data['language_localname'] as String?,
-        url: data['url'] as String?,
         name: data['name'] as String,
       );
 
   Map<String, dynamic> toMap() => {
         'galleryid': galleryid,
         'language_localname': languageLocalname,
-        'url': url,
         'name': name,
       };
 
@@ -54,13 +50,11 @@ class Language with Lable {
   Language copyWith({
     String? galleryid,
     String? languageLocalname,
-    String? url,
     String? name,
   }) {
     return Language(
       galleryid: galleryid ?? this.galleryid,
       languageLocalname: languageLocalname ?? this.languageLocalname,
-      url: url ?? this.url,
       name: name ?? this.name,
     );
   }
@@ -75,10 +69,7 @@ class Language with Lable {
 
   @override
   int get hashCode =>
-      galleryid.hashCode ^
-      languageLocalname.hashCode ^
-      url.hashCode ^
-      name.hashCode;
+      galleryid.hashCode ^ languageLocalname.hashCode ^ name.hashCode;
 
   @override
   String get type => 'language';

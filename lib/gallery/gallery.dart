@@ -79,6 +79,15 @@ class Gallery with Lable {
     groups?.forEach((element) => element.translateLable(helper));
   }
 
+  List<Lable> lables() {
+    return <Lable>[]
+      ..addAll(artists ?? [])
+      ..addAll(tags ?? [])
+      ..addAll(characters ?? [])
+      ..addAll(parodys ?? [])
+      ..addAll(groups ?? []);
+  }
+
   @override
   String toString() {
     return 'Gallery(artists: $artists, tags: $tags, sceneIndexes: $sceneIndexes, japaneseTitle: $japaneseTitle, languages: $languages, type: $type, languageLocalname: $languageLocalname, title: $title, language: $language, characters: $characters, galleryurl: $galleryurl, languageUrl: $languageUrl, date: $date, related: $related, video: $video, parodys: $parodys, videofilename: $videofilename, files: $files, id: $id, groups: $groups)';
@@ -149,7 +158,11 @@ class Gallery with Lable {
   ///
   /// Parses the string and returns the resulting Json object as [Gallery].
   factory Gallery.fromJson(String data) {
-    return Gallery.fromMap(json.decode(data) as Map<String, dynamic>);
+    var jsonData = json.decode(data);
+    if (jsonData is String) {
+      jsonData = json.decode(jsonData);
+    }
+    return Gallery.fromMap(jsonData as Map<String, dynamic>);
   }
 
   /// `dart:convert`

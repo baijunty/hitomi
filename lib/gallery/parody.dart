@@ -5,23 +5,16 @@ import 'package:hitomi/gallery/label.dart';
 
 @immutable
 class Parody with Lable {
-  final String? url;
   final String parody;
 
-  Parody({this.url, required this.parody});
+  Parody({required this.parody});
 
   @override
-  String toString() => 'Parody(url: $url, parody: $parody)';
+  String toString() => 'Parody(parody: $parody)';
 
   factory Parody.fromMap(Map<String, dynamic> data) => Parody(
-        url: data['url'] as String?,
-        parody: data['parody'] as String,
+        parody: (data['parody'] ?? data['series']) as String,
       );
-
-  Map<String, dynamic> toMap() => {
-        'url': url,
-        'parody': parody,
-      };
 
   /// `dart:convert`
   ///
@@ -36,11 +29,9 @@ class Parody with Lable {
   String toJson() => json.encode(toMap());
 
   Parody copyWith({
-    String? url,
     String? parody,
   }) {
     return Parody(
-      url: url ?? this.url,
       parody: parody ?? this.parody,
     );
   }
@@ -54,10 +45,13 @@ class Parody with Lable {
   }
 
   @override
-  int get hashCode => url.hashCode ^ parody.hashCode;
+  int get hashCode => parody.hashCode;
 
   @override
   String get type => 'series';
+
+  @override
+  String get sqlType => 'parody';
 
   @override
   String get name => parody;

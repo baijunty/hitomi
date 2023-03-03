@@ -25,6 +25,16 @@ Future<int> distance(List<int> data1, List<int> data2,
           previous + (hash2[element] == hash1[element] ? 0 : 1));
 }
 
+int compareHashDistance(int hash1, int hash2) {
+  int xor = hash1 ^ hash2;
+  int distance = 0;
+  while (xor != 0) {
+    if (xor & 1 == 1) distance++;
+    xor >>>= 1;
+  }
+  return distance;
+}
+
 abstract class ImageHash {
   static const DHash = const _DHash();
   static const AHash = const _AHash();

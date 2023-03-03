@@ -6,22 +6,15 @@ import 'package:hitomi/gallery/label.dart';
 @immutable
 class Group with Lable {
   final String group;
-  final String? url;
 
-  Group({required this.group, this.url});
+  Group({required this.group});
 
   @override
-  String toString() => 'Group(group: $group, url: $url)';
+  String toString() => 'Group(group: $group)';
 
   factory Group.fromMap(Map<String, dynamic> data) => Group(
         group: data['group'] as String,
-        url: data['url'] as String?,
       );
-
-  Map<String, dynamic> toMap() => {
-        'group': group,
-        'url': url,
-      };
 
   /// `dart:convert`
   ///
@@ -37,11 +30,9 @@ class Group with Lable {
 
   Group copyWith({
     String? group,
-    String? url,
   }) {
     return Group(
       group: group ?? this.group,
-      url: url ?? this.url,
     );
   }
 
@@ -54,7 +45,7 @@ class Group with Lable {
   }
 
   @override
-  int get hashCode => group.hashCode ^ url.hashCode;
+  int get hashCode => group.hashCode;
 
   @override
   String get type => 'group';
