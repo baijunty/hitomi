@@ -1,7 +1,8 @@
 import 'dart:typed_data';
+import 'package:collection/collection.dart';
 import 'package:image/image.dart';
 
-Future<List<bool>> imageHash(Uint8List data,
+Future<int> imageHash(Uint8List data,
     {ImageHash hash = ImageHash.AHash}) async {
   final cmd = Command()
     ..decodeImage(data)
@@ -11,7 +12,8 @@ Future<List<bool>> imageHash(Uint8List data,
         interpolation: Interpolation.average)
     ..grayscale();
   final image = await cmd.getImage();
-  final bits = hash.hash(image!);
+  final bits = hash.hash(image!).foldIndexed<int>(
+      0, (index, acc, element) => acc |= element ? 1 << (63 - index) : 0);
   return bits;
 }
 
@@ -19,10 +21,7 @@ Future<int> distance(List<int> data1, List<int> data2,
     {ImageHash hash = ImageHash.AHash}) async {
   final hash1 = await imageHash(Uint8List.fromList(data1), hash: hash);
   final hash2 = await imageHash(Uint8List.fromList(data2), hash: hash);
-  return Iterable.generate(hash1.length).fold<int>(
-      0,
-      (previous, element) =>
-          previous + (hash2[element] == hash1[element] ? 0 : 1));
+  return compareHashDistance(hash1, hash2);
 }
 
 int compareHashDistance(int hash1, int hash2) {

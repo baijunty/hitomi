@@ -79,6 +79,6 @@ class Tag with Lable {
   @override
   String urlEncode() {
     String? sexTag = (male ?? female)?.toString();
-    return 'tag/${sexTag == null ? '' : '$sexTag:'}${Uri.encodeComponent(name.toLowerCase())}';
+    return 'tag/${sexTag == null ? '' : '${'1' == (male?.toString()) ? 'male' : 'female'}:'}${Uri.encodeComponent(name.toLowerCase())}';
   }
 }

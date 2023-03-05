@@ -84,6 +84,18 @@ class SqliteHelper {
     return null;
   }
 
+  Lable getLableFromKey(String name) {
+    var row = context.helper.querySql(
+        'select * from Tags where name=? or translate=?',
+        [name.toLowerCase(), name.toLowerCase()]);
+    if (row?.isNotEmpty ?? false) {
+      var type = row!.first['type'];
+      var name = row.first['name'];
+      return fromString(type, name);
+    }
+    return QueryText(name);
+  }
+
   ResultSet? querySql(String sql, [List<dynamic> params = const []]) {
     var set = _db.select(sql, params = params);
     if (set.isNotEmpty) {
@@ -92,7 +104,7 @@ class SqliteHelper {
     return null;
   }
 
-  void excuteSql(String sql, void doWithStam(PreparedStatement statement)) {
+  void excuteWithRow(String sql, void doWithStam(PreparedStatement statement)) {
     final stam = _db.prepare(sql);
     try {
       doWithStam(stam);
@@ -100,5 +112,9 @@ class SqliteHelper {
       print(e);
     }
     stam.dispose();
+  }
+
+  void excuteSql(String sql, [List<dynamic> params = const []]) {
+    _db.execute(sql, params);
   }
 }

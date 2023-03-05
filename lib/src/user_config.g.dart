@@ -13,6 +13,10 @@ _$_UserConfig _$$_UserConfigFromJson(Map<String, dynamic> json) =>
       languages:
           (json['languages'] as List<dynamic>).map((e) => e as String).toList(),
       maxTasks: json['maxTasks'] as int,
+      exinclude: (json['exinclude'] as List<dynamic>?)
+          ?.map((e) => e as String)
+          .toList(),
+      dateLimit: json['dateLimit'] as String?,
     );
 
 Map<String, dynamic> _$$_UserConfigToJson(_$_UserConfig instance) =>
@@ -21,4 +25,6 @@ Map<String, dynamic> _$$_UserConfigToJson(_$_UserConfig instance) =>
       'proxy': instance.proxy,
       'languages': instance.languages,
       'maxTasks': instance.maxTasks,
+      'exinclude': instance.exinclude,
+      'dateLimit': instance.dateLimit,
     };

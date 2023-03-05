@@ -1,13 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
 import 'package:hitomi/gallery/image.dart';
 import 'package:hitomi/gallery/label.dart';
 import 'package:hitomi/gallery/language.dart';
 import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/dhash.dart';
-import 'package:hitomi/src/gallery_fix.dart';
+import 'package:hitomi/src/gallery_manager.dart';
 import 'package:tuple/tuple.dart';
 import 'package:collection/collection.dart';
 import '../gallery/gallery.dart';
@@ -16,7 +15,7 @@ import 'package:crypto/crypto.dart';
 
 abstract class Hitomi {
   Future<bool> downloadImagesById(int id,
-      {void onProcess(Message msg)?, usePrefence = true});
+      {void onProcess(Message msg)?, bool usePrefence = true});
   Future<Gallery> fetchGallery(int id, {usePrefence = true});
   Future<List<int>> search(List<Lable> include,
       {List<Lable> exclude, int page = 1});
@@ -57,13 +56,16 @@ class DownLoadMessage extends Message<int> {
   DownLoadMessage(id, success, this.title, this.current, this.maxPage,
       this.speed, this.length)
       : super(id: id, success: success);
+  @override
+  String toString() {
+    return 'DownLoadMessage{$id,$title,$current $maxPage,$speed,$length,$success}';
+  }
 }
 
 class _HitomiImpl implements Hitomi {
   final UserContext prefenerce;
   static final _blank = RegExp(r"\s+");
-  static final _titleExp =
-      RegExp(r'[\u0800-\u4e00|\u4e00-\u9fa5|30A0-30FF|\w]+');
+  static final _titleExp = zhAndJpCodeExp;
   static final _emptyList = const <int>[];
   _HitomiImpl(this.prefenerce);
 
@@ -90,7 +92,7 @@ class _HitomiImpl implements Hitomi {
     var artists = gallery.artists;
     final outPath = prefenerce.outPut;
     final title = gallery.fixedTitle;
-    var dir;
+    Directory dir;
     try {
       dir = Directory("${outPath}/${title}")..createSync();
     } catch (e) {
@@ -99,8 +101,8 @@ class _HitomiImpl implements Hitomi {
           "${outPath}/${artists?.isNotEmpty ?? false ? '' : '(${artists!.first.name})'}$id")
         ..createSync();
     }
-    print(dir);
-    File(dir.path + '/' + 'meta.json').writeAsStringSync(json.encode(gallery));
+    print('down $id to ${dir.path}');
+    File(dir.path + '/' + 'meta.json').writeAsString(json.encode(gallery));
     final referer = 'https://hitomi.la${Uri.encodeFull(gallery.galleryurl!)}';
     final result = <bool>[];
     for (var i = 0; i < gallery.files.length; i++) {
@@ -242,7 +244,7 @@ class _HitomiImpl implements Hitomi {
       keys.addAll(gallery.artists!);
     }
     print('search target language by $keys');
-    final ids = await search(keys);
+    final ids = await search(keys, exclude: prefenerce.exclude);
     final referer = 'https://hitomi.la${Uri.encodeFull(gallery.galleryurl!)}';
     final url = gallery.files.first.getThumbnailUrl(prefenerce);
     var data = await downloadImage(url, referer);
@@ -264,34 +266,35 @@ class _HitomiImpl implements Hitomi {
       {List<Lable> exclude = const [],
       int page = 1,
       usePrefence = true}) async {
-    final languages = include
-        .where((element) => element is Language)
-        .map((e) => e as Language)
-        .toList();
-    if (usePrefence) {
-      languages.sortBy<num>((element) => prefenerce.languages.indexOf(element));
-    }
-    final tags = include.whereNot((element) => element is Language);
-    var includeIds = await Stream.fromFutures(tags.map((e) => fetchIdsByTag(e)))
-        .reduce((previous, element) {
-      final r = element
-          .where((value) =>
-              previous.binarySearch(value, (v, v1) => v.compareTo(v1)) >= 0)
+    final typeMap = include.groupListsBy((element) => element.runtimeType);
+    var includeIds =
+        await Stream.fromIterable(typeMap.entries).asyncMap((element) async {
+      return await Stream.fromIterable(element.value)
+          .asyncMap((e) async => e is Language
+              ? await prefenerce.getCacheIdsFromLang(e)
+              : await fetchIdsByTag(e))
+          .fold<Set<int>>(
+              {},
+              (previous, e) => element.key == QueryText
+                  ? previous
+                      .where((element) =>
+                          e.binarySearch(
+                              element, (p0, p1) => p0.compareTo(p1)) >=
+                          0)
+                      .toSet()
+                  : previous
+                ..addAll(e)).then(
+              (value) => value.sorted((a, b) => a.compareTo(b)));
+    }).reduce((previous, element) {
+      return previous
+          .where(
+              (e) => element.binarySearch(e, (p0, p1) => p0.compareTo(p1)) >= 0)
           .toList();
-      return r;
     });
-    includeIds = languages.isNotEmpty && includeIds.isNotEmpty
-        ? await Stream.fromIterable(languages)
-            .asyncMap((e) async => await prefenerce.getCacheIdsFromLang(e))
-            .map((event) => includeIds.where((element) =>
-                event.binarySearch(element, (p0, p1) => p0.compareTo(p1)) >= 0))
-            .fold<List<int>>(
-                [], (previous, element) => previous..addAll(element))
-        : includeIds;
     if (exclude.isNotEmpty && includeIds.isNotEmpty) {
-      final filtered =
-          await Stream.fromFutures(exclude.map((e) => fetchIdsByTag(e)))
-              .fold<Set<int>>(includeIds.toSet(), (acc, item) {
+      final filtered = await Stream.fromFutures(
+              exclude.map((e) => prefenerce.getCacheIdsFromLang(e)))
+          .fold<Set<int>>(includeIds.toSet(), (acc, item) {
         acc.removeAll(item);
         return acc;
       });
@@ -419,20 +422,6 @@ List<int> mapBytesToInts(List<int> resp, {int spilt = 4}) {
     result.add(r);
   }
   return result;
-}
-
-extension Comparable on List<int> {
-  int compareTo(List<int> other) {
-    final len = min(length, other.length);
-    for (var i = 0; i < len; i++) {
-      if (this[i] > other[i]) {
-        return 1;
-      } else if (this[i] < other[i]) {
-        return -1;
-      }
-    }
-    return 0;
-  }
 }
 
 class _Node {

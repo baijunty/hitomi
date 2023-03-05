@@ -1,4 +1,9 @@
 import 'package:hitomi/src/sqlite_helper.dart';
+import '../gallery/artist.dart';
+import '../gallery/character.dart';
+import '../gallery/group.dart';
+import '../gallery/parody.dart';
+import '../gallery/tag.dart';
 
 abstract class Lable {
   String get type;
@@ -28,6 +33,37 @@ abstract class Lable {
   @override
   String toString() {
     return '{type:$type,name:$name,translate:$translate,intro:$intro}';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(other, this)) return true;
+    if (other is! Lable) return false;
+    return this.type == other.type && this.name == other.name;
+  }
+}
+
+Lable fromString(String type, String name) {
+  switch (type) {
+    case 'female':
+    case 'male':
+    case 'tag':
+      return Tag(
+          male: type == 'male' ? 1 : null,
+          female: type == 'female' ? 1 : null,
+          tag: name);
+    case 'parody':
+      return Parody(parody: name);
+    case 'artist':
+      return Artist(artist: name);
+    case 'character':
+      return Character(character: name);
+    case 'group':
+      return Group(group: name);
+    case 'type':
+      return TypeLabel(name);
+    default:
+      return QueryText(name);
   }
 }
 

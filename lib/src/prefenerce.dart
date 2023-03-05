@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:hitomi/gallery/label.dart';
 import 'package:hitomi/gallery/language.dart';
 import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/sqlite_helper.dart';
@@ -16,15 +17,20 @@ class UserContext {
   late int index;
   late SqliteHelper _helper;
   late Hitomi _hitomi;
-  Map<Language, List<int>> _cache = {};
+  Map<Lable, List<int>> _cache = {};
   int galleries_index_version = 0;
   List<Language> get languages =>
       _config.languages.map((e) => Language(name: e)).toList();
   String get proxy => _config.proxy;
   String get outPut => _config.output;
   Hitomi get api => _hitomi;
+  List<Lable> get exclude =>
+      _config.exinclude?.map((e) => helper.getLableFromKey(e)).toList() ?? [];
   final UserConfig _config;
   SqliteHelper get helper => _helper;
+  DateTime get limit => (_config.dateLimit?.isEmpty ?? true)
+      ? DateTime(1970)
+      : DateTime.parse(_config.dateLimit!);
   UserContext(this._config) {
     Directory(_config.output)..createSync();
     _helper = SqliteHelper(this);
@@ -55,10 +61,12 @@ class UserContext {
         .then((value) => int.parse(value));
   }
 
-  Future<List<int>> getCacheIdsFromLang(Language lang) async {
-    if (!_cache.containsKey(lang)) {
-      _cache[lang] = await api.fetchIdsByTag(lang);
+  Future<List<int>> getCacheIdsFromLang(Lable lable) async {
+    if (!_cache.containsKey(lable)) {
+      var result = await api.fetchIdsByTag(lable);
+      print('fetch label ${lable.name} result ${result.length}');
+      _cache[lable] = result;
     }
-    return _cache[lang]!;
+    return _cache[lable]!;
   }
 }

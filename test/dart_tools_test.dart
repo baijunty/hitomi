@@ -1,15 +1,15 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:collection/collection.dart';
+import 'package:args/args.dart';
 import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/dhash.dart';
-import 'package:hitomi/src/gallery_fix.dart';
+import 'package:hitomi/src/gallery_manager.dart';
 import 'package:hitomi/src/sqlite_helper.dart';
 import 'package:test/test.dart';
 
 void main() async {
   test('match', () async {
-    await testGalleryInfo('(ma-sa)かくしごと');
+    print(DateTime.parse('2014-01-01'));
   });
 }
 
@@ -18,7 +18,7 @@ Future<void> testGalleryInfoDistance() async {
       proxy: '127.0.0.1:8389',
       languages: ['chinese', 'japanese'],
       maxTasks: 5));
-  var fix = GalleryFix(config);
+  var fix = GalleryManager(config, null);
   final result = await fix.listInfo().then((value) =>
       value.fold<Map<GalleryInfo, List<GalleryInfo>>>({}, ((previous, element) {
         final list = previous[element] ?? [];
@@ -51,24 +51,7 @@ Future<GalleryInfo> testGalleryInfo(String name) async {
 
 Future<void> testImageHash() async {
   var hash1 = await imageHash(
-          File(r'/home/bai/ssd/photos/三連休は朝まで生ゆきのん。/01.jpg').readAsBytesSync())
-      .then((value) {
-    var r =
-        List.generate(8, (index) => value.sublist(index * 8, (index + 1) * 8))
-            .map((e) => e.foldIndexed<int>(
-                0,
-                (index, previous, element) =>
-                    previous |= element ? 1 << (7 - index) : 0))
-            .map((e) => e.toRadixString(16))
-            .fold<StringBuffer>(
-                StringBuffer(),
-                (previousValue, element) => previousValue
-                  ..write(element.length < 2 ? '0' : '')
-                  ..write(element));
-    print(r);
-    return value.foldIndexed<int>(
-        0, (index, acc, element) => acc |= element ? 1 << (63 - index) : 0);
-  });
+      File(r'/home/bai/ssd/photos/三連休は朝まで生ゆきのん。/01.jpg').readAsBytesSync());
   print(hash1);
 }
 
@@ -103,12 +86,12 @@ Future<void> testImageDownload() async {
   var pool = TaskManager(config);
   var task = await pool.addNewTask('45465465489456');
   await Future.delayed(Duration(seconds: 5));
-  task?.cancel();
+  task.cancel();
   await Future.delayed(Duration(seconds: 1));
-  task?.start();
+  task.start();
   await Future.delayed(Duration(seconds: 5));
-  task?.cancel();
+  task.cancel();
   task = await pool.addNewTask('2473175');
   await Future.delayed(Duration(seconds: 5));
-  task?.cancel();
+  task.cancel();
 }
