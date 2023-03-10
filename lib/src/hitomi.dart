@@ -141,9 +141,7 @@ class _HitomiImpl implements Hitomi {
     final b = !result.any((element) => !element);
     print('下载$id完成$b');
     gallery.translateLable(prefenerce.helper);
-    var info = GalleryInfo.formDirect(dir, prefenerce);
-    await info.computeHash(File(dir.path + '/${gallery.files.first.name}'));
-    info.insertToDataBase(gallery);
+    prefenerce.helper.insertGallery(gallery);
     return b;
   }
 

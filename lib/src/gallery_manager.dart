@@ -46,7 +46,7 @@ class GalleryManager {
         .toList();
     final brokens = <GalleryInfo>[];
     for (var element in result) {
-      await element.generalInfo();
+      await element.tryGetGalleryInfo();
       if (element.hash == 0) {
         element.directory.deleteSync(recursive: true);
         brokens.add(element);
@@ -59,36 +59,39 @@ class GalleryManager {
     return result;
   }
 
-  Future<bool> parseCommandAndRun(String cmd) async {
-    bool error = false;
+  List<String> _parseArgs(String cmd) {
     var words = cmd.split(blankExp);
     final args = <String>[];
     bool markCollct = false;
-    final markWords = <String>[];
+    final markWords = <String>{};
     for (var word in words) {
-      if (word.startsWith("'") || word.startsWith("\"")) {
-        error = markCollct;
-        if (!error) {
-          markCollct = true;
-          markWords.clear();
-          markWords.add(word.substring(1, word.length));
-        }
-      } else if (word.endsWith("'") || word.endsWith("\"")) {
-        if (markCollct) {
-          markWords.add(word.substring(0, word.length - 1));
-          args.add(markWords.join(' '));
-          markWords.clear();
-          markCollct = false;
-        } else {
-          args.add(word);
-        }
-      } else if (markCollct) {
-        markWords.add(word);
+      var content = word;
+      if ((word.startsWith("'") || word.startsWith("\"") && !markCollct)) {
+        markCollct = true;
+        markWords.clear();
+        content = word.substring(1, word.length);
+      }
+      if ((word.endsWith("'") || word.endsWith("\"")) && markCollct) {
+        content = word.substring(0, word.length - 1);
+        args.addAll(markWords);
+        markCollct = false;
+      }
+      if (markCollct) {
+        markWords.add(content);
       } else {
-        args.add(word);
+        args.add(content);
       }
     }
     if (markCollct) {
+      args.clear;
+    }
+    return args;
+  }
+
+  Future<bool> parseCommandAndRun(String cmd) async {
+    bool error = false;
+    var args = _parseArgs(cmd);
+    if (args.isEmpty) {
       print(parser.usage);
       return false;
     }
@@ -266,13 +269,33 @@ class GalleryManager {
   }
 
   Future<bool> fixDb() async {
+    await context.helper
+        .querySql(
+            r'''select hash,path,id from Gallery where hash in( select hash from Gallery GROUP by hash  having count(*)  > 1) order by hash''')
+        ?.asStream()
+        .asyncMap((element) async => Tuple2(
+            element['id'] as int,
+            await GalleryInfo.formDirect(Directory(element['path']), context)
+                .tryGetGalleryInfo()))
+        .where((event) => event.item1 != event.item2?.id.toInt())
+        .forEach((element) {
+          print('del ${element.item2?.fixedTitle}');
+          delGallery(element.item1);
+        })
+        .catchError((e) => print(e));
     var set = context.helper
         .querySql('select id,path from Gallery')
         ?.whereNot((element) => Directory(element['path']).existsSync());
+    print('fix $set');
     if (set != null) {
       for (var row in set) {
         print('fix $row');
-        await context.api.downloadImagesById(row['id']);
+        var gallery = await context.api.fetchGallery(row['id']);
+        if (gallery.id.toInt() != row['id']) {
+          delGallery(row['id']);
+        }
+        await context.api.downloadImagesById(gallery.id.toInt());
+        context.helper.insertGallery(gallery);
       }
     }
     return set != null && set.isNotEmpty;
@@ -309,7 +332,7 @@ class GalleryInfo {
   SqliteHelper get helper => context.helper;
   static final _imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
   static final _numberChap = RegExp(r'((?<start>\d+)-)?(?<end>\d+)話?$');
-  static final _fileNumber = RegExp(r'(?<num>\d+)\.\w+$');
+  // static final _fileNumber = RegExp(r'(?<num>\d+)\.\w+$');
   static final _ehTitleReg = RegExp(
       r'(\((?<event>.+?)\))?\s*\[(?<group>.+?)\s*(\((?<author>.+?)\))?\]\s*(?<name>.*)$');
   static final _serialExp = RegExp(r'(?<title>.+?)(?<serial>\(.+\))?$');
@@ -326,11 +349,7 @@ class GalleryInfo {
     api = Hitomi.fromPrefenerce(context);
   }
 
-  Future<void> generalInfo() async {
-    await _tryGetGalleryInfo();
-  }
-
-  Future<void> searchFromHitomi(List<Lable> tags) async {
+  Future<Gallery?> searchFromHitomi(List<Lable> tags) async {
     await computeHash();
     tags.addAll(
         context.languages.fold<List<Lable>>([], (acc, i) => acc..add(i)));
@@ -387,7 +406,7 @@ class GalleryInfo {
       success = await api.downloadImagesById(int.parse(gallery.id),
           usePrefence: false);
       if (success) {
-        await _hitomiParse(gallery);
+        return await _hitomiParse(gallery);
       }
     } else {
       await safeRename(directory);
@@ -439,26 +458,7 @@ class GalleryInfo {
         as String;
   }
 
-  void insertToDataBase(Gallery gallery) {
-    helper.excuteWithRow(
-        'replace into Gallery(id,path,author,groupes,serial,language,title,tags,files,hash) values(?,?,?,?,?,?,?,?,?,?)',
-        (statement) {
-      statement.execute([
-        gallery.id,
-        directory.path,
-        gallery.artists?.first.translate,
-        gallery.groups?.first.translate,
-        gallery.parodys?.first.translate,
-        gallery.language,
-        gallery.name,
-        json.encode(gallery.lables().map((e) => e.index).toList()),
-        json.encode(gallery.files.map((e) => e.name).toList()),
-        hash
-      ]);
-    });
-  }
-
-  Future<void> _tryGetGalleryInfo() async {
+  Future<Gallery?> tryGetGalleryInfo() async {
     if (fromHitomi) {
       return await metaFile.readAsString().then((value) {
         try {
@@ -469,10 +469,11 @@ class GalleryInfo {
       }).then((value) async => await _hitomiParse(value));
     } else if (_ehTitleReg.hasMatch(title)) {
       print('eh analyisis ${title}');
-      await _ehTitleParse(title);
+      return await _ehTitleParse(title);
     } else if (_numberTitle.hasMatch(title)) {
       this.hash = 0;
       await safeRename(directory);
+      return null;
     } else if (_hitomiTitleExp.hasMatch(title)) {
       print('hitomi analyisis ${title}');
       var mathces = _hitomiTitleExp.firstMatch(title)!;
@@ -494,7 +495,7 @@ class GalleryInfo {
               [],
               (previousValue, element) => previousValue
                 ..addAll(element.toList())).map((e) => QueryText(e)));
-      await searchFromHitomi(tags);
+      return await searchFromHitomi(tags);
     } else if (_serialExp.hasMatch(title)) {
       print('serial analyisis ${title}');
       if (_additionExp.hasMatch(title)) {
@@ -515,7 +516,7 @@ class GalleryInfo {
               [],
               (previousValue, element) => previousValue
                 ..addAll(element.toList())).map((e) => QueryText(e)));
-      await searchFromHitomi(tags);
+      return await searchFromHitomi(tags);
     } else {
       return await searchFromHitomi(title
           .split(blankExp)
@@ -526,7 +527,7 @@ class GalleryInfo {
     }
   }
 
-  Future<void> _hitomiParse(Gallery value) async {
+  Future<Gallery> _hitomiParse(Gallery value) async {
     title = value.name.trim();
     _chapterParse(title);
     await checkFilesExists(value);
@@ -534,7 +535,7 @@ class GalleryInfo {
         helper.querySql('select hash from Gallery where id =?', [value.id]);
     if (result?.isNotEmpty ?? false) {
       hash = result!.first['hash'];
-      return;
+      return value;
     }
     if (value.fixedTitle != basename(this.directory.path)) {
       final newDir = Directory(context.outPut + "/" + value.fixedTitle);
@@ -547,7 +548,8 @@ class GalleryInfo {
     }
     value.translateLable(helper);
     await computeHash(File(directory.path + '/${value.files.first.name}'));
-    insertToDataBase(value);
+    helper.insertGallery(value, hash);
+    return value;
   }
 
   Future<void> checkFilesExists(Gallery gallery) async {
@@ -574,7 +576,7 @@ class GalleryInfo {
         'select * from Tags WHERE translate=?', [name])?.firstOrNull?['name'];
   }
 
-  Future<void> _ehTitleParse(String name) async {
+  Future<Gallery?> _ehTitleParse(String name) async {
     name = name.substring(name.indexOf('['));
     List<Lable> tags = [];
     var mathces = _ehTitleReg.firstMatch(name)!;

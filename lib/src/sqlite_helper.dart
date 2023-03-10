@@ -1,7 +1,12 @@
 import 'dart:convert';
+import 'dart:ffi';
+import 'dart:io';
+import 'package:hitomi/gallery/gallery.dart';
 import 'package:hitomi/gallery/label.dart';
+import 'package:hitomi/src/dhash.dart';
 import 'package:hitomi/src/http_tools.dart';
 import 'package:path/path.dart';
+import 'package:sqlite3/open.dart';
 import 'package:sqlite3/sqlite3.dart';
 import 'package:tuple/tuple.dart';
 
@@ -10,10 +15,25 @@ import 'prefenerce.dart';
 class SqliteHelper {
   final UserContext context;
   late final Database _db;
+  static final _version = 1;
+  int get version {
+    final stmt = _db.prepare('PRAGMA user_version;');
+    try {
+      final result = stmt.select();
+      return result.first.columnAt(0) as int;
+    } finally {
+      stmt.dispose();
+    }
+  }
+
   SqliteHelper(this.context) {
     final dbPath = join(context.outPut, 'user.db');
     _db = sqlite3.open(dbPath);
     initTables();
+    if (version != _version) {
+      updateDataBase();
+      _db.execute('PRAGMA user_version=$_version;');
+    }
   }
 
   void initTables() {
@@ -27,7 +47,7 @@ class SqliteHelper {
       )''');
     _db.execute('''create table if not exists Gallery(
       id integer PRIMARY KEY,
-      path TEXT,
+      path TEXT Quique,
       author TEXT,
       groupes TEXT,
       serial TEXT,
@@ -38,6 +58,8 @@ class SqliteHelper {
       hash INTEGER not NULL
       )''');
   }
+
+  void updateDataBase() {}
 
   Future<bool> updateTagTable() async {
     // var rows = _db.select(
@@ -110,11 +132,35 @@ class SqliteHelper {
       doWithStam(stam);
     } catch (e) {
       print(e);
+    } finally {
+      stam.dispose();
     }
-    stam.dispose();
   }
 
   void excuteSql(String sql, [List<dynamic> params = const []]) {
     _db.execute(sql, params);
+  }
+
+  void insertGallery(Gallery gallery, [int? hash]) async {
+    final path = join(context.outPut, gallery.fixedTitle);
+    var useHash = hash ??
+        await imageHash(
+            File(join(path, gallery.files.first.name)).readAsBytesSync());
+    excuteWithRow(
+        'replace into Gallery(id,path,author,groupes,serial,language,title,tags,files,hash) values(?,?,?,?,?,?,?,?,?,?)',
+        (statement) {
+      statement.execute([
+        gallery.id,
+        path,
+        gallery.artists?.first.translate,
+        gallery.groups?.first.translate,
+        gallery.parodys?.first.translate,
+        gallery.language,
+        gallery.name,
+        json.encode(gallery.lables().map((e) => e.index).toList()),
+        json.encode(gallery.files.map((e) => e.name).toList()),
+        useHash
+      ]);
+    });
   }
 }

@@ -1,15 +1,19 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:args/args.dart';
+import 'package:hitomi/gallery/gallery.dart';
 import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/dhash.dart';
 import 'package:hitomi/src/gallery_manager.dart';
 import 'package:hitomi/src/sqlite_helper.dart';
+import 'package:sqlite3/sqlite3.dart';
 import 'package:test/test.dart';
 
 void main() async {
   test('match', () async {
-    print(DateTime.parse('2014-01-01'));
+    var db = sqlite3.openInMemory();
+    var stmt = db.prepare('PRAGMA user_version;');
+    var r = stmt.select();
+    print(r.rows.first.elementAt(0));
   });
 }
 
@@ -37,7 +41,7 @@ Future<void> testGalleryInfoDistance() async {
   });
 }
 
-Future<GalleryInfo> testGalleryInfo(String name) async {
+Future<Gallery?> testGalleryInfo(String name) async {
   var config = UserContext(UserConfig('/home/bai/ssd/photos',
       proxy: '127.0.0.1:8389',
       languages: ['chinese', 'japanese'],
@@ -45,8 +49,7 @@ Future<GalleryInfo> testGalleryInfo(String name) async {
   var gallery =
       GalleryInfo.formDirect(Directory('${config.outPut}/$name'), config);
   await config.initData();
-  await gallery.generalInfo();
-  return gallery;
+  return await gallery.tryGetGalleryInfo();
 }
 
 Future<void> testImageHash() async {

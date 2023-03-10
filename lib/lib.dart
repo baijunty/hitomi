@@ -24,6 +24,21 @@ extension Comparable on Iterable<int> {
   }
 }
 
+extension StreamConvert<E> on Iterable<E> {
+  Stream<E> asStream() => Stream.fromIterable(this);
+}
+
+extension NullFillterIterable<E, R> on Iterable<E?> {
+  Iterable<R> mapNonNull(R? test(E? event)) =>
+      this.map((e) => test(e)).where((element) => element != null)
+          as Iterable<R>;
+}
+
+extension NullFillterStream<E, R> on Stream<E> {
+  Stream<R> mapNonNull(R? test(E event)) =>
+      this.map((e) => test(e)).where((element) => element != null) as Stream<R>;
+}
+
 final zhAndJpCodeExp = RegExp(r'[\u0800-\u4e00|\u4e00-\u9fa5|30A0-30FF|\w]+');
 final blankExp = RegExp(r'\s+');
 final numberExp = RegExp(r'^\d+$');
