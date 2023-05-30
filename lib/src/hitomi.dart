@@ -6,7 +6,6 @@ import 'package:hitomi/gallery/label.dart';
 import 'package:hitomi/gallery/language.dart';
 import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/dhash.dart';
-import 'package:hitomi/src/gallery_manager.dart';
 import 'package:tuple/tuple.dart';
 import 'package:collection/collection.dart';
 import '../gallery/gallery.dart';
@@ -92,6 +91,16 @@ class _HitomiImpl implements Hitomi {
     var artists = gallery.artists;
     final outPath = prefenerce.outPut;
     final title = gallery.fixedTitle;
+    var b = gallery.tags?.any((element) =>
+            prefenerce.exclude.map((e) => e.name).contains(element.tag)) ??
+        false;
+    if (b) {
+      print('include exclude key,continue?(Y/n)');
+      var confirm = stdin.readLineSync();
+      if (confirm?.toLowerCase().toLowerCase() != 'y') {
+        return false;
+      }
+    }
     Directory dir;
     try {
       dir = Directory("${outPath}/${title}")..createSync();
@@ -138,10 +147,12 @@ class _HitomiImpl implements Hitomi {
       }
       result.add(b);
     }
-    final b = !result.any((element) => !element);
+    b = !result.any((element) => !element);
     print('下载$id完成$b');
-    gallery.translateLable(prefenerce.helper);
-    prefenerce.helper.insertGallery(gallery);
+    if (b) {
+      gallery.translateLable(prefenerce.helper);
+      prefenerce.helper.insertGallery(gallery);
+    }
     return b;
   }
 

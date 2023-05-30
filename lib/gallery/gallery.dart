@@ -227,32 +227,11 @@ class Gallery with Lable {
   bool operator ==(Object other) {
     if (identical(other, this)) return true;
     if (other is! Gallery) return false;
-    final mapEquals = const DeepCollectionEquality().equals;
-    return mapEquals(other.toMap(), toMap());
+    return name == other.name && artists == other.artists;
   }
 
   @override
-  int get hashCode =>
-      artists.hashCode ^
-      tags.hashCode ^
-      sceneIndexes.hashCode ^
-      japaneseTitle.hashCode ^
-      languages.hashCode ^
-      type.hashCode ^
-      languageLocalname.hashCode ^
-      title.hashCode ^
-      language.hashCode ^
-      characters.hashCode ^
-      galleryurl.hashCode ^
-      languageUrl.hashCode ^
-      date.hashCode ^
-      related.hashCode ^
-      video.hashCode ^
-      parodys.hashCode ^
-      videofilename.hashCode ^
-      files.hashCode ^
-      id.hashCode ^
-      groups.hashCode;
+  int get hashCode => artists.hashCode ^ name.hashCode;
 
   @override
   String get name => japaneseTitle ?? title;

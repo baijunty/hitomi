@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
 import 'dart:typed_data';
@@ -28,9 +27,9 @@ class GalleryManager {
       ..addFlag('scan', abbr: 's')
       ..addOption('del')
       ..addOption('add', abbr: 'a')
-      ..addMultiOption('tags', abbr: 't')
+      ..addMultiOption('tag', abbr: 't')
       ..addCommand(
-          'tag',
+          'tags',
           ArgParser()
             ..addOption('type', abbr: 't')
             ..addOption('name', abbr: 'n'));
@@ -59,21 +58,21 @@ class GalleryManager {
     return result;
   }
 
-  List<String> _parseArgs(String cmd) {
+  List<String> parseArgs(String cmd) {
     var words = cmd.split(blankExp);
     final args = <String>[];
     bool markCollct = false;
     final markWords = <String>{};
-    for (var word in words) {
-      var content = word;
-      if ((word.startsWith("'") || word.startsWith("\"") && !markCollct)) {
+    for (var content in words) {
+      if ((content.startsWith("'") ||
+          content.startsWith("\"") && !markCollct)) {
         markCollct = true;
         markWords.clear();
-        content = word.substring(1, word.length);
+        content = content.substring(1, content.length);
       }
-      if ((word.endsWith("'") || word.endsWith("\"")) && markCollct) {
-        content = word.substring(0, word.length - 1);
-        args.addAll(markWords);
+      if ((content.endsWith("'") || content.endsWith("\"")) && markCollct) {
+        markWords.add(content.substring(0, content.length - 1));
+        content = markWords.join(' ');
         markCollct = false;
       }
       if (markCollct) {
@@ -83,14 +82,14 @@ class GalleryManager {
       }
     }
     if (markCollct) {
-      args.clear;
+      args.clear();
     }
     return args;
   }
 
   Future<bool> parseCommandAndRun(String cmd) async {
     bool error = false;
-    var args = _parseArgs(cmd);
+    var args = parseArgs(cmd);
     if (args.isEmpty) {
       print(parser.usage);
       return false;
@@ -110,10 +109,10 @@ class GalleryManager {
       if (!error) {
         delGallery(id.toInt());
       }
-    } else if (result.command != null || result.wasParsed('tags')) {
+    } else if (result.command != null || result.wasParsed('tag')) {
       var name = result.command?['name'];
       var type = result.command?['type'];
-      List<String> tagWords = result.wasParsed('tags') ? result['tags'] : [];
+      List<String> tagWords = result.wasParsed('tag') ? result['tag'] : [];
       error = name == null && tagWords.isEmpty;
       if (!error) {
         List<Lable> tags = [];
@@ -159,6 +158,7 @@ class GalleryManager {
     final api = context.api;
     final results =
         await api.search(tags, exclude: context.exclude).then((value) async {
+      print('serch result length ${value.length}');
       return await Stream.fromIterable(value)
           .asyncMap((event) async => await api.fetchGallery(event))
           .where((event) => where(event))
@@ -168,16 +168,17 @@ class GalleryManager {
             'https://hitomi.la${Uri.encodeFull(event.galleryurl!)}');
         var hash = await imageHash(Uint8List.fromList(img));
         return Tuple2(hash, event);
-      }).fold<Map<int, Gallery>>({}, (previousValue, element) {
+      }).fold<Map<Tuple2<int, Gallery>, Gallery>>({}, (previousValue, element) {
         previousValue.removeWhere((key, value) {
-          if (compareHashDistance(key, element.item1) < 8 &&
+          if ((compareHashDistance(key.item1, element.item1) < 8 ||
+                  key.item2 == element.item2) &&
               (element.item2.language == 'japanese' ||
                   element.item2.language == value.language)) {
             return true;
           }
           return false;
         });
-        previousValue[element.item1] = element.item2;
+        previousValue[element] = element.item2;
         return previousValue;
       });
     });

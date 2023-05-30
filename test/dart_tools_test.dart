@@ -5,15 +5,18 @@ import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/dhash.dart';
 import 'package:hitomi/src/gallery_manager.dart';
 import 'package:hitomi/src/sqlite_helper.dart';
-import 'package:sqlite3/sqlite3.dart';
 import 'package:test/test.dart';
 
 void main() async {
   test('match', () async {
-    var db = sqlite3.openInMemory();
-    var stmt = db.prepare('PRAGMA user_version;');
-    var r = stmt.select();
-    print(r.rows.first.elementAt(0));
+    var config = UserContext(UserConfig(r'/home/bai/ssd/photos',
+        proxy: '127.0.0.1:8389',
+        languages: ['chinese', 'japanese'],
+        maxTasks: 5));
+    var fix = GalleryManager(config, null);
+    await config.initData();
+    var r = await fix.parseCommandAndRun('2549879');
+    print(r);
   });
 }
 

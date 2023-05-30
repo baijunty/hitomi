@@ -16,7 +16,7 @@ class TaskManager {
     final t = _tasks.firstWhereOrNull((element) => element.id == cmd);
     late Task<Object> task;
     if (t == null) {
-      task = _CommandTaskImpl(cmd, Completer());
+      task = _CommandTaskImpl(cmd);
       _tasks.add(task);
     } else {
       task = t;
@@ -55,6 +55,7 @@ class TaskManager {
             };
             _tryStartNext(Tuple2(streamWarp, sendPort));
           }
+          print('left task ${tasks.map((t) => t.id).join(';')}');
         }
       }
     });
@@ -63,7 +64,6 @@ class TaskManager {
   void _tryStartNext(Tuple2<StreamController<Message>, SendPort> tuple2) {
     final t = _tasks
         .firstWhereOrNull((element) => element.status == TaskStatus.UnStarted);
-    print('try run task ${t?.id}');
     if (t != null) {
       t._completer.complete(tuple2);
     } else {
@@ -102,22 +102,20 @@ abstract class Task<T> {
   T get id;
   bool get isRunning => status == TaskStatus.Running;
   late SendPort sender;
-  Completer<Tuple2<StreamController<Message>, SendPort>> _completer;
   Tuple2<StreamController<Message>, SendPort>? _tuple2;
   TaskStatus status = TaskStatus.UnStarted;
-  Task(this._completer);
-
+  Completer _completer = Completer();
   Future<void> start() async {
     if (!isRunning) {
       status = TaskStatus.UnStarted;
       _tuple2 ??= await _completer.future;
       status = TaskStatus.Running;
       _tuple2!.item2.send(id);
+      _completer = Completer();
     }
   }
 
   void reset() {
-    _completer = Completer();
     _tuple2 = null;
     status = TaskStatus.Finished;
   }
@@ -147,9 +145,7 @@ class _CommandTaskImpl extends Task<String> {
   String command;
   @override
   String get id => this.command;
-  _CommandTaskImpl(this.command,
-      Completer<Tuple2<StreamController<Message>, SendPort>> _completer)
-      : super(_completer);
+  _CommandTaskImpl(this.command) : super();
 }
 
 enum TaskStatus {
