@@ -20,19 +20,20 @@ class GalleryManager {
   final UserContext context;
   final SendPort? port;
   late ArgParser parser;
+  ArgParser _command = ArgParser();
   GalleryManager(this.context, [this.port]) {
+    _command
+      ..addOption('name', abbr: 'n')
+      ..addOption('type');
     parser = ArgParser()
       ..addFlag('fix')
       ..addFlag('fixDb', abbr: 'f')
       ..addFlag('scan', abbr: 's')
+      ..addFlag('update', abbr: 'u')
       ..addOption('del')
-      ..addOption('add', abbr: 'a')
+      ..addOption('artist', abbr: 'a')
       ..addMultiOption('tag', abbr: 't')
-      ..addCommand(
-          'tags',
-          ArgParser()
-            ..addOption('type', abbr: 't')
-            ..addOption('name', abbr: 'n'));
+      ..addCommand('tags', _command);
   }
   Future<List<GalleryInfo>> listInfo([String? path]) async {
     var userPath = '${context.outPut}/${path ?? ''}';
@@ -88,33 +89,52 @@ class GalleryManager {
   }
 
   Future<bool> parseCommandAndRun(String cmd) async {
-    bool error = false;
+    bool hasError = false;
     var args = parseArgs(cmd);
     if (args.isEmpty) {
+      print('$cmd error with ${args}');
       print(parser.usage);
       return false;
     }
     final result = parser.parse(args);
     if (result['scan']) {
       await listInfo();
-    } else if (result.wasParsed('add') || numberExp.hasMatch(cmd)) {
-      String id = numberExp.hasMatch(cmd) ? cmd : result['add'];
-      error = !numberExp.hasMatch(id);
-      if (!error) {
-        error = !await downLoadGallery(id.toInt());
+    } else if (numberExp.hasMatch(cmd)) {
+      String id = cmd;
+      hasError = !numberExp.hasMatch(id);
+      if (!hasError) {
+        hasError = !await downLoadGallery(id.toInt());
       }
     } else if (result.wasParsed('del')) {
-      String id = result['del'];
-      error = !numberExp.hasMatch(id);
-      if (!error) {
+      String id = result['del'].trim();
+      hasError = !numberExp.hasMatch(id);
+      if (!hasError) {
         delGallery(id.toInt());
       }
+    } else if (result.wasParsed('artist')) {
+      String? artist = result['artist'];
+      print(artist);
+      hasError = artist == null || artist.isEmpty;
+      if (!hasError) {
+        await downLoadByTag(
+            <Lable>[
+              Artist(artist: artist),
+              ...context.languages,
+              TypeLabel('doujinshi'),
+              TypeLabel('manga')
+            ],
+            (gallery) =>
+                DateTime.parse(gallery.date).compareTo(context.limit) > 0 &&
+                (gallery.artists?.length ?? 0) <= 2 &&
+                gallery.files.length >= 18);
+      }
+      return !hasError;
     } else if (result.command != null || result.wasParsed('tag')) {
       var name = result.command?['name'];
       var type = result.command?['type'];
       List<String> tagWords = result.wasParsed('tag') ? result['tag'] : [];
-      error = name == null && tagWords.isEmpty;
-      if (!error) {
+      hasError = name == null && tagWords.isEmpty;
+      if (!hasError) {
         List<Lable> tags = [];
         if (type != null) {
           tags.add(fromString(type, name));
@@ -123,7 +143,7 @@ class GalleryManager {
         }
         tags.addAll(tagWords.map((e) => context.helper.getLableFromKey(e)));
         tags.addAll(context.languages);
-        print('$cmd parse result $tags');
+        print('$tags');
         await downLoadByTag(
             tags,
             (gallery) =>
@@ -135,11 +155,15 @@ class GalleryManager {
       await fixDb();
     } else if (result['fix']) {
       await fix();
+    } else if (result['update']) {
+      print('start update db');
+      return await context.helper.updateTagTable();
     }
-    if (error) {
+    if (hasError) {
+      print('$cmd error with ${args}');
       print(parser.usage);
     }
-    return !error;
+    return !hasError;
   }
 
   Future<bool> downLoadGallery(int id) async {
@@ -185,7 +209,7 @@ class GalleryManager {
     bool b = true;
     print('find length ${results.length}');
     for (var element in results.entries) {
-      b &= await api.downloadImagesById(element.value.id.toInt());
+      b &= await api.downloadImagesById(element.value.id);
     }
     return b;
   }
@@ -278,7 +302,7 @@ class GalleryManager {
             element['id'] as int,
             await GalleryInfo.formDirect(Directory(element['path']), context)
                 .tryGetGalleryInfo()))
-        .where((event) => event.item1 != event.item2?.id.toInt())
+        .where((event) => event.item1 != event.item2?.id)
         .forEach((element) {
           print('del ${element.item2?.fixedTitle}');
           delGallery(element.item1);
@@ -292,10 +316,10 @@ class GalleryManager {
       for (var row in set) {
         print('fix $row');
         var gallery = await context.api.fetchGallery(row['id']);
-        if (gallery.id.toInt() != row['id']) {
+        if (gallery.id != row['id']) {
           delGallery(row['id']);
         }
-        await context.api.downloadImagesById(gallery.id.toInt());
+        await context.api.downloadImagesById(gallery.id);
         context.helper.insertGallery(gallery);
       }
     }
@@ -303,6 +327,16 @@ class GalleryManager {
   }
 
   void delGallery(int id) {
+    var set =
+        context.helper.querySql('select path from Gallery where id=?', [id]);
+    print(set);
+    set
+        ?.mapNonNull((e) => e!['path'])
+        .map((event) => File(event))
+        .forEach((element) {
+      print('del file $element');
+      element.deleteSync(recursive: true);
+    });
     context.helper.excuteSql('delete from Gallery where id=?', [id]);
   }
 }
@@ -378,9 +412,7 @@ class GalleryInfo {
               }
               return null;
             }).firstWhere((element) => element != null, orElse: () => null);
-            return firstId == null
-                ? null
-                : await api.fetchGallery(firstId.id.toInt());
+            return firstId == null ? null : await api.fetchGallery(firstId.id);
           }).catchError((e) async => null);
     bool success = gallery != null;
     if (success) {
@@ -404,8 +436,7 @@ class GalleryInfo {
           safeRename(element, '$target/$exists');
         }
       });
-      success = await api.downloadImagesById(int.parse(gallery.id),
-          usePrefence: false);
+      success = await api.downloadImagesById(gallery.id, usePrefence: false);
       if (success) {
         return await _hitomiParse(gallery);
       }
@@ -568,7 +599,7 @@ class GalleryInfo {
     });
     if (mission != null) {
       print('mission $mission');
-      await api.downloadImagesById(gallery.id.toInt(), usePrefence: false);
+      await api.downloadImagesById(gallery.id, usePrefence: false);
     }
   }
 

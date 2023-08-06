@@ -44,7 +44,7 @@ class Gallery with Lable {
   final List<Parody>? parodys;
   final String? videofilename;
   final List<Image> files;
-  final String id;
+  final id;
   final List<Group>? groups;
 
   Gallery({
@@ -125,7 +125,7 @@ class Gallery with Lable {
         files: (data['files'] as List<dynamic>)
             .map((e) => Image.fromMap(e as Map<String, dynamic>))
             .toList(),
-        id: data['id'] as String,
+        id: data['id'],
         groups: (data['groups'] as List<dynamic>?)
             ?.map((e) => Group.fromMap(e as Map<String, dynamic>))
             .toList(),
@@ -189,7 +189,7 @@ class Gallery with Lable {
     List<Parody>? parodys,
     dynamic videofilename,
     List<Image>? files,
-    String? id,
+    required id,
     List<Group>? groups,
   }) {
     return Gallery(
@@ -211,7 +211,7 @@ class Gallery with Lable {
       parodys: parodys ?? this.parodys,
       videofilename: videofilename ?? this.videofilename,
       files: files ?? this.files,
-      id: id ?? this.id,
+      id: id,
       groups: groups ?? this.groups,
     );
   }

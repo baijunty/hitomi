@@ -5,7 +5,7 @@ import '../gallery/group.dart';
 import '../gallery/parody.dart';
 import '../gallery/tag.dart';
 
-abstract class Lable {
+abstract mixin class Lable {
   String get type;
   String get name;
   final Map<String, dynamic> trans = {};

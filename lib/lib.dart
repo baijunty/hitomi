@@ -3,8 +3,11 @@ export 'src/prefenerce.dart';
 export 'src/gallery_tool.dart';
 export 'src/user_config.dart';
 
-extension IntParse on String {
+extension IntParse on dynamic {
   int toInt() {
+    if (this is int) {
+      return this as int;
+    }
     return int.parse(this);
   }
 }

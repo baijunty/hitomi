@@ -14,19 +14,20 @@ class TaskManager {
 
   Future<Task<Object>> _pull(String cmd) async {
     final t = _tasks.firstWhereOrNull((element) => element.id == cmd);
-    late Task<Object> task;
+    Task<Object> task;
     if (t == null) {
       task = _CommandTaskImpl(cmd);
       _tasks.add(task);
-    } else {
-      task = t;
+      if (_tuples.isNotEmpty) {
+        task._completer.complete(_tuples.removeAt(0));
+      } else if (_tasks.length + _tuples.length < _config.maxTasks) {
+        await _initNewIsolate();
+      }
+      print('$cmd is added');
+      return task;
     }
-    if (_tuples.isNotEmpty) {
-      task._completer.complete(_tuples.removeAt(0));
-    } else if (_tasks.length + _tuples.length < _config.maxTasks) {
-      await _initNewIsolate();
-    }
-    return task;
+    print('${t.id} is already added');
+    return t;
   }
 
   Future<void> _initNewIsolate() async {
@@ -48,13 +49,13 @@ class TaskManager {
             _tasks.remove(t);
           } else {
             _tasks.removeWhere((element) => element.id == message.id);
-            final streamWarp = StreamController<Message>();
-            streamWarp.onCancel = () async {
-              late.kill();
-              late = await Isolate.spawn(asyncDownload, recv.sendPort);
-            };
-            _tryStartNext(Tuple2(streamWarp, sendPort));
           }
+          final streamWarp = StreamController<Message>();
+          streamWarp.onCancel = () async {
+            late.kill();
+            late = await Isolate.spawn(asyncDownload, recv.sendPort);
+          };
+          _tryStartNext(Tuple2(streamWarp, sendPort));
           print('left task ${tasks.map((t) => t.id).join(';')}');
         }
       }

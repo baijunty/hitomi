@@ -13,9 +13,9 @@ import 'http_tools.dart';
 import 'package:crypto/crypto.dart';
 
 abstract class Hitomi {
-  Future<bool> downloadImagesById(int id,
+  Future<bool> downloadImagesById(dynamic id,
       {void onProcess(Message msg)?, bool usePrefence = true});
-  Future<Gallery> fetchGallery(int id, {usePrefence = true});
+  Future<Gallery> fetchGallery(dynamic id, {usePrefence = true});
   Future<List<int>> search(List<Lable> include,
       {List<Lable> exclude, int page = 1});
   Future<List<int>> fetchIdsByTag(Lable tag, [Language? language]);
@@ -68,7 +68,7 @@ class _HitomiImpl implements Hitomi {
   static final _emptyList = const <int>[];
   _HitomiImpl(this.prefenerce);
 
-  Future<Gallery> _fetchGalleryJsonById(int id) async {
+  Future<Gallery> _fetchGalleryJsonById(dynamic id) async {
     return http_invke('https://ltn.hitomi.la/galleries/$id.js',
             proxy: prefenerce.proxy)
         .then((ints) {
@@ -85,7 +85,7 @@ class _HitomiImpl implements Hitomi {
   }
 
   @override
-  Future<bool> downloadImagesById(int id,
+  Future<bool> downloadImagesById(dynamic id,
       {void onProcess(Message msg)?, usePrefence = true}) async {
     final gallery = await fetchGallery(id, usePrefence: usePrefence);
     var artists = gallery.artists;
@@ -95,7 +95,7 @@ class _HitomiImpl implements Hitomi {
             prefenerce.exclude.map((e) => e.name).contains(element.tag)) ??
         false;
     if (b) {
-      print('include exclude key,continue?(Y/n)');
+      print('${id} include exclude key,continue?(Y/n)');
       var confirm = stdin.readLineSync();
       if (confirm?.toLowerCase().toLowerCase() != 'y') {
         return false;
@@ -193,7 +193,7 @@ class _HitomiImpl implements Hitomi {
   }
 
   @override
-  Future<Gallery> fetchGallery(int id, {usePrefence = true}) async {
+  Future<Gallery> fetchGallery(dynamic id, {usePrefence = true}) async {
     var gallery = await _fetchGalleryJsonById(id);
     if (usePrefence) {
       gallery = await _findBeseMatch(gallery);

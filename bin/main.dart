@@ -67,5 +67,6 @@ void main(List<String> args) async {
 Stream<String> getUserInputId() {
   return stdin
       .map((data) => systemEncoding.decode(data))
+      .map((s)=>s.toString())
       .where((event) => event.trim().isNotEmpty);
 }

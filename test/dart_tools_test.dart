@@ -15,7 +15,8 @@ void main() async {
         maxTasks: 5));
     var fix = GalleryManager(config, null);
     await config.initData();
-    var r = await fix.parseCommandAndRun('2549879');
+    var r = await fix.parseCommandAndRun('2426005');
+    // .parseArgs('tags --type artist -n simon -t doujinshi -t manga');
     print(r);
   });
 }

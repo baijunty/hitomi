@@ -34,7 +34,7 @@ int compareHashDistance(int hash1, int hash2) {
   return distance;
 }
 
-abstract class ImageHash {
+abstract mixin class ImageHash {
   static const DHash = const _DHash();
   static const AHash = const _AHash();
   int get width;
