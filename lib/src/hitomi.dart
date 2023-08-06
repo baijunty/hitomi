@@ -94,7 +94,7 @@ class _HitomiImpl implements Hitomi {
     var b = gallery.tags?.any((element) =>
             prefenerce.exclude.map((e) => e.name).contains(element.tag)) ??
         false;
-    if (b) {
+    if (b && usePrefence) {
       print('${id} include exclude key,continue?(Y/n)');
       var confirm = stdin.readLineSync();
       if (confirm?.toLowerCase().toLowerCase() != 'y') {

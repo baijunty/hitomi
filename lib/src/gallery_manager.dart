@@ -209,7 +209,7 @@ class GalleryManager {
     bool b = true;
     print('find length ${results.length}');
     for (var element in results.entries) {
-      b &= await api.downloadImagesById(element.value.id);
+      b &= await api.downloadImagesById(element.value.id, usePrefence: false);
     }
     return b;
   }

@@ -9,6 +9,7 @@ import 'package:test/test.dart';
 
 void main() async {
   test('match', () async {
+    print('sdf'.split(';'));
     var config = UserContext(UserConfig(r'/home/bai/ssd/photos',
         proxy: '127.0.0.1:8389',
         languages: ['chinese', 'japanese'],
@@ -93,12 +94,12 @@ Future<void> testImageDownload() async {
   var pool = TaskManager(config);
   var task = await pool.addNewTask('45465465489456');
   await Future.delayed(Duration(seconds: 5));
-  task.cancel();
+  task?.cancel();
   await Future.delayed(Duration(seconds: 1));
-  task.start();
+  task?.start();
   await Future.delayed(Duration(seconds: 5));
-  task.cancel();
+  task?.cancel();
   task = await pool.addNewTask('2473175');
   await Future.delayed(Duration(seconds: 5));
-  task.cancel();
+  task?.cancel();
 }

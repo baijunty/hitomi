@@ -12,7 +12,7 @@ class TaskManager {
   List<Task<Object>> get tasks => _tasks.toList();
   TaskManager(this._config);
 
-  Future<Task<Object>> _pull(String cmd) async {
+  Future<Task<Object>?> _pull(String cmd) async {
     final t = _tasks.firstWhereOrNull((element) => element.id == cmd);
     Task<Object> task;
     if (t == null) {
@@ -27,7 +27,7 @@ class TaskManager {
       return task;
     }
     print('${t.id} is already added');
-    return t;
+    return null;
   }
 
   Future<void> _initNewIsolate() async {
@@ -72,7 +72,7 @@ class TaskManager {
     }
   }
 
-  Future<Task> addNewTask(String cmd) async {
+  Future<Task?> addNewTask(String cmd) async {
     return _pull(cmd.trim().trimRight());
   }
 }

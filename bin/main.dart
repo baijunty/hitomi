@@ -23,15 +23,14 @@ void main(List<String> args) async {
         allowed: ["japanese", "chinese", "english"],
         help: 'set language with -l')
     ..addMultiOption('excluede', abbr: 'e', help: 'set excluede tags')
-    ..addMultiOption('task',
-        abbr: 't', defaultsTo: [], help: 'set task with -t');
+    ..addOption('task', abbr: 't', help: 'set task with -t');
   print(parser.usage);
   ArgResults argResults = parser.parse(args);
   final outDir = argResults['output'];
   final proxy = argResults['proxy'];
   final file = File(argResults['file']);
   final List<String> languages = argResults["languages"];
-  final List<String> tasks = argResults["task"];
+  final String? tasks = argResults["task"];
   final List<String> excluede = argResults["excluede"];
   UserConfig config;
   if (file.existsSync()) {
@@ -46,11 +45,11 @@ void main(List<String> args) async {
   }
   print(config);
   final pool = TaskManager(config);
-  tasks.forEach(
-      (element) async => await (await pool.addNewTask(element)).start());
+  tasks?.split(';').forEach(
+      (element) async => await (await pool.addNewTask(element))?.start());
   getUserInputId().forEach((element) async {
     final task = await pool.addNewTask(element);
-    task.listen((msg) {
+    task?.listen((msg) {
       if (msg is DownLoadMessage) {
         var content =
             '${msg.id}下载${msg.title} ${msg.current}/${msg.maxPage} ${(msg.speed).toStringAsFixed(2)}Kb/s 共${(msg.length / 1024).toStringAsFixed(2)}KB';
@@ -67,6 +66,7 @@ void main(List<String> args) async {
 Stream<String> getUserInputId() {
   return stdin
       .map((data) => systemEncoding.decode(data))
-      .map((s)=>s.toString())
+      .map((s) => s.split(';'))
+      .expand((l) => l.toSet())
       .where((event) => event.trim().isNotEmpty);
 }
