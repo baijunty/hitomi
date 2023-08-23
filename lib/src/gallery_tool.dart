@@ -20,7 +20,7 @@ class TaskManager {
       _tasks.add(task);
       if (_tuples.isNotEmpty) {
         task._completer.complete(_tuples.removeAt(0));
-      } else if (_tasks.length + _tuples.length < _config.maxTasks) {
+      } else if (_tasks.length + _tuples.length <= _config.maxTasks) {
         await _initNewIsolate();
       }
       print('$cmd is added');

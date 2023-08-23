@@ -4,21 +4,21 @@ import 'package:hitomi/gallery/gallery.dart';
 import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/dhash.dart';
 import 'package:hitomi/src/gallery_manager.dart';
-import 'package:hitomi/src/sqlite_helper.dart';
 import 'package:test/test.dart';
 
 void main() async {
   test('match', () async {
-    print('sdf'.split(';'));
-    var config = UserContext(UserConfig(r'/home/bai/ssd/photos',
-        proxy: '127.0.0.1:8389',
-        languages: ['chinese', 'japanese'],
-        maxTasks: 5));
-    var fix = GalleryManager(config, null);
-    await config.initData();
-    var r = await fix.parseCommandAndRun('2426005');
-    // .parseArgs('tags --type artist -n simon -t doujinshi -t manga');
-    print(r);
+    await testSqlHelper();
+    // print('sdf'.split(';'));
+    // var config = UserContext(UserConfig(r'/home/bai/ssd/photos',
+    //     proxy: '127.0.0.1:8389',
+    //     languages: ['chinese', 'japanese'],
+    //     maxTasks: 5));
+    // var fix = GalleryManager(config, null);
+    // await config.initData();
+    // var r = await fix.parseCommandAndRun('2426005');
+    // // .parseArgs('tags --type artist -n simon -t doujinshi -t manga');
+    // print(r);
   });
 }
 
@@ -69,10 +69,10 @@ Future<void> testSqlHelper() async {
       languages: ['chinese', 'japanese'],
       maxTasks: 5));
   // await config.initData();
-  var row =
-      await SqliteHelper(config).querySql("select split('1-2-3','-') as t");
-  row?.forEach((element) {
-    print('${element.keys} is ${element.values}');
+  var f = await config.helper.selectSqlAsync(
+      r'select translate from Tags where name like ?', ['%yu%']);
+  f.forEach((element) {
+    print(element.values);
   });
 }
 

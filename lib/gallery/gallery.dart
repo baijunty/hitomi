@@ -70,7 +70,7 @@ class Gallery with Lable {
     this.groups,
   });
 
-  void translateLable(SqliteHelper helper) {
+  Future<void> translateLable(SqliteHelper helper) async {
     artists?.forEach((element) => element.translateLable(helper));
     tags?.forEach((element) => element.translateLable(helper));
     languages?.forEach((element) => element.translateLable(helper));

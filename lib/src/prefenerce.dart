@@ -24,8 +24,7 @@ class UserContext {
   String get proxy => _config.proxy;
   String get outPut => _config.output;
   Hitomi get api => _hitomi;
-  List<Lable> get exclude =>
-      _config.exinclude?.map((e) => helper.getLableFromKey(e)).toList() ?? [];
+  List<Lable> exclude = [];
   final UserConfig _config;
   SqliteHelper get helper => _helper;
   DateTime get limit => (_config.dateLimit?.isEmpty ?? true)
@@ -33,7 +32,7 @@ class UserContext {
       : DateTime.parse(_config.dateLimit!);
   UserContext(this._config) {
     Directory(_config.output)..createSync();
-    _helper = SqliteHelper(this);
+    _helper = SqliteHelper(this._config);
     _hitomi = Hitomi.fromPrefenerce(this);
     Timer.periodic(Duration(minutes: 30), (timer) async => await initData());
   }
@@ -59,6 +58,11 @@ class UserContext {
             proxy: proxy)
         .then((value) => Utf8Decoder().convert(value))
         .then((value) => int.parse(value));
+    exclude = await _config.exinclude
+            ?.asStream()
+            .asyncMap((e) => helper.getLableFromKey(e))
+            .toList() ??
+        [];
   }
 
   Future<List<int>> getCacheIdsFromLang(Lable lable) async {

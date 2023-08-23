@@ -1,2 +1,2 @@
-select * from Gallery limit 20
+select * from Gallery WHERE path like '%fuji-han%'
 select * from Tags where name='kanka'

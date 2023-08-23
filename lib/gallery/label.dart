@@ -14,10 +14,12 @@ abstract mixin class Lable {
   int get index => (trans['id'] as int?) ?? -1;
   String get sqlType => type;
 
-  void translateLable(SqliteHelper helper) {
-    final query = helper.getMatchLable(this);
-    if (query != null) {
-      trans.addAll(query);
+  Future<void> translateLable(SqliteHelper helper) async {
+    if (trans.isEmpty) {
+      final query = await helper.getMatchLable(this);
+      if (query != null) {
+        trans.addAll(query);
+      }
     }
   }
 

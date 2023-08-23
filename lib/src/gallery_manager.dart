@@ -32,6 +32,7 @@ class GalleryManager {
       ..addFlag('update', abbr: 'u')
       ..addOption('del')
       ..addOption('artist', abbr: 'a')
+      ..addOption('group', abbr: 'g')
       ..addMultiOption('tag', abbr: 't')
       ..addCommand('tags', _command);
   }
@@ -129,6 +130,24 @@ class GalleryManager {
                 gallery.files.length >= 18);
       }
       return !hasError;
+    } else if (result.wasParsed('group')) {
+      String? group = result['group'];
+      print(group);
+      hasError = group == null || group.isEmpty;
+      if (!hasError) {
+        await downLoadByTag(
+            <Lable>[
+              Group(group: group),
+              ...context.languages,
+              TypeLabel('doujinshi'),
+              TypeLabel('manga')
+            ],
+            (gallery) =>
+                DateTime.parse(gallery.date).compareTo(context.limit) > 0 &&
+                (gallery.artists?.length ?? 0) <= 2 &&
+                gallery.files.length >= 18);
+      }
+      return !hasError;
     } else if (result.command != null || result.wasParsed('tag')) {
       var name = result.command?['name'];
       var type = result.command?['type'];
@@ -141,7 +160,10 @@ class GalleryManager {
         } else if (name != null) {
           tagWords.add(name);
         }
-        tags.addAll(tagWords.map((e) => context.helper.getLableFromKey(e)));
+        tags.addAll(await tagWords
+            .asStream()
+            .asyncMap((e) => context.helper.getLableFromKey(e))
+            .toList());
         tags.addAll(context.languages);
         print('$tags');
         await downLoadByTag(
@@ -229,7 +251,7 @@ class GalleryManager {
           print('del broken ${element.directory.path}');
           element.directory.deleteSync(recursive: true);
         }
-        var set = context.helper
+        var set = await context.helper
             .querySql('select * from Gallery where hash=?', [element.hash]);
         if (set?.isNotEmpty ?? false) {
           print(
@@ -297,20 +319,23 @@ class GalleryManager {
     await context.helper
         .querySql(
             r'''select hash,path,id from Gallery where hash in( select hash from Gallery GROUP by hash  having count(*)  > 1) order by hash''')
-        ?.asStream()
-        .asyncMap((element) async => Tuple2(
-            element['id'] as int,
-            await GalleryInfo.formDirect(Directory(element['path']), context)
-                .tryGetGalleryInfo()))
-        .where((event) => event.item1 != event.item2?.id)
-        .forEach((element) {
-          print('del ${element.item2?.fixedTitle}');
-          delGallery(element.item1);
-        })
+        .then((value) => value?.toList().asStream())
+        .then((value) async => value
+                ?.asyncMap((element) async => Tuple2(
+                    element['id'] as int,
+                    await GalleryInfo.formDirect(
+                            Directory(element['path']), context)
+                        .tryGetGalleryInfo()))
+                .where((event) => event.item1 != event.item2?.id)
+                .forEach((element) {
+              print('del ${element.item2?.fixedTitle}');
+              delGallery(element.item1);
+            }))
         .catchError((e) => print(e));
-    var set = context.helper
-        .querySql('select id,path from Gallery')
-        ?.whereNot((element) => Directory(element['path']).existsSync());
+    var set = await context.helper.querySql('select id,path from Gallery').then(
+        (value) => value
+            ?.toList()
+            .whereNot((element) => Directory(element['path']).existsSync()));
     print('fix $set');
     if (set != null) {
       for (var row in set) {
@@ -326,9 +351,9 @@ class GalleryManager {
     return set != null && set.isNotEmpty;
   }
 
-  void delGallery(int id) {
-    var set =
-        context.helper.querySql('select path from Gallery where id=?', [id]);
+  void delGallery(int id) async {
+    var set = await context.helper
+        .querySql('select path from Gallery where id=?', [id]);
     print(set);
     set
         ?.mapNonNull((e) => e!['path'])
@@ -337,7 +362,7 @@ class GalleryManager {
       print('del file $element');
       element.deleteSync(recursive: true);
     });
-    context.helper.excuteSql('delete from Gallery where id=?', [id]);
+    await context.helper.excuteSqlAsync('delete from Gallery where id=?', [id]);
   }
 }
 
@@ -563,8 +588,8 @@ class GalleryInfo {
     title = value.name.trim();
     _chapterParse(title);
     await checkFilesExists(value);
-    final result =
-        helper.querySql('select hash from Gallery where id =?', [value.id]);
+    final result = await helper
+        .querySql('select hash from Gallery where id =?', [value.id]);
     if (result?.isNotEmpty ?? false) {
       hash = result!.first['hash'];
       return value;
@@ -578,7 +603,7 @@ class GalleryInfo {
       }
       directory = newDir;
     }
-    value.translateLable(helper);
+    await value.translateLable(helper);
     await computeHash(File(directory.path + '/${value.files.first.name}'));
     helper.insertGallery(value, hash);
     return value;
@@ -603,9 +628,9 @@ class GalleryInfo {
     }
   }
 
-  String? _tryTransLateFromJp(String name) {
-    return helper.querySql(
-        'select * from Tags WHERE translate=?', [name])?.firstOrNull?['name'];
+  Future<String?> _tryTransLateFromJp(String name) async {
+    return await helper.querySql('select * from Tags WHERE translate=?',
+        [name]).then((value) => value?.firstOrNull?['name']);
   }
 
   Future<Gallery?> _ehTitleParse(String name) async {
@@ -614,11 +639,13 @@ class GalleryInfo {
     var mathces = _ehTitleReg.firstMatch(name)!;
     var group = mathces.namedGroup('group');
     String? translate = null;
-    if (group != null && (translate = _tryTransLateFromJp(group)) != null) {
+    if (group != null &&
+        (translate = await _tryTransLateFromJp(group)) != null) {
       tags.add(Group(group: translate!));
     }
     var author = mathces.namedGroup('author');
-    if (author != null && (translate = _tryTransLateFromJp(author)) != null) {
+    if (author != null &&
+        (translate = await _tryTransLateFromJp(author)) != null) {
       tags.add(Artist(artist: translate!));
     }
     var left = mathces.namedGroup('name')!;
@@ -629,7 +656,8 @@ class GalleryInfo {
       mathces = _serialExp.firstMatch(left)!;
       var serial = mathces.namedGroup('serial');
       this.title = left.substring(0, left.length - (serial?.length ?? 0));
-      if (serial != null && (translate = _tryTransLateFromJp(serial)) != null) {
+      if (serial != null &&
+          (translate = await _tryTransLateFromJp(serial)) != null) {
         tags.add(Parody(parody: translate!));
       }
     }

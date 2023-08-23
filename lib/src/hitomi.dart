@@ -150,8 +150,8 @@ class _HitomiImpl implements Hitomi {
     b = !result.any((element) => !element);
     print('下载$id完成$b');
     if (b) {
-      gallery.translateLable(prefenerce.helper);
-      prefenerce.helper.insertGallery(gallery);
+      await gallery.translateLable(prefenerce.helper);
+      await prefenerce.helper.insertGallery(gallery);
     }
     return b;
   }
