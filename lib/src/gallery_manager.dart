@@ -30,6 +30,7 @@ class GalleryManager {
       ..addFlag('fixDb', abbr: 'f')
       ..addFlag('scan', abbr: 's')
       ..addFlag('update', abbr: 'u')
+      ..addFlag('continue', abbr: 'c')
       ..addOption('del')
       ..addOption('artist', abbr: 'a')
       ..addOption('group', abbr: 'g')
@@ -180,6 +181,13 @@ class GalleryManager {
     } else if (result['update']) {
       print('start update db');
       return await context.helper.updateTagTable();
+    } else if (result['continue']) {
+      print('continue uncomplete task');
+      var tasks = await context.helper
+          .selectSqlAsync('select * from Tasks where completed = ?', [0]);
+      for (var task in tasks) {
+        await downLoadGallery(task['id']);
+      }
     }
     if (hasError) {
       print('$cmd error with ${args}');
@@ -226,12 +234,31 @@ class GalleryManager {
         });
         previousValue[element] = element.item2;
         return previousValue;
+      }).then((value) async {
+        var result = <Gallery>[];
+        for (var entry in value.entries) {
+          await context.helper.updateTask(entry.value, false);
+          var downloaded = await context.helper.querySql(
+                  'select 1 from Gallery where id =?', [entry.value.id]) !=
+              null;
+          if (downloaded) {
+            await context.helper.removeTask(entry.value.id);
+          } else {
+            result.add(entry.value);
+          }
+        }
+        return result;
       });
     });
     bool b = true;
     print('find length ${results.length}');
-    for (var element in results.entries) {
-      b &= await api.downloadImagesById(element.value.id, usePrefence: false);
+    for (var element in results) {
+      b &= await api.downloadImagesById(element.id, usePrefence: false);
+      if (b) {
+        await context.helper.removeTask(element.id);
+      } else {
+        await context.helper.updateTask(element, true);
+      }
     }
     return b;
   }

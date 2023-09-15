@@ -62,24 +62,38 @@ class SqliteHelper {
       files TEXT,
       hash INTEGER not NULL
       )''');
+    db.execute('''create table if not exists Tasks(
+      id integer PRIMARY KEY,
+      title Text not null,
+      path TEXT not null,
+      completed bool default 0
+      )''');
     final stmt = db.prepare('PRAGMA user_version;');
     final result = stmt.select();
     var version = result.first.columnAt(0) as int;
     if (version != _version) {
       db.execute('PRAGMA user_version=$_version;');
     }
-    await recy.forEach((element) {
-      print(element);
+    await recy.forEach((element) async {
       if (element is _SqliteRequest) {
-        final stam = db.prepare(element.sql);
+        PreparedStatement? stam;
         try {
+          stam = db.prepare(element.sql);
           if (element.query) {
-            var cursor = stam.select(element.params);
-            sendPort.send(cursor);
+            if (element.params.firstOrNull is List<dynamic>) {
+              var sets = element.params.fold(
+                  <ResultSet>[],
+                  (previousValue, element) =>
+                      previousValue..add(stam!.select(element)));
+              sendPort.send(sets);
+            } else {
+              var cursor = stam.select(element.params);
+              sendPort.send(cursor);
+            }
           } else {
             if (element.params.firstOrNull is List<dynamic>) {
               element.params.map((e) => e as List<dynamic>).forEach((element) {
-                stam.execute(element);
+                stam!.execute(element);
               });
             } else {
               stam.execute(element.params);
@@ -90,7 +104,7 @@ class SqliteHelper {
           print(e);
           sendPort.send(e);
         } finally {
-          stam.dispose();
+          stam?.dispose();
         }
       }
     });
@@ -98,6 +112,17 @@ class SqliteHelper {
 
   Future<ResultSet> selectSqlAsync(String sql, List<dynamic> params) async {
     var f = Completer<ResultSet>();
+    if (_sendPort == null) {
+      await init();
+    }
+    _sendPort!.send(_SqliteRequest(sql, params, true));
+    result.add(f);
+    return f.future;
+  }
+
+  Future<List<ResultSet>> selectSqlMultiResultAsync(
+      String sql, List<List<dynamic>> params) async {
+    var f = Completer<List<ResultSet>>();
     if (_sendPort == null) {
       await init();
     }
@@ -197,6 +222,21 @@ class SqliteHelper {
           json.encode(gallery.files.map((e) => e.name).toList()),
           useHash
         ]);
+  }
+
+  Future<void> updateTask(Gallery gallery, bool complete) async {
+    final path = join(_config.output, gallery.fixedTitle);
+    await excuteSqlAsync(
+        'replace into Tasks(id,title,path,completed) values(?,?,?,?)', [
+      gallery.id,
+      gallery.fixedTitle,
+      path,
+      complete,
+    ]);
+  }
+
+  Future<void> removeTask(dynamic id) async {
+    await excuteSqlAsync('delete from Tasks where id =?', [id]);
   }
 }
 
