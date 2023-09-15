@@ -632,7 +632,7 @@ class GalleryInfo {
     }
     await value.translateLable(helper);
     await computeHash(File(directory.path + '/${value.files.first.name}'));
-    helper.insertGallery(value, hash);
+    await helper.insertGallery(value, hash);
     return value;
   }
 
