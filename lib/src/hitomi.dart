@@ -88,7 +88,6 @@ class _HitomiImpl implements Hitomi {
   Future<bool> downloadImagesById(dynamic id,
       {void onProcess(Message msg)?, usePrefence = true}) async {
     final gallery = await fetchGallery(id, usePrefence: usePrefence);
-    await prefenerce.helper.updateTask(gallery, false);
     var artists = gallery.artists;
     final outPath = prefenerce.outPut;
     final title = gallery.fixedTitle;
@@ -149,14 +148,14 @@ class _HitomiImpl implements Hitomi {
       result.add(b);
     }
     b = !result.any((element) => !element);
-    await gallery.translateLable(prefenerce.helper);
-    await prefenerce.helper.insertGallery(gallery);
     print('下载$id完成$b');
-    if (b) {
-      await prefenerce.helper.removeTask(gallery.id);
-    } else {
-      await prefenerce.helper.updateTask(gallery, true);
-    }
+    // await gallery.translateLable(prefenerce.helper);
+    // await prefenerce.helper.insertGallery(gallery);
+    // if (b) {
+    //   await prefenerce.helper.removeTask(gallery.id);
+    // } else {
+    //   await prefenerce.helper.updateTask(gallery, true);
+    // }
     return b;
   }
 
@@ -489,3 +488,5 @@ class _DataView {
     return r;
   }
 }
+
+enum TaskStatus { NotRunning, Runing, FileMissing, Finished }

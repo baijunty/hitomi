@@ -9,9 +9,6 @@ class Parody with Lable {
 
   Parody({required this.parody});
 
-  @override
-  String toString() => 'Parody(parody: $parody)';
-
   factory Parody.fromMap(Map<String, dynamic> data) => Parody(
         parody: (data['parody'] ?? data['series']) as String,
       );

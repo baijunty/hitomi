@@ -3,12 +3,12 @@ import 'dart:io';
 import 'package:hitomi/gallery/gallery.dart';
 import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/dhash.dart';
-import 'package:hitomi/src/gallery_manager.dart';
+import 'package:hitomi/src/sqlite_helper.dart';
 import 'package:test/test.dart';
 
 void main() async {
   test('match', () async {
-    await testSqlHelper();
+    await galleryTest();
     // print('sdf'.split(';'));
     // var config = UserContext(UserConfig(r'/home/bai/ssd/photos',
     //     proxy: '127.0.0.1:8389',
@@ -22,40 +22,40 @@ void main() async {
   });
 }
 
-Future<void> testGalleryInfoDistance() async {
-  var config = UserContext(UserConfig(r'/home/bai/ssd/photos',
-      proxy: '127.0.0.1:8389',
-      languages: ['chinese', 'japanese'],
-      maxTasks: 5));
-  var fix = GalleryManager(config, null);
-  final result = await fix.listInfo().then((value) =>
-      value.fold<Map<GalleryInfo, List<GalleryInfo>>>({}, ((previous, element) {
-        final list = previous[element] ?? [];
-        list.add(element);
-        previous[element] = list;
-        return previous;
-      })));
-  result.entries.where((element) => element.value.length > 1).forEach((entry) {
-    var key = entry.key;
-    var value = entry.value;
-    print('$key and ${value.length}');
-    value.forEach((element) {
-      final reletion = key.relationToOther(element);
-      print('$key and ${element} is $reletion');
-    });
-  });
-}
+// Future<void> testGalleryInfoDistance() async {
+//   var config = UserContext(UserConfig(r'/home/bai/ssd/photos',
+//       proxy: '127.0.0.1:8389',
+//       languages: ['chinese', 'japanese'],
+//       maxTasks: 5));
+//   var fix = GalleryManager(config, null);
+//   final result = await fix.listInfo().then((value) =>
+//       value.fold<Map<GalleryInfo, List<GalleryInfo>>>({}, ((previous, element) {
+//         final list = previous[element] ?? [];
+//         list.add(element);
+//         previous[element] = list;
+//         return previous;
+//       })));
+//   result.entries.where((element) => element.value.length > 1).forEach((entry) {
+//     var key = entry.key;
+//     var value = entry.value;
+//     print('$key and ${value.length}');
+//     value.forEach((element) {
+//       final reletion = key.relationToOther(element);
+//       print('$key and ${element} is $reletion');
+//     });
+//   });
+// }
 
-Future<Gallery?> testGalleryInfo(String name) async {
-  var config = UserContext(UserConfig('/home/bai/ssd/photos',
-      proxy: '127.0.0.1:8389',
-      languages: ['chinese', 'japanese'],
-      maxTasks: 5));
-  var gallery =
-      GalleryInfo.formDirect(Directory('${config.outPut}/$name'), config);
-  await config.initData();
-  return await gallery.tryGetGalleryInfo();
-}
+// Future<Gallery?> testGalleryInfo(String name) async {
+//   var config = UserContext(UserConfig('/home/bai/ssd/photos',
+//       proxy: '127.0.0.1:8389',
+//       languages: ['chinese', 'japanese'],
+//       maxTasks: 5));
+//   var gallery =
+//       GalleryInfo.formDirect(Directory('${config.outPut}/$name'), config);
+//   await config.initData();
+//   return await gallery.tryGetGalleryInfo();
+// }
 
 Future<void> testImageHash() async {
   var hash1 = await imageHash(
@@ -69,11 +69,11 @@ Future<void> testSqlHelper() async {
       languages: ['chinese', 'japanese'],
       maxTasks: 5));
   // await config.initData();
-  var f = await config.helper.selectSqlAsync(
-      r'select translate from Tags where name like ?', ['%yu%']);
-  f.forEach((element) {
-    print(element.values);
-  });
+  // var f = await config.helper.selectSqlAsync(
+  //     r'select translate from Tags where name like ?', ['%yu%']);
+  // f.forEach((element) {
+  //   print(element.values);
+  // });
 }
 
 Future<void> testImageSearch() async {
@@ -102,4 +102,18 @@ Future<void> testImageDownload() async {
   task = await pool.addNewTask('2473175');
   await Future.delayed(Duration(seconds: 5));
   task?.cancel();
+}
+
+Future<void> galleryTest() async {
+  var config = UserContext(UserConfig(r'/home/bai/ssd/photos',
+      proxy: '127.0.0.1:8389',
+      languages: ['chinese', 'japanese'],
+      maxTasks: 5));
+  var helper = SqliteHelper(config.config);
+  var gallery = await File(config.outPut + '/(3104)アイの中に閉じ込めた/meta.json')
+      .readAsString()
+      .then((value) => Gallery.fromJson(value))
+      .then((value) => value.translateLable(helper))
+      .then((value) => value.lables());
+  print(gallery);
 }

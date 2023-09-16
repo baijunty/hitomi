@@ -21,11 +21,6 @@ class Image {
     required this.height,
   });
 
-  @override
-  String toString() {
-    return 'File(hash: $hash, hasavif: $hasavif, width: $width, haswebp: $haswebp, name: $name, height: $height)';
-  }
-
   factory Image.fromMap(Map<String, dynamic> data) => Image(
         hash: data['hash'] as String,
         hasavif: data['hasavif'] as int,

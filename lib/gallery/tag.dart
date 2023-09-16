@@ -11,11 +11,6 @@ class Tag with Lable {
 
   Tag({this.male, required this.tag, this.female});
 
-  @override
-  String toString() {
-    return 'Tag(male: $male, tag: $tag, female: $female)';
-  }
-
   factory Tag.fromMap(Map<String, dynamic> data) => Tag(
         male: data['male'],
         tag: data['tag'] as String,
