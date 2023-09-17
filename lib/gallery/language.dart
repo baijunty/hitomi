@@ -18,11 +18,6 @@ class Language with Lable {
     required this.name,
   });
 
-  @override
-  String toString() {
-    return 'Language(galleryid: $galleryid, languageLocalname: $languageLocalname,  name: $name)';
-  }
-
   factory Language.fromMap(Map<String, dynamic> data) => Language(
         galleryid: data['galleryid'] as String?,
         languageLocalname: data['language_localname'] as String?,

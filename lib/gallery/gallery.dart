@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:collection/collection.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:hitomi/gallery/label.dart';
 import 'package:hitomi/src/sqlite_helper.dart';
@@ -70,13 +71,19 @@ class Gallery with Lable {
     this.groups,
   });
 
-  Future<void> translateLable(SqliteHelper helper) async {
-    artists?.forEach((element) => element.translateLable(helper));
-    tags?.forEach((element) => element.translateLable(helper));
-    languages?.forEach((element) => element.translateLable(helper));
-    characters?.forEach((element) => element.translateLable(helper));
-    parodys?.forEach((element) => element.translateLable(helper));
-    groups?.forEach((element) => element.translateLable(helper));
+  Future<Gallery> translateLable(SqliteHelper helper) async {
+    Map<String, dynamic> empty = const <String, dynamic>{};
+    Map<Lable, List<dynamic>> params = {};
+    lables().fold(params, (p, e) => p..[e] = e.params);
+    var result = await helper.selectSqlMultiResultAsync(
+        'select * from Tags where type=? and name=?', params.values.toList());
+    params.keys.forEach((key) {
+      var r = result.entries
+          .firstWhereOrNull((element) => element.key.equals(key.params))
+          ?.value;
+      key.trans.addAll(r?.firstOrNull ?? empty);
+    });
+    return this;
   }
 
   List<Lable> lables() {

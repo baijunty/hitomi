@@ -8,9 +8,6 @@ class Artist with Lable {
 
   Artist({required this.artist});
 
-  @override
-  String toString() => 'Artist(artist: $artist)';
-
   factory Artist.fromMap(Map<String, dynamic> data) => Artist(
         artist: data['artist'] as String,
       );

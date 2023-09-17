@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
+import 'package:collection/collection.dart';
 import 'package:hitomi/gallery/gallery.dart';
 import 'package:hitomi/gallery/label.dart';
 import 'package:hitomi/lib.dart';
@@ -81,10 +82,12 @@ class SqliteHelper {
           stam = db.prepare(element.sql);
           if (element.query) {
             if (element.params.firstOrNull is List<dynamic>) {
-              var sets = element.params.fold(
-                  <ResultSet>[],
-                  (previousValue, element) =>
-                      previousValue..add(stam!.select(element)));
+              var sets = element.params.fold(<List<dynamic>, ResultSet>{},
+                  (previousValue, element) {
+                ResultSet r = stam!.select(element);
+                previousValue[element] = r;
+                return previousValue;
+              });
               sendPort.send(sets);
             } else {
               var cursor = stam.select(element.params);
@@ -120,9 +123,9 @@ class SqliteHelper {
     return f.future;
   }
 
-  Future<List<ResultSet>> selectSqlMultiResultAsync(
+  Future<Map<List<dynamic>, ResultSet>> selectSqlMultiResultAsync(
       String sql, List<List<dynamic>> params) async {
-    var f = Completer<List<ResultSet>>();
+    var f = Completer<Map<List<dynamic>, ResultSet>>();
     if (_sendPort == null) {
       await init();
     }
@@ -167,21 +170,20 @@ class SqliteHelper {
     return false;
   }
 
-  Future<Map<String, dynamic>?> getMatchLable(Lable lable) async {
-    final set = await querySql('select * from Tags where type=? and name=?',
-        [lable.sqlType, lable.name]);
-    return set?.first;
-  }
-
-  Future<Lable> getLableFromKey(String name) async {
-    var row = await querySql('select * from Tags where name=? or translate=?',
-        [name.toLowerCase(), name.toLowerCase()]);
-    if (row?.isNotEmpty ?? false) {
-      var type = row!.first['type'];
-      var name = row.first['name'];
-      return fromString(type, name);
-    }
-    return QueryText(name);
+  Future<List<Lable>> fetchLablesFromSql(List<String> names) async {
+    var sets = await selectSqlMultiResultAsync(
+        'select * from Tags where name=? or translate=?',
+        names.map((name) => [name.toLowerCase(), name.toLowerCase()]).toList());
+    return names.map((e) {
+      var set = sets.entries
+          .firstWhereOrNull((element) => element.key.first == e.toLowerCase())
+          ?.value
+          .first;
+      if (set?.isNotEmpty == true) {
+        return fromString(set!['type'], set['name']);
+      }
+      return QueryText(e);
+    }).toList();
   }
 
   Future<ResultSet?> querySql(String sql,

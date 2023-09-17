@@ -1,4 +1,3 @@
-import 'package:hitomi/src/sqlite_helper.dart';
 import '../gallery/artist.dart';
 import '../gallery/character.dart';
 import '../gallery/group.dart';
@@ -13,16 +12,7 @@ abstract mixin class Lable {
   String get intro => trans['intro'] ?? '';
   int get index => (trans['id'] as int?) ?? -1;
   String get sqlType => type;
-
-  Future<void> translateLable(SqliteHelper helper) async {
-    if (trans.isEmpty) {
-      final query = await helper.getMatchLable(this);
-      if (query != null) {
-        trans.addAll(query);
-      }
-    }
-  }
-
+  List<String> get params => [sqlType, name];
   Map<String, dynamic> toMap() => {
         'type': type,
         type: name,

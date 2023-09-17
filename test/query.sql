@@ -1,2 +1,2 @@
-select * from Gallery WHERE path like'%gustav%' AND title LIKE 'hito'
-SELECT * from Tags WHERE name like 'gustav'
+select * from Gallery WHERE id=2662961
+select * from Tags where type='female' and name='pantyhose'

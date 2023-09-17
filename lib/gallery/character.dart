@@ -9,9 +9,6 @@ class Character with Lable {
 
   Character({required this.character});
 
-  @override
-  String toString() => 'Character(character: $character)';
-
   factory Character.fromMap(Map<String, dynamic> data) => Character(
         character: data['character'] as String,
       );

@@ -9,9 +9,6 @@ class Group with Lable {
 
   Group({required this.group});
 
-  @override
-  String toString() => 'Group(group: $group)';
-
   factory Group.fromMap(Map<String, dynamic> data) => Group(
         group: data['group'] as String,
       );
