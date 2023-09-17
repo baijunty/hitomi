@@ -24,7 +24,7 @@ abstract mixin class Lable {
 
   @override
   String toString() {
-    return '{type:$type,name:$name,translate:$translate,intro:$intro}';
+    return toMap().toString();
   }
 
   @override

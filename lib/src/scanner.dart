@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:collection/collection.dart';
+import 'package:hitomi/gallery/language.dart';
 import 'package:path/path.dart';
 import 'package:tuple/tuple.dart';
 
@@ -31,24 +32,26 @@ class GalleryInfo {
   static final _hitomiTitleExp = RegExp(r'(\((?<author>.+?)\))(?<title>.+)$');
   static final _numberTitle = RegExp(r'^-?\d+$');
   Directory directory;
-  UserContext context;
+  UserConfig config;
   late Hitomi api;
-  GalleryInfo.formDirect(this.directory, this.context) {
+  GalleryInfo.formDirect(this.directory, this.config) {
     this.title = basename(directory.path);
     metaFile = File(directory.path + '/meta.json');
     fromHitomi = metaFile.existsSync();
-    api = Hitomi.fromPrefenerce(context);
-    helper = SqliteHelper(context.config);
+    api = Hitomi.fromPrefenerce(config);
+    helper = SqliteHelper(config.output);
   }
 
   Future<Gallery?> searchFromHitomi(List<Lable> tags) async {
     await computeHash();
-    tags.addAll(
-        context.languages.fold<List<Lable>>([], (acc, i) => acc..add(i)));
+    tags.addAll(config.languages
+        .fold<List<Lable>>([], (acc, i) => acc..add(Language(name: i))));
     print('search for  $tags');
     var gallery = this.hash == 0
         ? null
-        : await api.search(tags, exclude: context.exclude).then((value) async {
+        : await api
+            .search(tags, exclude: await helper.mapToLabel(config.exinclude))
+            .then((value) async {
             print('result length ${value.length}');
             if (value.length > 50) {
               return null;
@@ -58,7 +61,7 @@ class GalleryInfo {
                     await api.fetchGallery(element, usePrefence: false))
                 .asyncMap((value) async {
               int hash1 = await api
-                  .downloadImage(value.files.first.getThumbnailUrl(context),
+                  .downloadImage(api.getThumbnailUrl(value.files.first),
                       'https://hitomi.la${Uri.encodeFull(value.galleryurl!)}')
                   .then((value) => imageHash(Uint8List.fromList(value)));
               final distance = compareHashDistance(hash1, this.hash);
@@ -73,7 +76,7 @@ class GalleryInfo {
           }).catchError((e) async => null);
     bool success = gallery != null;
     if (success) {
-      final target = '${context.outPut}/${gallery.fixedTitle}';
+      final target = '${config.output}/${gallery.fixedTitle}';
       await safeRename(directory, target);
       directory = Directory(target);
       final files = gallery.files
@@ -227,7 +230,7 @@ class GalleryInfo {
       return value;
     }
     if (value.fixedTitle != basename(this.directory.path)) {
-      final newDir = Directory(context.outPut + "/" + value.fixedTitle);
+      final newDir = Directory(config.output + "/" + value.fixedTitle);
       if (!newDir.existsSync()) {
         await safeRename(directory, newDir.path);
       } else {
@@ -354,10 +357,10 @@ class GalleryInfo {
   }
 
   Future<void> delBackUp() async {
-    await Directory('${context.outPut}/sdfsdfdf')
+    await Directory('${config.output}/sdfsdfdf')
         .list()
         .where((event) => event is Directory)
-        .map((event) => GalleryInfo.formDirect(event as Directory, context))
+        .map((event) => GalleryInfo.formDirect(event as Directory, config))
         .forEach((element) async {
       if (element.directory.listSync().isEmpty) {
         print('del empty ${element.directory.path}');
@@ -441,7 +444,7 @@ class GalleryInfo {
                 ?.asyncMap((element) async => Tuple2(
                     element['id'] as int,
                     await GalleryInfo.formDirect(
-                            Directory(element['path']), context)
+                            Directory(element['path']), config)
                         .tryGetGalleryInfo()))
                 .where((event) => event.item1 != event.item2?.id)
                 .forEach((element) {
@@ -457,11 +460,11 @@ class GalleryInfo {
     if (set != null) {
       for (var row in set) {
         print('fix $row');
-        var gallery = await context.api.fetchGallery(row['id']);
+        var gallery = await api.fetchGallery(row['id']);
         if (gallery.id != row['id']) {
           delGallery(row['id']);
         }
-        await context.api.downloadImagesById(gallery.id);
+        await api.downloadImagesById(gallery.id);
         helper.insertGallery(gallery);
       }
     }
@@ -483,13 +486,12 @@ class GalleryInfo {
   }
 
   Future<List<GalleryInfo>> listInfo([String? path]) async {
-    var userPath = '${context.outPut}/${path ?? ''}';
+    var userPath = '${config.output}/${path ?? ''}';
     Directory d = Directory(userPath);
-    await context.initData();
     final result = await d
         .list()
         .where((event) => event is Directory)
-        .map((event) => GalleryInfo.formDirect(event as Directory, context))
+        .map((event) => GalleryInfo.formDirect(event as Directory, config))
         .toList();
     final brokens = <GalleryInfo>[];
     for (var element in result) {

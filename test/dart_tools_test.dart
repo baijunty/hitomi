@@ -3,9 +3,11 @@ import 'dart:io';
 import 'package:hitomi/gallery/gallery.dart';
 import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/dhash.dart';
+import 'package:hitomi/src/task_manager.dart';
 import 'package:hitomi/src/sqlite_helper.dart';
 import 'package:test/test.dart';
 
+var config = UserConfig(r'/home/bai/ssd/photos', proxy: '127.0.0.1:8389');
 void main() async {
   test('match', () async {
     await galleryTest();
@@ -64,10 +66,6 @@ Future<void> testImageHash() async {
 }
 
 Future<void> testSqlHelper() async {
-  var config = UserContext(UserConfig(r'/home/bai/ssd/photos',
-      proxy: '127.0.0.1:8389',
-      languages: ['chinese', 'japanese'],
-      maxTasks: 5));
   // await config.initData();
   // var f = await config.helper.selectSqlAsync(
   //     r'select translate from Tags where name like ?', ['%yu%']);
@@ -77,11 +75,6 @@ Future<void> testSqlHelper() async {
 }
 
 Future<void> testImageSearch() async {
-  var config = UserContext(UserConfig('.',
-      proxy: '127.0.0.1:8389',
-      languages: ['chinese', 'japanese'],
-      maxTasks: 5));
-  await config.initData();
   final hitomi = Hitomi.fromPrefenerce(config);
   var ids = await hitomi.findSimilarGalleryBySearch(
       await hitomi.fetchGallery(1333333, usePrefence: false));
@@ -89,28 +82,20 @@ Future<void> testImageSearch() async {
 }
 
 Future<void> testImageDownload() async {
-  var config = UserConfig('.',
-      proxy: '127.0.0.1:8389', languages: ['chinese', 'japanese'], maxTasks: 5);
-  var pool = TaskManager(config);
-  var task = await pool.addNewTask('45465465489456');
+  var task = TaskManager(config);
+  await task.parseCommandAndRun('45465465489456');
   await Future.delayed(Duration(seconds: 5));
-  task?.cancel();
-  await Future.delayed(Duration(seconds: 1));
-  task?.start();
+  task.cancel();
   await Future.delayed(Duration(seconds: 5));
-  task?.cancel();
-  task = await pool.addNewTask('2473175');
+  task.cancel();
+  await task.parseCommandAndRun('2473175');
   await Future.delayed(Duration(seconds: 5));
-  task?.cancel();
+  task.cancel();
 }
 
 Future<void> galleryTest() async {
-  var config = UserContext(UserConfig(r'/home/bai/ssd/photos',
-      proxy: '127.0.0.1:8389',
-      languages: ['chinese', 'japanese'],
-      maxTasks: 5));
-  var helper = SqliteHelper(config.config);
-  var gallery = await File(config.outPut + '/(3104)アイの中に閉じ込めた/meta.json')
+  var helper = SqliteHelper(config.output);
+  var gallery = await File(config.output + '/(3104)アイの中に閉じ込めた/meta.json')
       .readAsString()
       .then((value) => Gallery.fromJson(value))
       .then((value) => value.translateLable(helper))

@@ -21,11 +21,11 @@ UserConfig _$UserConfigFromJson(Map<String, dynamic> json) {
 /// @nodoc
 mixin _$UserConfig {
   String get output => throw _privateConstructorUsedError;
-  String get proxy => throw _privateConstructorUsedError;
-  List<String> get languages => throw _privateConstructorUsedError;
   int get maxTasks => throw _privateConstructorUsedError;
-  List<String>? get exinclude => throw _privateConstructorUsedError;
-  String? get dateLimit => throw _privateConstructorUsedError;
+  List<String> get languages => throw _privateConstructorUsedError;
+  String get proxy => throw _privateConstructorUsedError;
+  List<String> get exinclude => throw _privateConstructorUsedError;
+  String get dateLimit => throw _privateConstructorUsedError;
 
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
   @JsonKey(ignore: true)
@@ -41,11 +41,11 @@ abstract class $UserConfigCopyWith<$Res> {
   @useResult
   $Res call(
       {String output,
-      String proxy,
-      List<String> languages,
       int maxTasks,
-      List<String>? exinclude,
-      String? dateLimit});
+      List<String> languages,
+      String proxy,
+      List<String> exinclude,
+      String dateLimit});
 }
 
 /// @nodoc
@@ -62,37 +62,37 @@ class _$UserConfigCopyWithImpl<$Res, $Val extends UserConfig>
   @override
   $Res call({
     Object? output = null,
-    Object? proxy = null,
-    Object? languages = null,
     Object? maxTasks = null,
-    Object? exinclude = freezed,
-    Object? dateLimit = freezed,
+    Object? languages = null,
+    Object? proxy = null,
+    Object? exinclude = null,
+    Object? dateLimit = null,
   }) {
     return _then(_value.copyWith(
       output: null == output
           ? _value.output
           : output // ignore: cast_nullable_to_non_nullable
               as String,
-      proxy: null == proxy
-          ? _value.proxy
-          : proxy // ignore: cast_nullable_to_non_nullable
-              as String,
-      languages: null == languages
-          ? _value.languages
-          : languages // ignore: cast_nullable_to_non_nullable
-              as List<String>,
       maxTasks: null == maxTasks
           ? _value.maxTasks
           : maxTasks // ignore: cast_nullable_to_non_nullable
               as int,
-      exinclude: freezed == exinclude
+      languages: null == languages
+          ? _value.languages
+          : languages // ignore: cast_nullable_to_non_nullable
+              as List<String>,
+      proxy: null == proxy
+          ? _value.proxy
+          : proxy // ignore: cast_nullable_to_non_nullable
+              as String,
+      exinclude: null == exinclude
           ? _value.exinclude
           : exinclude // ignore: cast_nullable_to_non_nullable
-              as List<String>?,
-      dateLimit: freezed == dateLimit
+              as List<String>,
+      dateLimit: null == dateLimit
           ? _value.dateLimit
           : dateLimit // ignore: cast_nullable_to_non_nullable
-              as String?,
+              as String,
     ) as $Val);
   }
 }
@@ -107,11 +107,11 @@ abstract class _$$_UserConfigCopyWith<$Res>
   @useResult
   $Res call(
       {String output,
-      String proxy,
-      List<String> languages,
       int maxTasks,
-      List<String>? exinclude,
-      String? dateLimit});
+      List<String> languages,
+      String proxy,
+      List<String> exinclude,
+      String dateLimit});
 }
 
 /// @nodoc
@@ -126,37 +126,37 @@ class __$$_UserConfigCopyWithImpl<$Res>
   @override
   $Res call({
     Object? output = null,
-    Object? proxy = null,
-    Object? languages = null,
     Object? maxTasks = null,
-    Object? exinclude = freezed,
-    Object? dateLimit = freezed,
+    Object? languages = null,
+    Object? proxy = null,
+    Object? exinclude = null,
+    Object? dateLimit = null,
   }) {
     return _then(_$_UserConfig(
       null == output
           ? _value.output
           : output // ignore: cast_nullable_to_non_nullable
               as String,
-      proxy: null == proxy
-          ? _value.proxy
-          : proxy // ignore: cast_nullable_to_non_nullable
-              as String,
-      languages: null == languages
-          ? _value._languages
-          : languages // ignore: cast_nullable_to_non_nullable
-              as List<String>,
       maxTasks: null == maxTasks
           ? _value.maxTasks
           : maxTasks // ignore: cast_nullable_to_non_nullable
               as int,
-      exinclude: freezed == exinclude
+      languages: null == languages
+          ? _value._languages
+          : languages // ignore: cast_nullable_to_non_nullable
+              as List<String>,
+      proxy: null == proxy
+          ? _value.proxy
+          : proxy // ignore: cast_nullable_to_non_nullable
+              as String,
+      exinclude: null == exinclude
           ? _value._exinclude
           : exinclude // ignore: cast_nullable_to_non_nullable
-              as List<String>?,
-      dateLimit: freezed == dateLimit
+              as List<String>,
+      dateLimit: null == dateLimit
           ? _value.dateLimit
           : dateLimit // ignore: cast_nullable_to_non_nullable
-              as String?,
+              as String,
     ));
   }
 }
@@ -165,11 +165,11 @@ class __$$_UserConfigCopyWithImpl<$Res>
 @JsonSerializable()
 class _$_UserConfig implements _UserConfig {
   _$_UserConfig(this.output,
-      {required this.proxy,
-      required final List<String> languages,
-      required this.maxTasks,
-      final List<String>? exinclude,
-      this.dateLimit})
+      {this.maxTasks = 5,
+      final List<String> languages = const ["japanese", "chinese"],
+      this.proxy = "",
+      final List<String> exinclude = const [],
+      this.dateLimit = "1970-01-01"})
       : _languages = languages,
         _exinclude = exinclude;
 
@@ -179,9 +179,11 @@ class _$_UserConfig implements _UserConfig {
   @override
   final String output;
   @override
-  final String proxy;
+  @JsonKey()
+  final int maxTasks;
   final List<String> _languages;
   @override
+  @JsonKey()
   List<String> get languages {
     if (_languages is EqualUnmodifiableListView) return _languages;
     // ignore: implicit_dynamic_type
@@ -189,23 +191,24 @@ class _$_UserConfig implements _UserConfig {
   }
 
   @override
-  final int maxTasks;
-  final List<String>? _exinclude;
+  @JsonKey()
+  final String proxy;
+  final List<String> _exinclude;
   @override
-  List<String>? get exinclude {
-    final value = _exinclude;
-    if (value == null) return null;
+  @JsonKey()
+  List<String> get exinclude {
     if (_exinclude is EqualUnmodifiableListView) return _exinclude;
     // ignore: implicit_dynamic_type
-    return EqualUnmodifiableListView(value);
+    return EqualUnmodifiableListView(_exinclude);
   }
 
   @override
-  final String? dateLimit;
+  @JsonKey()
+  final String dateLimit;
 
   @override
   String toString() {
-    return 'UserConfig(output: $output, proxy: $proxy, languages: $languages, maxTasks: $maxTasks, exinclude: $exinclude, dateLimit: $dateLimit)';
+    return 'UserConfig(output: $output, maxTasks: $maxTasks, languages: $languages, proxy: $proxy, exinclude: $exinclude, dateLimit: $dateLimit)';
   }
 
   @override
@@ -214,11 +217,11 @@ class _$_UserConfig implements _UserConfig {
         (other.runtimeType == runtimeType &&
             other is _$_UserConfig &&
             (identical(other.output, output) || other.output == output) &&
-            (identical(other.proxy, proxy) || other.proxy == proxy) &&
-            const DeepCollectionEquality()
-                .equals(other._languages, _languages) &&
             (identical(other.maxTasks, maxTasks) ||
                 other.maxTasks == maxTasks) &&
+            const DeepCollectionEquality()
+                .equals(other._languages, _languages) &&
+            (identical(other.proxy, proxy) || other.proxy == proxy) &&
             const DeepCollectionEquality()
                 .equals(other._exinclude, _exinclude) &&
             (identical(other.dateLimit, dateLimit) ||
@@ -230,9 +233,9 @@ class _$_UserConfig implements _UserConfig {
   int get hashCode => Object.hash(
       runtimeType,
       output,
-      proxy,
-      const DeepCollectionEquality().hash(_languages),
       maxTasks,
+      const DeepCollectionEquality().hash(_languages),
+      proxy,
       const DeepCollectionEquality().hash(_exinclude),
       dateLimit);
 
@@ -252,11 +255,11 @@ class _$_UserConfig implements _UserConfig {
 
 abstract class _UserConfig implements UserConfig {
   factory _UserConfig(final String output,
-      {required final String proxy,
-      required final List<String> languages,
-      required final int maxTasks,
-      final List<String>? exinclude,
-      final String? dateLimit}) = _$_UserConfig;
+      {final int maxTasks,
+      final List<String> languages,
+      final String proxy,
+      final List<String> exinclude,
+      final String dateLimit}) = _$_UserConfig;
 
   factory _UserConfig.fromJson(Map<String, dynamic> json) =
       _$_UserConfig.fromJson;
@@ -264,15 +267,15 @@ abstract class _UserConfig implements UserConfig {
   @override
   String get output;
   @override
-  String get proxy;
+  int get maxTasks;
   @override
   List<String> get languages;
   @override
-  int get maxTasks;
+  String get proxy;
   @override
-  List<String>? get exinclude;
+  List<String> get exinclude;
   @override
-  String? get dateLimit;
+  String get dateLimit;
   @override
   @JsonKey(ignore: true)
   _$$_UserConfigCopyWith<_$_UserConfig> get copyWith =>

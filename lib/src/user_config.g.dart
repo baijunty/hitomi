@@ -9,22 +9,25 @@ part of 'user_config.dart';
 _$_UserConfig _$$_UserConfigFromJson(Map<String, dynamic> json) =>
     _$_UserConfig(
       json['output'] as String,
-      proxy: json['proxy'] as String,
-      languages:
-          (json['languages'] as List<dynamic>).map((e) => e as String).toList(),
-      maxTasks: json['maxTasks'] as int,
+      maxTasks: json['maxTasks'] as int? ?? 5,
+      languages: (json['languages'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          const ["japanese", "chinese"],
+      proxy: json['proxy'] as String? ?? "",
       exinclude: (json['exinclude'] as List<dynamic>?)
-          ?.map((e) => e as String)
-          .toList(),
-      dateLimit: json['dateLimit'] as String?,
+              ?.map((e) => e as String)
+              .toList() ??
+          const [],
+      dateLimit: json['dateLimit'] as String? ?? "1970-01-01",
     );
 
 Map<String, dynamic> _$$_UserConfigToJson(_$_UserConfig instance) =>
     <String, dynamic>{
       'output': instance.output,
-      'proxy': instance.proxy,
-      'languages': instance.languages,
       'maxTasks': instance.maxTasks,
+      'languages': instance.languages,
+      'proxy': instance.proxy,
       'exinclude': instance.exinclude,
       'dateLimit': instance.dateLimit,
     };

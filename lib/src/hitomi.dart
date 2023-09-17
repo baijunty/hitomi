@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:dio/dio.dart';
+import 'package:dio/io.dart';
 import 'package:hitomi/gallery/image.dart';
 import 'package:hitomi/gallery/label.dart';
 import 'package:hitomi/gallery/language.dart';
@@ -9,68 +11,60 @@ import 'package:hitomi/src/dhash.dart';
 import 'package:tuple/tuple.dart';
 import 'package:collection/collection.dart';
 import '../gallery/gallery.dart';
-import 'http_tools.dart';
 import 'package:crypto/crypto.dart';
+
+import 'downloader.dart';
 
 abstract class Hitomi {
   Future<bool> downloadImagesById(dynamic id,
-      {void onProcess(Message msg)?, bool usePrefence = true});
-  Future<Gallery> fetchGallery(dynamic id, {usePrefence = true});
+      {void onProcess(Message msg)?,
+      bool usePrefence = true,
+      CancelToken? token});
+  Future<Gallery> fetchGallery(dynamic id,
+      {usePrefence = true, CancelToken? token});
   Future<List<int>> search(List<Lable> include,
-      {List<Lable> exclude, int page = 1});
-  Future<List<int>> fetchIdsByTag(Lable tag, [Language? language]);
+      {List<Lable> exclude, int page = 1, CancelToken? token});
+  Future<List<int>> fetchIdsByTag(Lable tag,
+      {Language? language, CancelToken? token});
   Future<List<int>> downloadImage(String url, String refererUrl,
-      {void onProcess(int now, int total)?});
-  Stream<Gallery> viewByTag(Lable tag, {int page = 1});
-  Stream<Tuple2<Gallery, int>> findSimilarGalleryBySearch(Gallery gallery);
-  factory Hitomi.fromPrefenerce(UserContext prefenerce) {
-    return _HitomiImpl(prefenerce);
-  }
-}
-
-class Message<T> {
-  final T id;
-  bool success;
-  Message({required this.id, required this.success});
-
-  @override
-  String toString() {
-    return 'Message{$id,$success}';
-  }
-
-  @override
-  bool operator ==(dynamic other) {
-    if (identical(other, this)) return true;
-    if (other is! Message) return false;
-    return other.id == id;
-  }
-}
-
-class DownLoadMessage extends Message<int> {
-  int current;
-  int maxPage;
-  double speed;
-  int length;
-  String title;
-  DownLoadMessage(id, success, this.title, this.current, this.maxPage,
-      this.speed, this.length)
-      : super(id: id, success: success);
-  @override
-  String toString() {
-    return 'DownLoadMessage{$id,$title,$current $maxPage,$speed,$length,$success}';
+      {void onProcess(int now, int total)?, CancelToken? token});
+  Future<List<List<dynamic>>> fetchTagsFromNet({CancelToken? token});
+  String getThumbnailUrl(Image image,
+      {ThumbnaiSize size = ThumbnaiSize.smaill, CancelToken? token});
+  Stream<Gallery> viewByTag(Lable tag, {int page = 1, CancelToken? token});
+  Stream<Tuple2<Gallery, int>> findSimilarGalleryBySearch(Gallery gallery,
+      {CancelToken? token});
+  factory Hitomi.fromPrefenerce(UserConfig config) {
+    return _HitomiImpl(config);
   }
 }
 
 class _HitomiImpl implements Hitomi {
-  final UserContext prefenerce;
+  static final _regExp = RegExp(r"case\s+(\d+):$");
+  static final _codeExp = RegExp(r"b:\s+'(\d+)\/'$");
+  static final _valueExp = RegExp(r"var\s+o\s+=\s+(\d);");
+  int galleries_index_version = 0;
+  late String code;
+  late List<int> codes;
+  late int index;
   static final _blank = RegExp(r"\s+");
   static final _titleExp = zhAndJpCodeExp;
   static final _emptyList = const <int>[];
-  _HitomiImpl(this.prefenerce);
+  Dio _dio = Dio();
+  final UserConfig config;
+  final _cache = {};
+  Timer? _timer;
+  _HitomiImpl(this.config) {
+    _dio.httpClientAdapter = IOHttpClientAdapter(createHttpClient: () {
+      return HttpClient()
+        ..connectionTimeout = Duration(seconds: 60)
+        ..findProxy =
+            (u) => (config.proxy.isEmpty) ? 'DIRECT' : 'PROXY ${config.proxy}';
+    });
+  }
 
-  Future<Gallery> _fetchGalleryJsonById(dynamic id) async {
-    return http_invke('https://ltn.hitomi.la/galleries/$id.js',
-            proxy: prefenerce.proxy)
+  Future<Gallery> _fetchGalleryJsonById(dynamic id, CancelToken? token) async {
+    return http_invke('https://ltn.hitomi.la/galleries/$id.js', token: token)
         .then((ints) {
           return Utf8Decoder().convert(ints);
         })
@@ -86,22 +80,26 @@ class _HitomiImpl implements Hitomi {
 
   @override
   Future<bool> downloadImagesById(dynamic id,
-      {void onProcess(Message msg)?, usePrefence = true}) async {
-    final gallery = await fetchGallery(id, usePrefence: usePrefence);
+      {void onProcess(Message msg)?,
+      usePrefence = true,
+      CancelToken? token}) async {
+    await checkInit();
+    final gallery =
+        await fetchGallery(id, usePrefence: usePrefence, token: token);
     var artists = gallery.artists;
-    final outPath = prefenerce.outPut;
+    final outPath = config.output;
     final title = gallery.fixedTitle;
-    var b = gallery.tags?.any((element) =>
-            prefenerce.exclude.map((e) => e.name).contains(element.tag)) ??
-        false;
-    if (b && usePrefence) {
-      print('${id} include exclude key,continue?(Y/n)');
+    var tag = (gallery.tags ?? [])
+        .firstWhereOrNull((element) => config.exinclude.contains(element.tag));
+    if (tag != null && usePrefence) {
+      print('${id} include exclude key ${tag.tag},continue?(Y/n)');
       var confirm = stdin.readLineSync();
       if (confirm?.toLowerCase().toLowerCase() != 'y') {
         return false;
       }
     }
     Directory dir;
+    onProcess?.call(GalleryMessage(gallery, id: id, success: false));
     try {
       dir = Directory("${outPath}/${title}")..createSync();
     } catch (e) {
@@ -113,7 +111,7 @@ class _HitomiImpl implements Hitomi {
     print('down $id to ${dir.path}');
     File(dir.path + '/' + 'meta.json').writeAsString(json.encode(gallery));
     final referer = 'https://hitomi.la${Uri.encodeFull(gallery.galleryurl!)}';
-    final result = <bool>[];
+    final missImages = <Image>[];
     for (var i = 0; i < gallery.files.length; i++) {
       Image image = gallery.files[i];
       final out = File(dir.path + '/' + image.name);
@@ -121,7 +119,7 @@ class _HitomiImpl implements Hitomi {
       if (!b) {
         for (var j = 0; j < 3; j++) {
           try {
-            final url = image.getDownLoadUrl(prefenerce);
+            final url = getDownLoadUrl(image);
             final time = DateTime.now();
             var data = await downloadImage(url, referer,
                 onProcess: onProcess == null
@@ -136,7 +134,8 @@ class _HitomiImpl implements Hitomi {
                             1024 /
                             DateTime.now().difference(time).inMilliseconds *
                             1000,
-                        total)));
+                        total)),
+                token: token);
             await out.writeAsBytes(data, flush: true);
             b = true;
             break;
@@ -145,17 +144,13 @@ class _HitomiImpl implements Hitomi {
           }
         }
       }
-      result.add(b);
+      if (!b) {
+        missImages.add(image);
+      }
     }
-    b = !result.any((element) => !element);
+    var b = missImages.isEmpty;
+    onProcess?.call(DownLoadFinished(missImages, gallery, id: id, success: b));
     print('下载$id完成$b');
-    // await gallery.translateLable(prefenerce.helper);
-    // await prefenerce.helper.insertGallery(gallery);
-    // if (b) {
-    //   await prefenerce.helper.removeTask(gallery.id);
-    // } else {
-    //   await prefenerce.helper.updateTask(gallery, true);
-    // }
     return b;
   }
 
@@ -167,11 +162,11 @@ class _HitomiImpl implements Hitomi {
 
   @override
   Future<List<int>> downloadImage(String url, String refererUrl,
-      {void onProcess(int now, int total)?}) async {
+      {void onProcess(int now, int total)?, CancelToken? token}) async {
     final data = await http_invke(url,
-        proxy: prefenerce.proxy,
         headers: _buildRequestHeader(url, refererUrl),
-        onProcess: onProcess);
+        onProcess: onProcess,
+        token: token);
     return data;
   }
 
@@ -196,33 +191,32 @@ class _HitomiImpl implements Hitomi {
   }
 
   @override
-  Future<Gallery> fetchGallery(dynamic id, {usePrefence = true}) async {
-    var gallery = await _fetchGalleryJsonById(id);
+  Future<Gallery> fetchGallery(dynamic id,
+      {usePrefence = true, CancelToken? token}) async {
+    var gallery = await _fetchGalleryJsonById(id, token);
     if (usePrefence) {
-      gallery = await _findBeseMatch(gallery);
+      gallery = await _findBeseMatch(gallery, token: token);
     }
     return gallery;
   }
 
-  Future<Gallery> _findBeseMatch(Gallery gallery) async {
+  Future<Gallery> _findBeseMatch(Gallery gallery, {CancelToken? token}) async {
     final id = gallery.id;
     final languages = gallery.languages
-        ?.where((element) =>
-            prefenerce.languages.map((e) => e.name).contains(element.name))
+        ?.where((element) => config.languages.contains(element.name))
         .toList();
     if (languages?.isNotEmpty == true) {
-      languages!.sort((a, b) => prefenerce.languages
-          .indexWhere((l) => l.name == a.name)
-          .compareTo(prefenerce.languages.indexWhere((l) => l.name == b.name)));
-      final language = languages.first;
-      if (id != language.galleryid) {
-        print('use language ${language.toJson()}');
-        return _fetchGalleryJsonById(language.galleryid!.toInt());
+      final f = config.languages.firstWhere((element) =>
+          languages!.firstWhereOrNull((e) => e.name == element) != null);
+      final language = languages!.firstWhere((element) => element.name == f);
+      if (id != language) {
+        print('use language ${language}');
+        return _fetchGalleryJsonById(language.galleryid, token);
       }
-    } else if (!prefenerce.languages
-        .map((e) => e.name)
-        .contains(gallery.language)) {
-      final found = await findSimilarGalleryBySearch(gallery).toList();
+    } else if (!config.languages
+        .any((element) => element == gallery.language)) {
+      final found =
+          await findSimilarGalleryBySearch(gallery, token: token).toList();
       if (found.isNotEmpty) {
         found.sort((e1, e2) => e1.item2.compareTo(e2.item2));
         print(
@@ -234,8 +228,9 @@ class _HitomiImpl implements Hitomi {
     return gallery;
   }
 
-  Stream<Tuple2<Gallery, int>> findSimilarGalleryBySearch(
-      Gallery gallery) async* {
+  Stream<Tuple2<Gallery, int>> findSimilarGalleryBySearch(Gallery gallery,
+      {CancelToken? token}) async* {
+    await checkInit();
     List<Lable> keys = gallery.title
         .toLowerCase()
         .split(_blank)
@@ -248,7 +243,7 @@ class _HitomiImpl implements Hitomi {
       return previousValue;
     });
     keys.add(TypeLabel(gallery.type));
-    keys.addAll(prefenerce.languages);
+    keys.addAll(config.languages.map((e) => Language(name: e)));
     if ((gallery.parodys?.length ?? 0) > 0) {
       keys.addAll(gallery.parodys!);
     }
@@ -256,17 +251,18 @@ class _HitomiImpl implements Hitomi {
       keys.addAll(gallery.artists!);
     }
     print('search target language by $keys');
-    final ids = await search(keys, exclude: prefenerce.exclude);
+    final ids = await search(keys, token: token);
     final referer = 'https://hitomi.la${Uri.encodeFull(gallery.galleryurl!)}';
-    final url = gallery.files.first.getThumbnailUrl(prefenerce);
-    var data = await downloadImage(url, referer);
+    final url = getThumbnailUrl(gallery.files.first);
+    var data = await downloadImage(url, referer, token: token);
     for (int id in ids) {
-      final g1 = await _fetchGalleryJsonById(id);
+      final g1 = await _fetchGalleryJsonById(id, token);
       final thumbnail = await downloadImage(
-          g1.files.first.getThumbnailUrl(prefenerce), referer);
+          getThumbnailUrl(g1.files.first), referer,
+          token: token);
       final hamming_distance = await distance(data, thumbnail);
-      final langIndex = prefenerce.languages
-          .indexWhere((element) => element.name == g1.language);
+      final langIndex =
+          config.languages.indexWhere((element) => element == g1.language);
       if (hamming_distance <= 16 && langIndex >= 0) {
         yield Tuple2(g1, hamming_distance + langIndex);
       }
@@ -277,14 +273,16 @@ class _HitomiImpl implements Hitomi {
   Future<List<int>> search(List<Lable> include,
       {List<Lable> exclude = const [],
       int page = 1,
-      usePrefence = true}) async {
+      usePrefence = true,
+      CancelToken? token}) async {
+    await checkInit();
     final typeMap = include.groupListsBy((element) => element.runtimeType);
     var includeIds =
         await Stream.fromIterable(typeMap.entries).asyncMap((element) async {
       return await Stream.fromIterable(element.value)
           .asyncMap((e) async => e is Language
-              ? await prefenerce.getCacheIdsFromLang(e)
-              : await fetchIdsByTag(e))
+              ? await getCacheIdsFromLang(e, token: token)
+              : await fetchIdsByTag(e, token: token))
           .fold<Set<int>>(
               {},
               (previous, e) => element.key == QueryText
@@ -305,7 +303,7 @@ class _HitomiImpl implements Hitomi {
     });
     if (exclude.isNotEmpty && includeIds.isNotEmpty) {
       final filtered = await Stream.fromFutures(
-              exclude.map((e) => prefenerce.getCacheIdsFromLang(e)))
+              exclude.map((e) => getCacheIdsFromLang(e, token: token)))
           .fold<Set<int>>(includeIds.toSet(), (acc, item) {
         acc.removeAll(item);
         return acc;
@@ -316,9 +314,10 @@ class _HitomiImpl implements Hitomi {
   }
 
   @override
-  Future<List<int>> fetchIdsByTag(Lable tag, [Language? language]) {
+  Future<List<int>> fetchIdsByTag(Lable tag,
+      {Language? language, CancelToken? token}) {
     if (tag is QueryText) {
-      return _fetchQuery(tag.name.toLowerCase());
+      return _fetchQuery(tag.name.toLowerCase(), token);
     } else {
       final useLanguage = language?.name ?? 'all';
       String url;
@@ -327,20 +326,22 @@ class _HitomiImpl implements Hitomi {
       } else {
         url = 'https://ltn.hitomi.la/n/${tag.urlEncode()}-$useLanguage.nozomi';
       }
-      return _fetchTagIdsByNet(url);
+      return _fetchTagIdsByNet(url, token);
     }
   }
 
-  Future<List<int>> _fetchQuery(String word) async {
+  Future<List<int>> _fetchQuery(String word, CancelToken? token) async {
+    await checkInit();
     final hash =
         sha256.convert(Utf8Encoder().convert(word)).bytes.take(4).toList();
     final url =
-        'https://ltn.hitomi.la/galleriesindex/galleries.${prefenerce.galleries_index_version}.index';
-    return _fetchNode(url).then((value) => _netBTreeSearch(url, value, hash));
+        'https://ltn.hitomi.la/galleriesindex/galleries.${galleries_index_version}.index';
+    return _fetchNode(url, token: token)
+        .then((value) => _netBTreeSearch(url, value, hash, token));
   }
 
   Future<List<int>> _netBTreeSearch(
-      String url, _Node node, List<int> hashKey) async {
+      String url, _Node node, List<int> hashKey, CancelToken? token) async {
     var tuple = Tuple2(false, node.keys.length);
     for (var i = 0; i < node.keys.length; i++) {
       var v = hashKey.compareTo(node.keys[i]);
@@ -350,24 +351,27 @@ class _HitomiImpl implements Hitomi {
       }
     }
     if (tuple.item1) {
-      return _fetchData(node.datas[tuple.item2]);
+      return _fetchData(node.datas[tuple.item2], token);
     } else if (node.subnode_addresses.any((element) => element != 0) &&
         node.subnode_addresses[tuple.item2] != 0) {
       return _netBTreeSearch(
           url,
           await _fetchNode(url, start: node.subnode_addresses[tuple.item2]),
-          hashKey);
+          hashKey,
+          token);
     }
     return _emptyList;
   }
 
-  Future<List<int>> _fetchData(Tuple2<int, int> tuple) async {
+  Future<List<int>> _fetchData(
+      Tuple2<int, int> tuple, CancelToken? token) async {
+    await checkInit();
     final url =
-        'https://ltn.hitomi.la/galleriesindex/galleries.${prefenerce.galleries_index_version}.data';
+        'https://ltn.hitomi.la/galleriesindex/galleries.${galleries_index_version}.data';
     return await http_invke(url,
-            proxy: prefenerce.proxy,
             headers: _buildRequestHeader(url, 'https://hitomi.la/',
-                range: tuple.withItem2(tuple.item1 + tuple.item2 - 1)))
+                range: tuple.withItem2(tuple.item1 + tuple.item2 - 1)),
+            token: token)
         .then((value) {
       final view = _DataView(value);
       var number = view.getData(0, 4);
@@ -379,10 +383,10 @@ class _HitomiImpl implements Hitomi {
     });
   }
 
-  Future<List<int>> _fetchTagIdsByNet(String url) async {
+  Future<List<int>> _fetchTagIdsByNet(String url, CancelToken? token) async {
     return await http_invke(url,
-            proxy: prefenerce.proxy,
-            headers: _buildRequestHeader(url, 'https://hitomi.la/'))
+            headers: _buildRequestHeader(url, 'https://hitomi.la/'),
+            token: token)
         .then((value) {
       final view = _DataView(value);
       var number = value.length / 4;
@@ -394,46 +398,189 @@ class _HitomiImpl implements Hitomi {
     });
   }
 
-  Future<_Node> _fetchNode(String url, {int start = 0}) {
+  Future<_Node> _fetchNode(String url, {int start = 0, CancelToken? token}) {
     return http_invke(url,
-            proxy: prefenerce.proxy,
             headers: _buildRequestHeader(url, 'https://hitomi.la/',
-                range: Tuple2(start, start + 463)))
+                range: Tuple2(start, start + 463)),
+            token: token)
         .then((value) => _Node.parse(value));
   }
 
   @override
-  Stream<Gallery> viewByTag(Lable tag, {int page = 1}) async* {
+  Stream<Gallery> viewByTag(Lable tag,
+      {int page = 1, CancelToken? token}) async* {
     var referer = 'https://hitomi.la/${tag.urlEncode()}-all.html';
     if (page > 1) {
       referer += '?page=$page';
     }
     final dataUrl = 'https://ltn.hitomi.la/${tag.urlEncode()}-all.nozomi';
     final ids = await http_invke(dataUrl,
-            proxy: prefenerce.proxy,
             headers: _buildRequestHeader(dataUrl, referer,
-                range: Tuple2((page - 1) * 100, page * 100 - 1)))
+                range: Tuple2((page - 1) * 100, page * 100 - 1)),
+            token: token)
         .then((value) => mapBytesToInts(value, spilt: 4));
     for (var id in ids) {
-      yield await fetchGallery(id, usePrefence: false);
+      yield await fetchGallery(id, usePrefence: false, token: token);
     }
   }
-}
 
-List<int> mapBytesToInts(List<int> resp, {int spilt = 4}) {
-  if (resp.length % spilt != 0) {
-    throw 'not $spilt times';
-  }
-  final result = <int>[];
-  for (var i = 0; i < resp.length / spilt; i++) {
-    var subList = resp.sublist(i * spilt, i * spilt + spilt);
-    int r = 0;
-    for (var i = 0; i < subList.length; i++) {
-      r |= subList[i] << (spilt - 1 - i) * 8;
+  Future<List<List<dynamic>>> fetchTagsFromNet({CancelToken? token}) async {
+    // var rows = _db.select(
+    //     'select intro from Tags where type=? by intro desc', ['author']);
+    // Map<String, dynamic> author =
+    //     (data['head'] as Map<String, dynamic>)['author'];
+    final Map<String, dynamic> data = await http_invke(
+            'https://github.com/EhTagTranslation/Database/releases/latest/download/db.text.json',
+            token: token)
+        .then((value) => Utf8Decoder().convert(value))
+        .then((value) => json.decode(value));
+    if (data['data'] is List<dynamic>) {
+      var rows = data['data'] as List<dynamic>;
+      var params = rows
+          .sublist(1)
+          .map((e) => e as Map<String, dynamic>)
+          .map((e) => Tuple2(
+              e['namespace'] as String, e['data'] as Map<String, dynamic>))
+          .fold<List<List<dynamic>>>([], (st, e) {
+        final key = ['mixed', 'other', 'cosplayer', 'temp'].contains(e.item1)
+            ? 'tag'
+            : e.item1.replaceAll('reclass', 'type');
+        e.item2.entries.fold<List<List<dynamic>>>(st, (previousValue, element) {
+          final name = element.key;
+          final value = element.value as Map<String, dynamic>;
+          return previousValue
+            ..add([null, key, name, value['name'], value['intro']]);
+        });
+        return st;
+      });
+      return params;
     }
-    result.add(r);
+    return [];
   }
-  return result;
+
+  Future<List<int>> getCacheIdsFromLang(Lable lable,
+      {CancelToken? token}) async {
+    if (!_cache.containsKey(lable)) {
+      var result = await fetchIdsByTag(lable, token: token);
+      print('fetch label ${lable.name} result ${result.length}');
+      _cache[lable] = result;
+    }
+    return _cache[lable]!;
+  }
+
+  Future<List<int>> http_invke(String url,
+      {Map<String, dynamic>? headers = null,
+      CancelToken? token,
+      void onProcess(int now, int total)?}) async {
+    final ua = {
+      'user-agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36 Edg/106.0.1370.47'
+    };
+    headers?.addAll(ua);
+    final useHeader = headers ?? ua;
+    return _dio
+        .get<ResponseBody>(url,
+            options:
+                Options(headers: useHeader, responseType: ResponseType.stream),
+            cancelToken: token)
+        .then((resp) {
+      if (resp.statusCode == 200 || resp.statusCode == 206) {
+        int total = resp.extra.length;
+        return resp.data!.stream.fold<List<int>>(<int>[], (l, ints) {
+          l.addAll(ints);
+          onProcess?.call(l.length, total);
+          return l;
+        });
+      }
+      final error = '$url with $headers error ${resp.statusCode}';
+      throw error;
+    }).catchError((err) {
+      if (err is HttpException) {
+        return http_invke(url, headers: headers);
+      }
+      throw err;
+    });
+  }
+
+  Future<Timer> initData() async {
+    final gg = await http_invke('https://ltn.hitomi.la/gg.js')
+        .then((ints) {
+          return Utf8Decoder().convert(ints);
+        })
+        .then((value) => LineSplitter.split(value))
+        .then((value) => value.toList());
+    final codeStr = gg.lastWhere((element) => _codeExp.hasMatch(element));
+    code = _codeExp.firstMatch(codeStr)![1]!;
+    var valueStr = gg.firstWhere((element) => _valueExp.hasMatch(element));
+    index = int.parse(_valueExp.firstMatch(valueStr)![1]!);
+    codes = gg
+        .where((element) => _regExp.hasMatch(element))
+        .map((e) => _regExp.firstMatch(e)![1]!)
+        .map((e) => int.parse(e))
+        .toList();
+    galleries_index_version = await http_invke(
+            'https://ltn.hitomi.la/galleriesindex/version?_=${DateTime.now().millisecondsSinceEpoch}')
+        .then((value) => Utf8Decoder().convert(value))
+        .then((value) => int.parse(value));
+    return Timer.periodic(
+        Duration(minutes: 30), (timer) async => await initData());
+  }
+
+  Future<void> checkInit() async {
+    _timer = _timer ?? await initData();
+  }
+
+  String getDownLoadUrl(Image image) {
+    return "https://${_getUserInfo(image.hash, 'a')}.hitomi.la/webp/${code}/${_parseLast3HashCode(image.hash)}/${image.hash}.webp";
+  }
+
+  String getThumbnailUrl(Image image,
+      {ThumbnaiSize size = ThumbnaiSize.smaill, CancelToken? token}) {
+    final lastThreeCode = image.hash.substring(image.hash.length - 3);
+    var sizeStr;
+    switch (size) {
+      case ThumbnaiSize.smaill:
+        sizeStr = 'webpsmallsmalltn';
+        break;
+      case ThumbnaiSize.medium:
+        sizeStr = 'webpsmalltn';
+        break;
+      case ThumbnaiSize.big:
+        sizeStr = 'webpbigtn';
+        break;
+    }
+    return "https://${_getUserInfo(image.hash, 'tn')}.hitomi.la/$sizeStr/${lastThreeCode.substring(2)}/${lastThreeCode.substring(0, 2)}/${image.hash}.webp";
+  }
+
+  String _getUserInfo(String hash, String postFix) {
+    final code = _parseLast3HashCode(hash);
+    final userInfo = ['a', 'b'];
+    var useIndex = index - (codes.any((element) => element == code) ? 1 : 0);
+    return userInfo[useIndex.abs()] + postFix;
+  }
+
+  int _parseLast3HashCode(String hash) {
+    return int.parse(String.fromCharCode(hash.codeUnitAt(hash.length - 1)),
+                radix: 16) <<
+            8 |
+        int.parse(hash.substring(hash.length - 3, hash.length - 1), radix: 16);
+  }
+
+  List<int> mapBytesToInts(List<int> resp, {int spilt = 4}) {
+    if (resp.length % spilt != 0) {
+      throw 'not $spilt times';
+    }
+    final result = <int>[];
+    for (var i = 0; i < resp.length / spilt; i++) {
+      var subList = resp.sublist(i * spilt, i * spilt + spilt);
+      int r = 0;
+      for (var i = 0; i < subList.length; i++) {
+        r |= subList[i] << (spilt - 1 - i) * 8;
+      }
+      result.add(r);
+    }
+    return result;
+  }
 }
 
 class _Node {
@@ -488,5 +635,3 @@ class _DataView {
     return r;
   }
 }
-
-enum TaskStatus { NotRunning, Runing, FileMissing, Finished }

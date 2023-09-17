@@ -5,19 +5,16 @@ import 'dart:isolate';
 import 'package:collection/collection.dart';
 import 'package:hitomi/gallery/gallery.dart';
 import 'package:hitomi/gallery/label.dart';
-import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/dhash.dart';
-import 'package:hitomi/src/http_tools.dart';
 import 'package:path/path.dart';
 import 'package:sqlite3/sqlite3.dart';
-import 'package:tuple/tuple.dart';
 
 class SqliteHelper {
-  final UserConfig _config;
+  final String dirPath;
   static final _version = 1;
   SendPort? _sendPort;
   final result = <Completer<dynamic>>[];
-  SqliteHelper(this._config);
+  SqliteHelper(this.dirPath);
 
   Future<void> init() async {
     final _receivePort = ReceivePort();
@@ -41,7 +38,7 @@ class SqliteHelper {
   void databaseOpera(SendPort sendPort) async {
     var recy = ReceivePort();
     sendPort.send(recy.sendPort);
-    final dbPath = join(_config.output, 'user.db');
+    final dbPath = join(dirPath, 'user.db');
     var db = sqlite3.open(dbPath);
     db.execute('''create table  if not exists Tags(
       id Integer PRIMARY KEY autoincrement,
@@ -134,40 +131,10 @@ class SqliteHelper {
     return f.future;
   }
 
-  Future<bool> updateTagTable() async {
-    // var rows = _db.select(
-    //     'select intro from Tags where type=? by intro desc', ['author']);
-    // Map<String, dynamic> author =
-    //     (data['head'] as Map<String, dynamic>)['author'];
-    final Map<String, dynamic> data = await http_invke(
-            'https://github.com/EhTagTranslation/Database/releases/latest/download/db.text.json',
-            proxy: _config.proxy)
-        .then((value) => Utf8Decoder().convert(value))
-        .then((value) => json.decode(value));
-    if (data['data'] is List<dynamic>) {
-      var rows = data['data'] as List<dynamic>;
-      var params = rows
-          .sublist(1)
-          .map((e) => e as Map<String, dynamic>)
-          .map((e) => Tuple2(
-              e['namespace'] as String, e['data'] as Map<String, dynamic>))
-          .fold<List<List<dynamic>>>([], (st, e) {
-        final key = ['mixed', 'other', 'cosplayer', 'temp'].contains(e.item1)
-            ? 'tag'
-            : e.item1.replaceAll('reclass', 'type');
-        e.item2.entries.fold<List<List<dynamic>>>(st, (previousValue, element) {
-          final name = element.key;
-          final value = element.value as Map<String, dynamic>;
-          return previousValue
-            ..add([null, key, name, value['name'], value['intro']]);
-        });
-        return st;
-      });
-      return excuteSqlAsync(
-          'REPLACE INTO Tags(id,type,name,translate,intro) values(?,?,?,?,?)',
-          params);
-    }
-    return false;
+  Future<bool> updateTagTable(List<List<dynamic>> params) async {
+    return excuteSqlAsync(
+        'REPLACE INTO Tags(id,type,name,translate,intro) values(?,?,?,?,?)',
+        params);
   }
 
   Future<List<Lable>> fetchLablesFromSql(List<String> names) async {
@@ -195,6 +162,21 @@ class SqliteHelper {
     return null;
   }
 
+  Future<List<Lable>> mapToLabel(List<String> names) async {
+    var set = await selectSqlMultiResultAsync(
+        'select * from Tags where name = ?', names.map((e) => [e]).toList());
+    return names.map((e) {
+      var f = set.entries
+          .firstWhereOrNull((element) => element.key.equals([e]))
+          ?.value
+          .first;
+      if (f != null) {
+        return fromString(f['type'], f['name']);
+      }
+      return QueryText(e);
+    }).toList();
+  }
+
   Future<bool> excuteSqlAsync(String sql, List<dynamic> params) async {
     var f = Completer<bool>();
     if (_sendPort == null) {
@@ -206,7 +188,7 @@ class SqliteHelper {
   }
 
   Future<void> insertGallery(Gallery gallery, [int? hash]) async {
-    final path = join(_config.output, gallery.fixedTitle);
+    final path = join(dirPath, gallery.fixedTitle);
     var useHash = hash ??
         await imageHash(
             File(join(path, gallery.files.first.name)).readAsBytesSync());
@@ -227,7 +209,7 @@ class SqliteHelper {
   }
 
   Future<void> updateTask(Gallery gallery, bool complete) async {
-    final path = join(_config.output, gallery.fixedTitle);
+    final path = join(dirPath, gallery.fixedTitle);
     await excuteSqlAsync(
         'replace into Tasks(id,title,path,completed) values(?,?,?,?)', [
       gallery.id,

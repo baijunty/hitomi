@@ -1,6 +1,4 @@
-export 'src/hitomi.dart' show Hitomi, Message;
-export 'src/prefenerce.dart';
-export 'src/gallery_tool.dart';
+export 'src/hitomi.dart' show Hitomi;
 export 'src/user_config.dart';
 
 extension IntParse on dynamic {

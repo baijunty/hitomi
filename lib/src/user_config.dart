@@ -7,12 +7,14 @@ part 'user_config.g.dart';
 @immutable
 @freezed
 class UserConfig with _$UserConfig {
-  factory UserConfig(String output,
-      {required String proxy,
-      required List<String> languages,
-      required int maxTasks,
-      List<String>? exinclude,
-      String? dateLimit}) = _UserConfig;
+  factory UserConfig(
+    String output, {
+    @Default(5) int maxTasks,
+    @Default(["japanese", "chinese"]) List<String> languages,
+    @Default("") String proxy,
+    @Default([]) List<String> exinclude,
+    @Default("1970-01-01") String dateLimit,
+  }) = _UserConfig;
   factory UserConfig.fromJson(Map<String, Object> json) =>
       _$UserConfigFromJson(json);
   factory UserConfig.fromStr(String jsonStr) =>

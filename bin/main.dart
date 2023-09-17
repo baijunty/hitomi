@@ -1,9 +1,11 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:args/args.dart';
 import 'package:hitomi/lib.dart';
-import 'package:hitomi/src/hitomi.dart';
+import 'package:hitomi/src/downloader.dart';
+import 'package:hitomi/src/task_manager.dart';
 
 void main(List<String> args) async {
   final parser = ArgParser()
@@ -22,7 +24,6 @@ void main(List<String> args) async {
         defaultsTo: ["japanese", "chinese"],
         allowed: ["japanese", "chinese", "english"],
         help: 'set language with -l')
-    ..addMultiOption('excluede', abbr: 'e', help: 'set excluede tags')
     ..addOption('task', abbr: 't', help: 'set task with -t');
   print(parser.usage);
   ArgResults argResults = parser.parse(args);
@@ -31,7 +32,6 @@ void main(List<String> args) async {
   final file = File(argResults['file']);
   final List<String> languages = argResults["languages"];
   final String? tasks = argResults["task"];
-  final List<String> excluede = argResults["excluede"];
   UserConfig config;
   if (file.existsSync()) {
     config = UserConfig.fromStr(file.readAsStringSync());
@@ -39,27 +39,27 @@ void main(List<String> args) async {
     config = UserConfig(outDir,
         proxy: proxy,
         languages: languages,
-        maxTasks: int.parse(argResults['max']),
-        exinclude: excluede);
+        maxTasks: int.parse(argResults['max']));
     file.writeAsBytesSync(json.encode(config.toJson()).codeUnits);
   }
   print(config);
-  final pool = TaskManager(config);
+  final recy = ReceivePort();
+  final pool = TaskManager(config, recy.sendPort);
   tasks?.split(';').forEach(
-      (element) async => await (await pool.addNewTask(element))?.start());
+      (element) async => await (await pool.parseCommandAndRun(element.trim())));
+  recy.listen((msg) {
+    if (msg is DownLoadMessage) {
+      var content =
+          '${msg.id}下载${msg.title} ${msg.current}/${msg.maxPage} ${(msg.speed).toStringAsFixed(2)}Kb/s 共${(msg.length / 1024).toStringAsFixed(2)}KB';
+      var splitIndex = msg.maxPage == 0
+          ? 0
+          : (msg.current / msg.maxPage * content.length).toInt();
+      print(
+          '\x1b[47;31m${content.substring(0, splitIndex)}\x1b[0m${content.substring(splitIndex)}');
+    }
+  });
   getUserInputId().forEach((element) async {
-    final task = await pool.addNewTask(element);
-    task?.listen((msg) {
-      if (msg is DownLoadMessage) {
-        var content =
-            '${msg.id}下载${msg.title} ${msg.current}/${msg.maxPage} ${(msg.speed).toStringAsFixed(2)}Kb/s 共${(msg.length / 1024).toStringAsFixed(2)}KB';
-        var splitIndex = msg.maxPage == 0
-            ? 0
-            : (msg.current / msg.maxPage * content.length).toInt();
-        print(
-            '\x1b[47;31m${content.substring(0, splitIndex)}\x1b[0m${content.substring(splitIndex)}');
-      }
-    });
+    await pool.parseCommandAndRun(element.trim());
   });
 }
 
