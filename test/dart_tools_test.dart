@@ -1,26 +1,20 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:dio/dio.dart';
 import 'package:hitomi/gallery/gallery.dart';
 import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/dhash.dart';
-import 'package:hitomi/src/task_manager.dart';
 import 'package:hitomi/src/sqlite_helper.dart';
 import 'package:test/test.dart';
 
 var config = UserConfig(r'/home/bai/ssd/photos', proxy: '127.0.0.1:8389');
 void main() async {
   test('match', () async {
-    await galleryTest();
-    // print('sdf'.split(';'));
-    // var config = UserContext(UserConfig(r'/home/bai/ssd/photos',
-    //     proxy: '127.0.0.1:8389',
-    //     languages: ['chinese', 'japanese'],
-    //     maxTasks: 5));
-    // var fix = GalleryManager(config, null);
-    // await config.initData();
-    // var r = await fix.parseCommandAndRun('2426005');
-    // // .parseArgs('tags --type artist -n simon -t doujinshi -t manga');
-    // print(r);
+    await Stream.fromIterable([1, 3, 3, 1, 4, 1, 3, 2])
+        .distinct()
+        .forEach((element) {
+      print(element);
+    });
   });
 }
 
@@ -82,15 +76,18 @@ Future<void> testImageSearch() async {
 }
 
 Future<void> testImageDownload() async {
-  var task = TaskManager(config);
-  await task.parseCommandAndRun('45465465489456');
-  await Future.delayed(Duration(seconds: 5));
-  task.cancel();
-  await Future.delayed(Duration(seconds: 5));
-  task.cancel();
-  await task.parseCommandAndRun('2473175');
-  await Future.delayed(Duration(seconds: 5));
-  task.cancel();
+  var token = CancelToken();
+  var task = Hitomi.fromPrefenerce(config);
+  var gallery = await task.fetchGallery('1467596');
+  Directory('${config.output}/${gallery.fixedTitle}')
+      .deleteSync(recursive: true);
+  task.downloadImages(gallery, token: token);
+  await Future.delayed(Duration(seconds: 1));
+  token.cancel();
+  task.downloadImages(gallery, token: token);
+  await Future.delayed(Duration(seconds: 6));
+  token.cancel();
+  await Future.delayed(Duration(seconds: 20));
 }
 
 Future<void> galleryTest() async {

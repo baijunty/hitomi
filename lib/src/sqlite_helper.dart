@@ -101,7 +101,7 @@ class SqliteHelper {
             sendPort.send(true);
           }
         } catch (e) {
-          print(e);
+          print('$e when exec ${element.sql} with ${element.params}');
           sendPort.send(e);
         } finally {
           stam?.dispose();
@@ -188,6 +188,7 @@ class SqliteHelper {
   }
 
   Future<void> insertGallery(Gallery gallery, [int? hash]) async {
+    await gallery.translateLable(this);
     final path = join(dirPath, gallery.fixedTitle);
     var useHash = hash ??
         await imageHash(

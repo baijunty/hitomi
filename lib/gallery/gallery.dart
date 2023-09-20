@@ -97,7 +97,7 @@ class Gallery with Lable {
 
   @override
   String toString() {
-    return 'Gallery(artists: $artists, tags: $tags, sceneIndexes: $sceneIndexes, japaneseTitle: $japaneseTitle, languages: $languages, type: $type, languageLocalname: $languageLocalname, title: $title, language: $language, characters: $characters, galleryurl: $galleryurl, languageUrl: $languageUrl, date: $date, related: $related, video: $video, parodys: $parodys, videofilename: $videofilename, files: $files, id: $id, groups: $groups)';
+    return 'Gallery(type: $type, title: ${fixedTitle}, language: $language, date: $date, id: $id)';
   }
 
   factory Gallery.fromMap(Map<String, dynamic> data) => Gallery(

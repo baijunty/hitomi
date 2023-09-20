@@ -20,6 +20,10 @@ abstract class Hitomi {
       {void onProcess(Message msg)?,
       bool usePrefence = true,
       CancelToken? token});
+  Future<bool> downloadImages(Gallery gallery,
+      {void onProcess(Message msg)?,
+      bool usePrefence = true,
+      CancelToken? token});
   Future<Gallery> fetchGallery(dynamic id,
       {usePrefence = true, CancelToken? token});
   Future<List<int>> search(List<Lable> include,
@@ -79,13 +83,12 @@ class _HitomiImpl implements Hitomi {
   }
 
   @override
-  Future<bool> downloadImagesById(dynamic id,
+  Future<bool> downloadImages(Gallery gallery,
       {void onProcess(Message msg)?,
       usePrefence = true,
       CancelToken? token}) async {
     await checkInit();
-    final gallery =
-        await fetchGallery(id, usePrefence: usePrefence, token: token);
+    final id = gallery.id;
     var artists = gallery.artists;
     final outPath = config.output;
     final title = gallery.fixedTitle;
@@ -95,6 +98,7 @@ class _HitomiImpl implements Hitomi {
       print('${id} include exclude key ${tag.tag},continue?(Y/n)');
       var confirm = stdin.readLineSync();
       if (confirm?.toLowerCase().toLowerCase() != 'y') {
+        onProcess?.call(IlleagalGallery(id));
         return false;
       }
     }
@@ -152,6 +156,17 @@ class _HitomiImpl implements Hitomi {
     onProcess?.call(DownLoadFinished(missImages, gallery, id: id, success: b));
     print('下载$id完成$b');
     return b;
+  }
+
+  @override
+  Future<bool> downloadImagesById(dynamic id,
+      {void onProcess(Message msg)?,
+      usePrefence = true,
+      CancelToken? token}) async {
+    await checkInit();
+    final gallery =
+        await fetchGallery(id, usePrefence: usePrefence, token: token);
+    return await downloadImages(gallery, onProcess: onProcess, token: token);
   }
 
   Future<bool> _checkViallImage(Directory dir, Image image) async {
@@ -250,7 +265,8 @@ class _HitomiImpl implements Hitomi {
     if ((gallery.artists?.length ?? 0) > 0) {
       keys.addAll(gallery.artists!);
     }
-    print('search target language by $keys');
+    print(
+        'search ${gallery.id} ${gallery.fixedTitle} target language by $keys');
     final ids = await search(keys, token: token);
     final referer = 'https://hitomi.la${Uri.encodeFull(gallery.galleryurl!)}';
     final url = getThumbnailUrl(gallery.files.first);
@@ -492,17 +508,11 @@ class _HitomiImpl implements Hitomi {
           return l;
         });
       }
-      final error = '$url with $headers error ${resp.statusCode}';
-      throw error;
-    }).catchError((err) {
-      if (err is HttpException) {
-        return http_invke(url, headers: headers);
-      }
-      throw err;
-    });
+      throw resp.statusCode!;
+    }).catchError((e) => <int>[], test: (e) => e is int);
   }
 
-  Future<Timer> initData() async {
+  Future<void> initData() async {
     final gg = await http_invke('https://ltn.hitomi.la/gg.js')
         .then((ints) {
           return Utf8Decoder().convert(ints);
@@ -522,12 +532,14 @@ class _HitomiImpl implements Hitomi {
             'https://ltn.hitomi.la/galleriesindex/version?_=${DateTime.now().millisecondsSinceEpoch}')
         .then((value) => Utf8Decoder().convert(value))
         .then((value) => int.parse(value));
-    return Timer.periodic(
-        Duration(minutes: 30), (timer) async => await initData());
   }
 
   Future<void> checkInit() async {
-    _timer = _timer ?? await initData();
+    if (_timer == null) {
+      await initData();
+      _timer = Timer.periodic(
+          Duration(minutes: 30), (timer) async => await initData());
+    }
   }
 
   String getDownLoadUrl(Image image) {

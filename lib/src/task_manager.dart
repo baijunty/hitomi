@@ -8,6 +8,7 @@ import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/downloader.dart';
 import 'package:hitomi/src/sqlite_helper.dart';
 
+import '../gallery/gallery.dart';
 import '../gallery/language.dart';
 
 class TaskManager {
@@ -18,6 +19,13 @@ class TaskManager {
   late DownLoader downLoader;
   late Hitomi api;
   late DateTime limit = DateTime.parse(config.dateLimit);
+  late bool Function(Gallery) filter = (Gallery gallery) =>
+      !(gallery.tags
+              ?.any((element) => config.exinclude.contains(element.tag)) ??
+          false) &&
+      DateTime.parse(gallery.date).compareTo(limit) > 0 &&
+      (gallery.artists?.length ?? 0) <= 2 &&
+      gallery.files.length >= 18;
   ArgParser _command = ArgParser();
   TaskManager(this.config, [this.port]) {
     helper = SqliteHelper(config.output);
@@ -36,6 +44,7 @@ class TaskManager {
       ..addOption('del')
       ..addOption('artist', abbr: 'a')
       ..addOption('group', abbr: 'g')
+      ..addFlag('list', abbr: 'l')
       ..addMultiOption('tag', abbr: 't')
       ..addCommand('tags', _command);
   }
@@ -74,7 +83,7 @@ class TaskManager {
   }
 
   Future<bool> parseCommandAndRun(String cmd) async {
-    print('add command $cmd');
+    print('\x1b[47;31madd command $cmd \x1b[0m');
     bool hasError = false;
     var args = _parseArgs(cmd);
     if (args.isEmpty) {
@@ -103,17 +112,12 @@ class TaskManager {
       print(artist);
       hasError = artist == null || artist.isEmpty;
       if (!hasError) {
-        await downLoader.downLoadByTag(
-            <Lable>[
-              Artist(artist: artist),
-              ...config.languages.map((e) => Language(name: e)),
-              TypeLabel('doujinshi'),
-              TypeLabel('manga')
-            ],
-            (gallery) =>
-                DateTime.parse(gallery.date).compareTo(limit) > 0 &&
-                (gallery.artists?.length ?? 0) <= 2 &&
-                gallery.files.length >= 18);
+        await downLoader.downLoadByTag(<Lable>[
+          Artist(artist: artist),
+          ...config.languages.map((e) => Language(name: e)),
+          TypeLabel('doujinshi'),
+          TypeLabel('manga')
+        ], filter);
       }
       return !hasError;
     } else if (result.wasParsed('group')) {
@@ -121,17 +125,12 @@ class TaskManager {
       print(group);
       hasError = group == null || group.isEmpty;
       if (!hasError) {
-        await downLoader.downLoadByTag(
-            <Lable>[
-              Group(group: group),
-              ...config.languages.map((e) => Language(name: e)),
-              TypeLabel('doujinshi'),
-              TypeLabel('manga')
-            ],
-            (gallery) =>
-                DateTime.parse(gallery.date).compareTo(limit) > 0 &&
-                (gallery.artists?.length ?? 0) <= 2 &&
-                gallery.files.length >= 18);
+        await downLoader.downLoadByTag(<Lable>[
+          Group(group: group),
+          ...config.languages.map((e) => Language(name: e)),
+          TypeLabel('doujinshi'),
+          TypeLabel('manga')
+        ], filter);
       }
       return !hasError;
     } else if (result.command != null || result.wasParsed('tag')) {
@@ -149,12 +148,7 @@ class TaskManager {
         tags.addAll(await helper.fetchLablesFromSql(tagWords));
         tags.addAll(config.languages.map((e) => Language(name: e)));
         print('$tags');
-        await downLoader.downLoadByTag(
-            tags,
-            (gallery) =>
-                DateTime.parse(gallery.date).compareTo(limit) > 0 &&
-                (gallery.artists?.length ?? 0) <= 2 &&
-                gallery.files.length >= 18);
+        await downLoader.downLoadByTag(tags, filter);
       }
     }
     // else if (result['fixDb']) {
@@ -172,6 +166,9 @@ class TaskManager {
       tasks.forEach((element) {
         downLoader.addTask(element['id']);
       });
+    } else if (result['list']) {
+      print(downLoader.tasks);
+      return true;
     }
     if (hasError) {
       print('$cmd error with ${args}');

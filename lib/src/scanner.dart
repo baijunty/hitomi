@@ -33,12 +33,11 @@ class GalleryInfo {
   static final _numberTitle = RegExp(r'^-?\d+$');
   Directory directory;
   UserConfig config;
-  late Hitomi api;
-  GalleryInfo.formDirect(this.directory, this.config) {
+  final Hitomi api;
+  GalleryInfo.formDirect(this.directory, this.config, this.api) {
     this.title = basename(directory.path);
     metaFile = File(directory.path + '/meta.json');
     fromHitomi = metaFile.existsSync();
-    api = Hitomi.fromPrefenerce(config);
     helper = SqliteHelper(config.output);
   }
 
@@ -360,7 +359,7 @@ class GalleryInfo {
     await Directory('${config.output}/sdfsdfdf')
         .list()
         .where((event) => event is Directory)
-        .map((event) => GalleryInfo.formDirect(event as Directory, config))
+        .map((event) => GalleryInfo.formDirect(event as Directory, config, api))
         .forEach((element) async {
       if (element.directory.listSync().isEmpty) {
         print('del empty ${element.directory.path}');
@@ -444,7 +443,7 @@ class GalleryInfo {
                 ?.asyncMap((element) async => Tuple2(
                     element['id'] as int,
                     await GalleryInfo.formDirect(
-                            Directory(element['path']), config)
+                            Directory(element['path']), config, api)
                         .tryGetGalleryInfo()))
                 .where((event) => event.item1 != event.item2?.id)
                 .forEach((element) {
@@ -491,7 +490,7 @@ class GalleryInfo {
     final result = await d
         .list()
         .where((event) => event is Directory)
-        .map((event) => GalleryInfo.formDirect(event as Directory, config))
+        .map((event) => GalleryInfo.formDirect(event as Directory, config, api))
         .toList();
     final brokens = <GalleryInfo>[];
     for (var element in result) {
