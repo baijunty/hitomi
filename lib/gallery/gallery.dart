@@ -75,14 +75,16 @@ class Gallery with Lable {
     Map<String, dynamic> empty = const <String, dynamic>{};
     Map<Lable, List<dynamic>> params = {};
     lables().fold(params, (p, e) => p..[e] = e.params);
-    var result = await helper.selectSqlMultiResultAsync(
-        'select * from Tags where type=? and name=?', params.values.toList());
-    params.keys.forEach((key) {
-      var r = result.entries
-          .firstWhereOrNull((element) => element.key.equals(key.params))
-          ?.value;
-      key.trans.addAll(r?.firstOrNull ?? empty);
-    });
+    if (params.isNotEmpty) {
+      var result = await helper.selectSqlMultiResultAsync(
+          'select * from Tags where type=? and name=?', params.values.toList());
+      params.keys.forEach((key) {
+        var r = result.entries
+            .firstWhereOrNull((element) => element.key.equals(key.params))
+            ?.value;
+        key.trans.addAll(r?.firstOrNull ?? empty);
+      });
+    }
     return this;
   }
 

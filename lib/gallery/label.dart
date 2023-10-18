@@ -45,6 +45,7 @@ Lable fromString(String type, String name) {
           female: type == 'female' ? 1 : null,
           tag: name);
     case 'parody':
+    case 'series':
       return Parody(parody: name);
     case 'artist':
       return Artist(artist: name);

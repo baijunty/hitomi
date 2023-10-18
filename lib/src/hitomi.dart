@@ -140,9 +140,11 @@ class _HitomiImpl implements Hitomi {
                             1000,
                         total)),
                 token: token);
-            await out.writeAsBytes(data, flush: true);
-            b = true;
-            break;
+            if (data.isNotEmpty) {
+              await out.writeAsBytes(data, flush: true);
+              b = true;
+              break;
+            }
           } catch (e) {
             print(e);
           }

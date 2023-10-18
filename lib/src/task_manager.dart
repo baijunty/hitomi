@@ -26,15 +26,11 @@ class TaskManager {
       DateTime.parse(gallery.date).compareTo(limit) > 0 &&
       (gallery.artists?.length ?? 0) <= 2 &&
       gallery.files.length >= 18;
-  ArgParser _command = ArgParser();
   TaskManager(this.config, [this.port]) {
     helper = SqliteHelper(config.output);
     api = Hitomi.fromPrefenerce(config);
     downLoader =
         DownLoader(config: config, api: api, helper: helper, port: port);
-    _command
-      ..addOption('name', abbr: 'n')
-      ..addOption('type');
     _parser = ArgParser()
       ..addFlag('fix')
       ..addFlag('fixDb', abbr: 'f')
@@ -46,7 +42,7 @@ class TaskManager {
       ..addOption('group', abbr: 'g')
       ..addFlag('list', abbr: 'l')
       ..addMultiOption('tag', abbr: 't')
-      ..addCommand('tags', _command);
+      ..addMultiOption('tags');
   }
 
   void cancel() {
@@ -86,6 +82,7 @@ class TaskManager {
     print('\x1b[47;31madd command $cmd \x1b[0m');
     bool hasError = false;
     var args = _parseArgs(cmd);
+    print('args $args');
     if (args.isEmpty) {
       print('$cmd error with ${args}');
       print(_parser.usage);
@@ -109,7 +106,6 @@ class TaskManager {
       }
     } else if (result.wasParsed('artist')) {
       String? artist = result['artist'];
-      print(artist);
       hasError = artist == null || artist.isEmpty;
       if (!hasError) {
         await downLoader.downLoadByTag(<Lable>[
@@ -133,7 +129,7 @@ class TaskManager {
         ], filter);
       }
       return !hasError;
-    } else if (result.command != null || result.wasParsed('tag')) {
+    } else if (result.wasParsed('tag')) {
       var name = result.command?['name'];
       var type = result.command?['type'];
       List<String> tagWords = result.wasParsed('tag') ? result['tag'] : [];
@@ -150,6 +146,16 @@ class TaskManager {
         print('$tags');
         await downLoader.downLoadByTag(tags, filter);
       }
+    } else if (result.wasParsed('tags')) {
+      List<String> tags = result["tags"];
+      await downLoader.downLoadByTag(
+          tags
+              .map((e) => e.split(':'))
+              .where((value) => value.length >= 2)
+              .map((e) => fromString(e[0], e[1]))
+              .toList()
+            ..addAll(config.languages.map((e) => Language(name: e))),
+          filter);
     }
     // else if (result['fixDb']) {
     //   await fixDb();

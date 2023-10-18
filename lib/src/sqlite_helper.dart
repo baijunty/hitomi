@@ -191,8 +191,13 @@ class SqliteHelper {
     await gallery.translateLable(this);
     final path = join(dirPath, gallery.fixedTitle);
     var useHash = hash ??
-        await imageHash(
-            File(join(path, gallery.files.first.name)).readAsBytesSync());
+        await File(join(path, gallery.files.first.name))
+            .readAsBytes()
+            .then((value) => imageHash(value))
+            .catchError((e) {
+          print(e);
+          return 0;
+        }, test: (error) => true);
     await excuteSqlAsync(
         'replace into Gallery(id,path,author,groupes,serial,language,title,tags,files,hash) values(?,?,?,?,?,?,?,?,?,?)',
         [
@@ -209,12 +214,12 @@ class SqliteHelper {
         ]);
   }
 
-  Future<void> updateTask(Gallery gallery, bool complete) async {
-    final path = join(dirPath, gallery.fixedTitle);
+  Future<void> updateTask(
+      dynamic id, String title, String path, bool complete) async {
     await excuteSqlAsync(
         'replace into Tasks(id,title,path,completed) values(?,?,?,?)', [
-      gallery.id,
-      gallery.fixedTitle,
+      id,
+      title,
       path,
       complete,
     ]);

@@ -37,7 +37,9 @@ class DownLoader {
       switch (msg) {
         case GalleryMessage():
           {
-            await helper.updateTask(msg.gallery, false);
+            final path = join(config.output, msg.gallery.fixedTitle);
+            await helper.updateTask(
+                msg.gallery.id, msg.gallery.fixedTitle, path, false);
           }
         case DownLoadMessage():
           {
@@ -53,7 +55,9 @@ class DownLoader {
             if (msg.success) {
               await helper.removeTask(msg.id);
             } else {
-              await helper.updateTask(msg.gallery, true);
+              final path = join(config.output, msg.gallery.fixedTitle);
+              await helper.updateTask(
+                  msg.gallery.id, msg.gallery.fixedTitle, path, true);
             }
             _runningTask.remove(token);
             _notifyTaskChange();
@@ -81,9 +85,16 @@ class DownLoader {
     return b;
   }
 
-  void addTask(dynamic id) {
+  void addTask(dynamic id) async {
     print('add task $id');
     _pendingTask.add(id);
+    if (id is Gallery) {
+      var gallery = id;
+      final path = join(config.output, gallery.fixedTitle);
+      await helper.updateTask(gallery.id, gallery.fixedTitle, path, false);
+    } else {
+      await helper.updateTask(id, '', '', false);
+    }
     _notifyTaskChange();
   }
 
@@ -116,6 +127,7 @@ class DownLoader {
     if (exclude.length != config.exinclude.length) {
       exclude.addAll(await helper.mapToLabel(config.exinclude));
     }
+    print('fetch tags ${tags}');
     CancelToken token = CancelToken();
     final List<Gallery> results = await api
         .search(tags, exclude: exclude)
@@ -144,7 +156,8 @@ class DownLoader {
                 if ((compareHashDistance(key.item1, element.item1) < 8 ||
                         key.item2 == element.item2) &&
                     (element.item2.language == 'japanese' ||
-                        element.item2.language == value.language)) {
+                        element.item2.language == value.language) &&
+                    key.item2.files.length <= element.item2.files.length) {
                   return true;
                 }
                 return false;
