@@ -1,6 +1,6 @@
 {
     "output": "/home/bai/ssd/photos",
-    "proxy": "192.168.1.107:8389",
+    "proxy": "192.168.1.1:8389",
     "languages": [
         "japanese",
         "chinese"
