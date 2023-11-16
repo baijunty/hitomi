@@ -37,9 +37,9 @@ class DownLoader {
       switch (msg) {
         case GalleryMessage():
           {
-            final path = join(config.output, msg.gallery.fixedTitle);
+            final path = join(config.output, msg.gallery.dirName);
             await helper.updateTask(
-                msg.gallery.id, msg.gallery.fixedTitle, path, false);
+                msg.gallery.id, msg.gallery.dirName, path, false);
           }
         case DownLoadMessage():
           {
@@ -55,9 +55,9 @@ class DownLoader {
             if (msg.success) {
               await helper.removeTask(msg.id);
             } else {
-              final path = join(config.output, msg.gallery.fixedTitle);
+              final path = join(config.output, msg.gallery.dirName);
               await helper.updateTask(
-                  msg.gallery.id, msg.gallery.fixedTitle, path, true);
+                  msg.gallery.id, msg.gallery.dirName, path, true);
             }
             _runningTask.remove(token);
             _notifyTaskChange();
@@ -71,9 +71,9 @@ class DownLoader {
     final f = token.id is Gallery
         ? api.downloadImages(token.id, onProcess: handle, token: token)
         : api.downloadImagesById(token.id, onProcess: handle, token: token);
-    var b = await f.catchError((e) {
-      print(e);
-      _downLoadGallery(token);
+    var b = await f.catchError((e) async {
+      print('$token catch error $e');
+      await _downLoadGallery(token);
       return false;
     },
         test: (error) =>
@@ -90,8 +90,8 @@ class DownLoader {
     _pendingTask.add(id);
     if (id is Gallery) {
       var gallery = id;
-      final path = join(config.output, gallery.fixedTitle);
-      await helper.updateTask(gallery.id, gallery.fixedTitle, path, false);
+      final path = join(config.output, gallery.dirName);
+      await helper.updateTask(gallery.id, gallery.dirName, path, false);
     } else {
       await helper.updateTask(id, '', '', false);
     }
@@ -150,30 +150,40 @@ class DownLoader {
                   token: token);
               var hash = await imageHash(Uint8List.fromList(img));
               return Tuple2(hash, event);
-            }).fold<Map<Tuple2<int, Gallery>, Gallery>>({},
-                (previousValue, element) {
-              previousValue.removeWhere((key, value) {
-                if ((compareHashDistance(key.item1, element.item1) < 8 ||
-                        key.item2 == element.item2) &&
-                    (element.item2.language == 'japanese' ||
-                        element.item2.language == value.language) &&
-                    key.item2.files.length <= element.item2.files.length) {
-                  return true;
+            }).fold<List<Tuple2<int, Gallery>>>([], (previousValue, element) {
+              var samilar = previousValue
+                  .where((e) =>
+                      compareHashDistance(e.item1, element.item1) < 8 ||
+                      e.item2 == element.item2)
+                  .map((e) => e.item2)
+                  .toList();
+              if (samilar.isEmpty ||
+                  samilar
+                      .where((e) => e.chapterContains(element.item2))
+                      .isEmpty ||
+                  samilar
+                          .where((e) => e.language == config.languages.first)
+                          .isEmpty &&
+                      element.item2.language == config.languages.first) {
+                if (samilar.isNotEmpty) {
+                  previousValue.removeWhere((tup) =>
+                      samilar.any((e1) => e1.id == tup.item2.id) &&
+                      element.item2.chapterContains(tup.item2));
                 }
-                return false;
-              });
-              previousValue[element] = element.item2;
+                previousValue.add(element);
+              }
               return previousValue;
             });
           })
+          .then((value) => value.map((e) => e.item2))
           .then((value) async {
-            print('usefull result length ${value.values.length}');
-            Map<List<dynamic>, ResultSet> map = value.values.isNotEmpty
+            print('usefull result length ${value.length}');
+            Map<List<dynamic>, ResultSet> map = value.isNotEmpty
                 ? await helper.selectSqlMultiResultAsync(
                     'select id from Gallery where id =?',
-                    value.values.map((e) => [e.id]).toList())
+                    value.map((e) => [e.id]).toList())
                 : {};
-            var r = value.values.groupListsBy((element) =>
+            var r = value.groupListsBy((element) =>
                 map.entries
                     .firstWhere((e) => e.key.equals([element.id]))
                     .value
@@ -186,23 +196,23 @@ class DownLoader {
                   l
                       .map((e) => [
                             e.id,
-                            e.fixedTitle,
-                            join(config.output, e.fixedTitle),
+                            e.dirName,
+                            join(config.output, e.dirName),
                             false,
                           ])
                       .toList());
             }
             return l;
           });
-    }).catchError((e) {
-      print(e);
+    }).catchError((e) async {
+      print('$tags catch error $e');
       token.cancel();
-      downLoadByTag(tags, where);
+      await downLoadByTag(tags, where);
       return <Gallery>[];
     },
             test: (error) =>
                 error is DioException && error.message == null).catchError((e) {
-      print(e);
+      print('$tags error $e');
       return <Gallery>[];
     });
     print('find match gallery ${results.length}');

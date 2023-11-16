@@ -53,7 +53,7 @@ class TaskManager {
     var words = cmd.split(blankExp);
     final args = <String>[];
     bool markCollct = false;
-    final markWords = <String>{};
+    final markWords = [];
     for (var content in words) {
       if ((content.startsWith("'") ||
           content.startsWith("\"") && !markCollct)) {

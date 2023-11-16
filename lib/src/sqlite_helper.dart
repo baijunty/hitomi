@@ -189,7 +189,7 @@ class SqliteHelper {
 
   Future<void> insertGallery(Gallery gallery, [int? hash]) async {
     await gallery.translateLable(this);
-    final path = join(dirPath, gallery.fixedTitle);
+    final path = join(dirPath, gallery.dirName);
     var useHash = hash ??
         await File(join(path, gallery.files.first.name))
             .readAsBytes()

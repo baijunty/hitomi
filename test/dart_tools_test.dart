@@ -9,12 +9,12 @@ import 'package:test/test.dart';
 
 var config = UserConfig(r'/home/bai/ssd/photos', proxy: '127.0.0.1:8389');
 void main() async {
-  test('match', () async {
-    await Stream.fromIterable([1, 3, 3, 1, 4, 1, 3, 2])
-        .distinct()
-        .forEach((element) {
-      print(element);
-    });
+  test('chapter', () async {
+    //-g 'Deko Ga Areba Boko Ga Aru.'
+    var gallery = await getGalleryInfoFromFile(r'2089241');
+    var gallery1 = await getGalleryInfoFromFile(r'2087609');
+    print(
+        "${gallery.id} and ${gallery.chapter()} with ${gallery.nameFixed} and ${gallery.chapterContains(gallery1)} ${gallery == gallery1}");
   });
 }
 
@@ -42,16 +42,17 @@ void main() async {
 //   });
 // }
 
-// Future<Gallery?> testGalleryInfo(String name) async {
-//   var config = UserContext(UserConfig('/home/bai/ssd/photos',
-//       proxy: '127.0.0.1:8389',
-//       languages: ['chinese', 'japanese'],
-//       maxTasks: 5));
-//   var gallery =
-//       GalleryInfo.formDirect(Directory('${config.outPut}/$name'), config);
-//   await config.initData();
-//   return await gallery.tryGetGalleryInfo();
-// }
+Future<Gallery> getGalleryInfoFromFile(String name) async {
+  var config = UserConfig('/home/bai/ssd/photos',
+      proxy: '192.168.1.1:8389',
+      languages: ['chinese', 'japanese'],
+      maxTasks: 5);
+  var file = File(config.output + '/$name/meta.json');
+  if (file.existsSync()) {
+    return Gallery.fromJson(file.readAsStringSync());
+  }
+  return Hitomi.fromPrefenerce(config).fetchGallery(name, usePrefence: false);
+}
 
 Future<void> testImageHash() async {
   var hash1 = await imageHash(
@@ -79,8 +80,7 @@ Future<void> testImageDownload() async {
   var token = CancelToken();
   var task = Hitomi.fromPrefenerce(config);
   var gallery = await task.fetchGallery('1467596');
-  Directory('${config.output}/${gallery.fixedTitle}')
-      .deleteSync(recursive: true);
+  Directory('${config.output}/${gallery.dirName}').deleteSync(recursive: true);
   task.downloadImages(gallery, token: token);
   await Future.delayed(Duration(seconds: 1));
   token.cancel();

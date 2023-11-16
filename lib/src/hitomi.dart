@@ -91,7 +91,7 @@ class _HitomiImpl implements Hitomi {
     final id = gallery.id;
     var artists = gallery.artists;
     final outPath = config.output;
-    final title = gallery.fixedTitle;
+    final title = gallery.dirName;
     var tag = (gallery.tags ?? [])
         .firstWhereOrNull((element) => config.exinclude.contains(element.tag));
     if (tag != null && usePrefence) {
@@ -237,7 +237,7 @@ class _HitomiImpl implements Hitomi {
       if (found.isNotEmpty) {
         found.sort((e1, e2) => e1.item2.compareTo(e2.item2));
         print(
-            'use  ${found.first.item1.fixedTitle} id ${found.first.item1.id} distance ${found.first.item2}');
+            'use  ${found.first.item1.dirName} id ${found.first.item1.id} distance ${found.first.item2}');
         return found.first.item1;
       }
       throw 'not found othere target language';
@@ -267,8 +267,7 @@ class _HitomiImpl implements Hitomi {
     if ((gallery.artists?.length ?? 0) > 0) {
       keys.addAll(gallery.artists!);
     }
-    print(
-        'search ${gallery.id} ${gallery.fixedTitle} target language by $keys');
+    print('search ${gallery.id} ${gallery.dirName} target language by $keys');
     final ids = await search(keys, token: token);
     final referer = 'https://hitomi.la${Uri.encodeFull(gallery.galleryurl!)}';
     final url = getThumbnailUrl(gallery.files.first);
@@ -502,15 +501,12 @@ class _HitomiImpl implements Hitomi {
                 Options(headers: useHeader, responseType: ResponseType.stream),
             cancelToken: token)
         .then((resp) {
-      if (resp.statusCode == 200 || resp.statusCode == 206) {
-        int total = resp.extra.length;
-        return resp.data!.stream.fold<List<int>>(<int>[], (l, ints) {
-          l.addAll(ints);
-          onProcess?.call(l.length, total);
-          return l;
-        });
-      }
-      throw resp.statusCode!;
+      int total = resp.extra.length;
+      return resp.data!.stream.fold<List<int>>(<int>[], (l, ints) {
+        l.addAll(ints);
+        onProcess?.call(l.length, total);
+        return l;
+      });
     }).catchError((e) => <int>[], test: (e) => e is int);
   }
 

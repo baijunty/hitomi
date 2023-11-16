@@ -15,6 +15,9 @@ import 'tag.dart';
 
 @immutable
 class Gallery with Lable {
+  static final zhNum = '零〇一二三四五六七八九十';
+  static final chapterRex = RegExp(
+      r'第?\s*(?<start>[零〇一二三四五六七八九十|\d]{1,})\s*-?\s*(?<end>[零〇一二三四五六七八九十|\d]*)\s*(?<unit>[章|回|话|話|編|巻|集]*)');
   static const List<String> illegalCode = [
     r'\',
     '/',
@@ -99,7 +102,7 @@ class Gallery with Lable {
 
   @override
   String toString() {
-    return 'Gallery(type: $type, title: ${fixedTitle}, language: $language, date: $date, id: $id)';
+    return 'Gallery(type: $type, title: ${dirName}, language: $language, date: $date, id: $id)';
   }
 
   factory Gallery.fromMap(Map<String, dynamic> data) => Gallery(
@@ -179,6 +182,58 @@ class Gallery with Lable {
   /// Converts [Gallery] to a JSON string.
   String toJson() => json.encode(toMap());
 
+  List<int> chapter() {
+    final matcher = chapterRex.allMatches(name).toList();
+    if (matcher.isNotEmpty) {
+      final last = matcher.last;
+      var start = last.namedGroup('start');
+      final digit = start!.codeUnitAt(0) >= '0'.codeUnitAt(0) &&
+          start.codeUnitAt(0) <= '9'.codeUnitAt(0);
+      final atEnd = name.substring(last.end).isEmpty;
+      if (digit && atEnd) {
+        var chapters = <int>[];
+        var end = last.namedGroup('end') ?? start;
+        end = end.isNotEmpty ? end : start;
+        var from = int.parse(start);
+        for (var i = from; i <= int.parse(end); i++) {
+          chapters.add(i);
+        }
+        return chapters;
+      } else if (atEnd && start.length == 1) {
+        var chapters = <int>[];
+        var from = start.codeUnits
+            .map((e) => String.fromCharCode(e))
+            .map((e) => zhNum.indexOf(e) - 1)
+            .first;
+        var end = last.namedGroup('end') ?? start;
+        end = end.length == 1 ? end : start;
+        final to = end.codeUnits
+            .map((e) => String.fromCharCode(e))
+            .map((e) => zhNum.indexOf(e) - 1)
+            .first;
+        for (var i = from; i <= to; i++) {
+          chapters.add(i);
+        }
+        return chapters;
+      }
+    }
+    return [];
+  }
+
+  bool chapterContains(Gallery other) {
+    var chapters1 = chapter();
+    var chapters2 = other.chapter();
+    if (chapters1.length < chapters2.length) {
+      return false;
+    }
+    var same = (chapters1.isEmpty ^ chapters2.isEmpty) == false;
+    if (same && chapters1.isNotEmpty) {
+      chapters2.removeWhere((element) => chapters1.contains(element));
+      return chapters2.isEmpty;
+    }
+    return same;
+  }
+
   Gallery copyWith({
     List<Artist>? artists,
     List<Tag>? tags,
@@ -225,7 +280,7 @@ class Gallery with Lable {
     );
   }
 
-  String get fixedTitle {
+  String get dirName {
     var direct =
         '${(artists?.isNotEmpty ?? false) ? '(${artists!.first.name})' : ''}${(japaneseTitle ?? title)}';
     return illegalCode.where((e) => direct.contains(e)).fold<String>(direct,
@@ -236,7 +291,13 @@ class Gallery with Lable {
   bool operator ==(Object other) {
     if (identical(other, this)) return true;
     if (other is! Gallery) return false;
-    return name == other.name && artists == other.artists;
+    if ((artists == null) ^ (other.artists == null)) {
+      return false;
+    }
+    if (artists != null) {
+      return nameFixed == other.nameFixed && artists!.equals(other.artists!);
+    }
+    return nameFixed == other.nameFixed;
   }
 
   @override
@@ -244,4 +305,16 @@ class Gallery with Lable {
 
   @override
   String get name => japaneseTitle ?? title;
+
+  String get nameFixed {
+    final matcher = chapterRex.allMatches(name).toList();
+    if (matcher.isNotEmpty) {
+      final last = matcher.last;
+      final atEnd = name.substring(last.end).isEmpty;
+      if (atEnd) {
+        return name.substring(0, last.start);
+      }
+    }
+    return name;
+  }
 }

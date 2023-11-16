@@ -75,7 +75,7 @@ class GalleryInfo {
           }).catchError((e) async => null);
     bool success = gallery != null;
     if (success) {
-      final target = '${config.output}/${gallery.fixedTitle}';
+      final target = '${config.output}/${gallery.dirName}';
       await safeRename(directory, target);
       directory = Directory(target);
       final files = gallery.files
@@ -228,8 +228,8 @@ class GalleryInfo {
       hash = result!.first['hash'];
       return value;
     }
-    if (value.fixedTitle != basename(this.directory.path)) {
-      final newDir = Directory(config.output + "/" + value.fixedTitle);
+    if (value.dirName != basename(this.directory.path)) {
+      final newDir = Directory(config.output + "/" + value.dirName);
       if (!newDir.existsSync()) {
         await safeRename(directory, newDir.path);
       } else {
@@ -447,7 +447,7 @@ class GalleryInfo {
                         .tryGetGalleryInfo()))
                 .where((event) => event.item1 != event.item2?.id)
                 .forEach((element) {
-              print('del ${element.item2?.fixedTitle}');
+              print('del ${element.item2?.dirName}');
               delGallery(element.item1);
             }))
         .catchError((e) => print(e));
