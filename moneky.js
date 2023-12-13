@@ -104,21 +104,23 @@
             addDownBtn(element, prefix + '"' + name + '"')
         }
     }
-
+    let reg=new RegExp('\/(?<type>\\w+)\/(?<sex>(male|female))?:?(?<name>.+)-all')
     function listTags(tags){
         let enTags=[]
-        let reg=new RegExp('\/tag\/(male|female)?:?(.+)-all')
         let transMap=new Map()
         for (const child of tags.children) {
             let a=child.children[0]
             let groups= reg.exec(decodeURIComponent(a.getAttribute('href')))
             if(groups!=null&&groups.length){
+                let namedGroup=groups.groups
                 let map=new Map()
-                if(groups.length==3){
-                    map[groups[1]]=1
+                let name=namedGroup['name']
+                if(namedGroup['sex']!=null){
+                    map['type']=namedGroup['sex']
+                } else {
+                    map['type']=namedGroup['type']
                 }
-                let name=groups[groups.length-1]
-                map['tag']=name
+                map['name']=name
                 var list=transMap.get(name)
                 if(list==null){
                     list = []
@@ -156,13 +158,28 @@
         })
     }
 
+    function appendTags([enTags,transMap],[et,es]){
+        enTags.push(...et)
+        es.forEach(function(v,k){
+            let old=transMap.get(k)
+            if(old==null){
+                old=[]
+                transMap.set(k,old)
+            }
+            old.push(...v)
+        })
+        return [enTags,transMap]
+    }
+
     let start = function () {
+        let [enTags,transMap]=[[],new Map()]
         if (manga != null && manga.length) {
             manga[0].childNodes.forEach(element => {
                 let artistList = element.getElementsByClassName('artist-list')[0];
                 if (artistList != null) {
-                    artistList.childNodes.forEach(e => {
+                    Array.from(artistList.children).forEach(e => {
                         let artist = e.children
+                        appendTags([enTags,transMap],listTags(e))
                         loopChildToAddBtn(artist, '-a ')
                     });
                 }
@@ -177,35 +194,39 @@
         }
         let groups = document.getElementById('groups')
         if (groups != null && groups.children.length) {
-            let elements = groups.children[0].getElementsByTagName('li')
-            loopChildToAddBtn(elements, '-g ')
+            let elements = groups.children[0]
+            appendTags([enTags,transMap],listTags(elements))
+            loopChildToAddBtn(elements.children, '-g ')
         }
         let artistList = document.getElementById('artists')
         if (artistList != null && artistList.children.length) {
-            let elements = artistList.children[0].getElementsByTagName('li')
-            loopChildToAddBtn(elements, '-a ')
+            let elements = artistList.children[0]
+            appendTags([enTags,transMap],listTags(elements))
+            loopChildToAddBtn(elements.children, '-a ')
+        }
+        let series = document.getElementById('series')
+        if (series != null&&series.length) {
+            let elements = series.children[0]
+            appendTags([enTags,transMap],listTags(elements))
+        }
+        let characters = document.getElementById('characters')
+        if (characters != null&&characters.length) {
+            appendTags([enTags,transMap],listTags(characters))
         }
         let tags = document.getElementById('tags')
         if (tags != null) {
-            let [enTags,transMap]=listTags(tags)
-            translateTag(enTags,transMap)
+            appendTags([enTags,transMap],listTags(tags))
         }
-        let tagPanel = document.getElementsByClassName('relatedtags')
-        if (tagPanel != null && tagPanel.length) {
-            let [enTags,transMap]=Array.from(tagPanel).map(e=>listTags(e.children[0])).reduce(function ([enTags,transMap],[et,es]){
-                enTags.push(...et)
-                es.forEach(function(v,k){
-                    let old=transMap.get(k)
-                    if(old==null){
-                        old=[]
-                        transMap.set(k,old)
-                    }
-                    old.push(...v)
-                })
-                return [enTags,transMap]
+        let tagPanels = document.getElementsByClassName('dj-desc')
+        if (tagPanels != null && tagPanels.length) {
+            Array.from(tagPanels).map((panel)=>panel.getElementsByTagName('ul')).reduce(function(list,uls){
+                list.push(...uls)
+                return list
+            },[]).forEach(function (e){
+                appendTags([enTags,transMap],listTags(e))
             })
-            translateTag(enTags,transMap)
         }
+        translateTag(enTags,transMap)
     }
     function showDialog() {
         document.getElementById('dialog-background').open=true

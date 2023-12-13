@@ -41,7 +41,8 @@ class _TaskWarp {
     final task = await _authToken(req);
     if (task.item1) {
       List<Lable> keys = (task.item2['tags'] as List<dynamic>)
-          .map((e) => Tag.fromMap(e as Map<String, dynamic>))
+          .map((e) => e as Map<String, dynamic>)
+          .map((e) => fromString(e['type'], e['name']))
           .toList();
       var missed =
           keys.groupListsBy((element) => _cache[element] != null)[false] ?? [];
@@ -61,7 +62,7 @@ class _TaskWarp {
       missed =
           keys.groupListsBy((element) => _cache[element] != null)[false] ?? [];
       if (missed.isNotEmpty) {
-        await Stream.fromIterable(missed).asyncMap((event) async {
+        await Stream.fromIterable(missed.toSet()).asyncMap((event) async {
           await _dio
               .getUri<List<dynamic>>(Uri.parse(
                   'https://baijunty.com/translate_a/t?client=dict-chrome-ex&sl=en&tl=zh&q=${event.name}'))
