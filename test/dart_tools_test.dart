@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:hitomi/gallery/gallery.dart';
@@ -11,13 +12,27 @@ var config = UserConfig(r'/home/bai/ssd/photos', proxy: '127.0.0.1:8389');
 void main() async {
   test('chapter', () async {
     //-g 'Deko Ga Areba Boko Ga Aru.'
-    var gallery = await getGalleryInfoFromFile(r'2089241');
-    var gallery1 = await getGalleryInfoFromFile(r'2087609');
-    print(
-        "${gallery.id} and ${gallery.chapter()} with ${gallery.nameFixed} and ${gallery.chapterContains(gallery1)} ${gallery == gallery1}");
+    await testHttpServer();
   });
 }
 
+Future<void> testHttpServer() async {
+  final c = HttpClient();
+  var result = await c
+      .postUrl(Uri.parse('http://192.168.1.107:7890/translate'))
+      .then((value) {
+    value.add("""{"auth":"12345678","tags":[{"tag":"multi-work series"}]}"""
+        .codeUnits);
+    return value.close();
+  }).then((value) => utf8.decodeStream(value));
+  print(result);
+  result = await c
+      .getUrl(Uri.parse('http://192.168.1.107:7890/listTask'))
+      .then((value) {
+    return value.close();
+  }).then((value) => utf8.decodeStream(value));
+  print(result);
+}
 // Future<void> testGalleryInfoDistance() async {
 //   var config = UserContext(UserConfig(r'/home/bai/ssd/photos',
 //       proxy: '127.0.0.1:8389',
@@ -43,6 +58,10 @@ void main() async {
 // }
 
 Future<Gallery> getGalleryInfoFromFile(String name) async {
+  var gallery = await getGalleryInfoFromFile(r'2089241');
+  var gallery1 = await getGalleryInfoFromFile(r'2087609');
+  print(
+      "${gallery.id} and ${gallery.chapter()} with ${gallery.nameFixed} and ${gallery.chapterContains(gallery1)} ${gallery == gallery1}");
   var config = UserConfig('/home/bai/ssd/photos',
       proxy: '192.168.1.1:8389',
       languages: ['chinese', 'japanese'],

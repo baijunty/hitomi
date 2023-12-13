@@ -20,6 +20,7 @@ _$_UserConfig _$$_UserConfigFromJson(Map<String, dynamic> json) =>
               .toList() ??
           const [],
       dateLimit: json['dateLimit'] as String? ?? "1970-01-01",
+      auth: json['auth'] as String? ?? "12345678",
     );
 
 Map<String, dynamic> _$$_UserConfigToJson(_$_UserConfig instance) =>
@@ -30,4 +31,5 @@ Map<String, dynamic> _$$_UserConfigToJson(_$_UserConfig instance) =>
       'proxy': instance.proxy,
       'exinclude': instance.exinclude,
       'dateLimit': instance.dateLimit,
+      'auth': instance.auth,
     };

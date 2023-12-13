@@ -95,12 +95,9 @@ class _HitomiImpl implements Hitomi {
     var tag = (gallery.tags ?? [])
         .firstWhereOrNull((element) => config.exinclude.contains(element.tag));
     if (tag != null && usePrefence) {
-      print('${id} include exclude key ${tag.tag},continue?(Y/n)');
-      var confirm = stdin.readLineSync();
-      if (confirm?.toLowerCase().toLowerCase() != 'y') {
-        onProcess?.call(IlleagalGallery(id));
-        return false;
-      }
+      print('${id} include exclude key ${tag.tag},skip');
+      onProcess?.call(DownLoadFinished([], gallery, id: id, success: true));
+      return false;
     }
     Directory dir;
     onProcess?.call(GalleryMessage(gallery, id: id, success: false));
@@ -226,7 +223,7 @@ class _HitomiImpl implements Hitomi {
       final f = config.languages.firstWhere((element) =>
           languages!.firstWhereOrNull((e) => e.name == element) != null);
       final language = languages!.firstWhere((element) => element.name == f);
-      if (id != language) {
+      if (id != language.galleryid) {
         print('use language ${language}');
         return _fetchGalleryJsonById(language.galleryid, token);
       }
@@ -507,7 +504,10 @@ class _HitomiImpl implements Hitomi {
         onProcess?.call(l.length, total);
         return l;
       });
-    }).catchError((e) => <int>[], test: (e) => e is int);
+    }).catchError((e) {
+      print("$url throw $e");
+      throw e;
+    }, test: (e) => true);
   }
 
   Future<void> initData() async {

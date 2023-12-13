@@ -23,12 +23,12 @@ class DownLoader {
   final SqliteHelper helper;
   List<dynamic> get tasks =>
       [..._pendingTask, ..._runningTask.map((e) => e.id)];
-  SendPort? port;
+  SendPort port;
   DownLoader(
       {required this.config,
       required this.api,
       required this.helper,
-      SendPort? port})
+      required SendPort port})
       : this.port = port;
 
   Future<bool> _downLoadGallery(_IdentifyToken token) async {
@@ -40,18 +40,20 @@ class DownLoader {
             final path = join(config.output, msg.gallery.dirName);
             await helper.updateTask(
                 msg.gallery.id, msg.gallery.dirName, path, false);
+            this.port.send(msg);
           }
         case DownLoadMessage():
           {
             var now = DateTime.now();
             if (now.difference(lastDate).inMilliseconds > 500) {
               lastDate = now;
-              this.port?.send(msg);
+              this.port.send(msg);
             }
           }
         case DownLoadFinished():
           {
             await helper.insertGallery(msg.gallery);
+            this.port.send(msg);
             if (msg.success) {
               await helper.removeTask(msg.id);
             } else {
@@ -63,16 +65,19 @@ class DownLoader {
             _notifyTaskChange();
           }
         case IlleagalGallery():
+          this.port.send(msg);
           _runningTask.remove(token);
           await helper.removeTask(msg.id);
           _notifyTaskChange();
+        case DebugMessage():
+          this.port.send(msg);
       }
     };
     final f = token.id is Gallery
         ? api.downloadImages(token.id, onProcess: handle, token: token)
         : api.downloadImagesById(token.id, onProcess: handle, token: token);
     var b = await f.catchError((e) async {
-      print('$token catch error $e');
+      port.send('$token catch error $e');
       await _downLoadGallery(token);
       return false;
     },
@@ -86,7 +91,7 @@ class DownLoader {
   }
 
   void addTask(dynamic id) async {
-    print('add task $id');
+    port.send('add task $id');
     _pendingTask.add(id);
     if (id is Gallery) {
       var gallery = id;
@@ -113,13 +118,29 @@ class DownLoader {
   void _notifyTaskChange() async {
     while (_runningTask.length < config.maxTasks && _pendingTask.isNotEmpty) {
       var id = _pendingTask.removeAt(0);
-      print('run task $id');
+      port.send('run task $id');
       var token = _IdentifyToken(id);
       _runningTask.add(token);
       _downLoadGallery(token);
     }
-    print(
+    port.send(
         'left task ${_pendingTask.length} running task ${_runningTask.length}');
+  }
+
+  Future<Iterable<Gallery>> _fetchGalleryFromIds(
+      List<int> ids, bool where(Gallery gallery), CancelToken token) async {
+    final content = <dynamic, Gallery>{};
+    for (var id in ids) {
+      try {
+        var gallery = await api.fetchGallery(id, token: token);
+        if (where(gallery)) {
+          content[gallery.id] = gallery;
+        }
+      } catch (e) {
+        port.send('fetch $id throw $e');
+      }
+    }
+    return content.values;
   }
 
   Future<CancelToken> downLoadByTag(
@@ -127,95 +148,84 @@ class DownLoader {
     if (exclude.length != config.exinclude.length) {
       exclude.addAll(await helper.mapToLabel(config.exinclude));
     }
-    print('fetch tags ${tags}');
+    port.send('fetch tags ${tags}');
     CancelToken token = CancelToken();
     final List<Gallery> results = await api
         .search(tags, exclude: exclude)
-        .then((value) async {
-      print('serch result length ${value.length}');
-      return await Stream.fromIterable(value)
-          .asyncMap(
-              (event) async => await api.fetchGallery(event, token: token))
-          .distinct((g1, g2) => g1.id == g2.id)
-          .where((event) => where(event))
-          .fold(<dynamic, Gallery>{},
-              (previous, element) => previous..[element.id] = element)
-          .then((value) => value.values)
-          .then((event) async {
-            print('left result length ${event.length}');
-            return event.asStream().asyncMap((event) async {
-              final img = await api.downloadImage(
-                  api.getThumbnailUrl(event.files.first),
-                  'https://hitomi.la${Uri.encodeFull(event.galleryurl!)}',
-                  token: token);
-              var hash = await imageHash(Uint8List.fromList(img));
-              return Tuple2(hash, event);
-            }).fold<List<Tuple2<int, Gallery>>>([], (previousValue, element) {
-              var samilar = previousValue
-                  .where((e) =>
-                      compareHashDistance(e.item1, element.item1) < 8 ||
-                      e.item2 == element.item2)
-                  .map((e) => e.item2)
-                  .toList();
-              if (samilar.isEmpty ||
-                  samilar
-                      .where((e) => e.chapterContains(element.item2))
-                      .isEmpty ||
-                  samilar
-                          .where((e) => e.language == config.languages.first)
-                          .isEmpty &&
-                      element.item2.language == config.languages.first) {
-                if (samilar.isNotEmpty) {
-                  previousValue.removeWhere((tup) =>
-                      samilar.any((e1) => e1.id == tup.item2.id) &&
-                      element.item2.chapterContains(tup.item2));
-                }
-                previousValue.add(element);
+        .then((value) => _fetchGalleryFromIds(value, where, token))
+        .then((value) {
+          port.send('left result length ${value.length}');
+          return value.asStream().asyncMap((event) async {
+            final img = await api.downloadImage(
+                api.getThumbnailUrl(event.files.first),
+                'https://hitomi.la${Uri.encodeFull(event.galleryurl!)}',
+                token: token);
+            var hash = await imageHash(Uint8List.fromList(img));
+            return Tuple2(hash, event);
+          }).fold<List<Tuple2<int, Gallery>>>([], (previousValue, element) {
+            var samilar = previousValue
+                .where((e) =>
+                    compareHashDistance(e.item1, element.item1) < 8 ||
+                    e.item2 == element.item2)
+                .map((e) => e.item2)
+                .toList();
+            if (samilar.isEmpty ||
+                samilar
+                    .where((e) => e.chapterContains(element.item2))
+                    .isEmpty ||
+                samilar
+                        .where((e) => e.language == config.languages.first)
+                        .isEmpty &&
+                    element.item2.language == config.languages.first) {
+              if (samilar.isNotEmpty) {
+                previousValue.removeWhere((tup) =>
+                    samilar.any((e1) => e1.id == tup.item2.id) &&
+                    element.item2.chapterContains(tup.item2));
               }
-              return previousValue;
-            });
-          })
-          .then((value) => value.map((e) => e.item2))
-          .then((value) async {
-            print('usefull result length ${value.length}');
-            Map<List<dynamic>, ResultSet> map = value.isNotEmpty
-                ? await helper.selectSqlMultiResultAsync(
-                    'select id from Gallery where id =?',
-                    value.map((e) => [e.id]).toList())
-                : {};
-            var r = value.groupListsBy((element) =>
-                map.entries
-                    .firstWhere((e) => e.key.equals([element.id]))
-                    .value
-                    .firstOrNull !=
-                null);
-            var l = r[false] ?? [];
-            if (l.isNotEmpty) {
-              await helper.excuteSqlAsync(
-                  'replace into Tasks(id,title,path,completed) values(?,?,?,?)',
-                  l
-                      .map((e) => [
-                            e.id,
-                            e.dirName,
-                            join(config.output, e.dirName),
-                            false,
-                          ])
-                      .toList());
+              previousValue.add(element);
             }
-            return l;
+            return previousValue;
           });
-    }).catchError((e) async {
-      print('$tags catch error $e');
-      token.cancel();
-      await downLoadByTag(tags, where);
-      return <Gallery>[];
-    },
-            test: (error) =>
-                error is DioException && error.message == null).catchError((e) {
-      print('$tags error $e');
-      return <Gallery>[];
-    });
-    print('find match gallery ${results.length}');
+        })
+        .then((value) => value.map((e) => e.item2))
+        .then((value) async {
+          port.send('usefull result length ${value.length}');
+          Map<List<dynamic>, ResultSet> map = value.isNotEmpty
+              ? await helper.selectSqlMultiResultAsync(
+                  'select id from Gallery where id =?',
+                  value.map((e) => [e.id]).toList())
+              : {};
+          var r = value.groupListsBy((element) =>
+              map.entries
+                  .firstWhere((e) => e.key.equals([element.id]))
+                  .value
+                  .firstOrNull !=
+              null);
+          var l = r[false] ?? [];
+          if (l.isNotEmpty) {
+            await helper.excuteSqlAsync(
+                'replace into Tasks(id,title,path,completed) values(?,?,?,?)',
+                l
+                    .map((e) => [
+                          e.id,
+                          e.dirName,
+                          join(config.output, e.dirName),
+                          false,
+                        ])
+                    .toList());
+          }
+          return l;
+        })
+        .catchError((e) async {
+          port.send('$tags catch error $e');
+          token.cancel();
+          await downLoadByTag(tags, where);
+          return <Gallery>[];
+        }, test: (error) => error is DioException && error.message == null)
+        .catchError((e) {
+          return <Gallery>[];
+        });
+    port.send('${tags.first} find match gallery ${results.length}');
     results.forEach((element) {
       addTask(element);
     });
@@ -245,6 +255,10 @@ sealed class Message<T> {
     if (other is! Message) return false;
     return other.id == id;
   }
+}
+
+class DebugMessage extends Message<dynamic> {
+  DebugMessage({required super.id, super.success = true});
 }
 
 class GalleryMessage extends Message<dynamic> {

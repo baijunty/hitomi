@@ -8,12 +8,13 @@ import 'package:hitomi/gallery/label.dart';
 import 'package:hitomi/src/dhash.dart';
 import 'package:path/path.dart';
 import 'package:sqlite3/sqlite3.dart';
+import 'package:uuid/uuid.dart';
 
 class SqliteHelper {
   final String dirPath;
   static final _version = 1;
   SendPort? _sendPort;
-  final result = <Completer<dynamic>>[];
+  final result = <String, Completer<dynamic>>{};
   SqliteHelper(this.dirPath);
 
   Future<void> init() async {
@@ -23,12 +24,12 @@ class SqliteHelper {
     _receivePort.listen((message) {
       if (message is SendPort) {
         f.complete(message);
-      } else {
-        var complete = result.removeAt(0);
-        if (message is Exception) {
-          complete.completeError(message);
+      } else if (message is _SqliteResult) {
+        var complete = result.remove(message.uuid)!;
+        if (message.result is Exception) {
+          complete.completeError(message.result);
         } else {
-          complete.complete(message);
+          complete.complete(message.result);
         }
       }
     });
@@ -85,10 +86,10 @@ class SqliteHelper {
                 previousValue[element] = r;
                 return previousValue;
               });
-              sendPort.send(sets);
+              sendPort.send(_SqliteResult(uuid: element.uuid, result: sets));
             } else {
               var cursor = stam.select(element.params);
-              sendPort.send(cursor);
+              sendPort.send(_SqliteResult(uuid: element.uuid, result: cursor));
             }
           } else {
             if (element.params.firstOrNull is List<dynamic>) {
@@ -98,11 +99,11 @@ class SqliteHelper {
             } else {
               stam.execute(element.params);
             }
-            sendPort.send(true);
+            sendPort.send(_SqliteResult(uuid: element.uuid, result: true));
           }
         } catch (e) {
           print('$e when exec ${element.sql} with ${element.params}');
-          sendPort.send(e);
+          sendPort.send(_SqliteResult(uuid: element.uuid, result: e));
         } finally {
           stam?.dispose();
         }
@@ -115,8 +116,9 @@ class SqliteHelper {
     if (_sendPort == null) {
       await init();
     }
-    _sendPort!.send(_SqliteRequest(sql, params, true));
-    result.add(f);
+    final req = _SqliteRequest(sql, params, true);
+    _sendPort!.send(req);
+    result[req.uuid] = f;
     return f.future;
   }
 
@@ -126,8 +128,9 @@ class SqliteHelper {
     if (_sendPort == null) {
       await init();
     }
-    _sendPort!.send(_SqliteRequest(sql, params, true));
-    result.add(f);
+    final req = _SqliteRequest(sql, params, true);
+    _sendPort!.send(req);
+    result[req.uuid] = f;
     return f.future;
   }
 
@@ -182,8 +185,9 @@ class SqliteHelper {
     if (_sendPort == null) {
       await init();
     }
-    _sendPort!.send(_SqliteRequest(sql, params, false));
-    result.add(f);
+    final req = _SqliteRequest(sql, params, false);
+    _sendPort!.send(req);
+    result[req.uuid] = f;
     return f.future;
   }
 
@@ -234,9 +238,17 @@ class _SqliteRequest {
   String sql;
   List<dynamic> params;
   bool query;
+  String uuid = Uuid().v4();
   _SqliteRequest(this.sql, this.params, this.query);
   @override
   String toString() {
     return '{sql:$sql,params:$params,query:$query}';
   }
+}
+
+class _SqliteResult {
+  final String uuid;
+  final dynamic result;
+
+  _SqliteResult({required this.uuid, required this.result});
 }

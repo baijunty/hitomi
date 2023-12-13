@@ -13,7 +13,7 @@ import '../gallery/language.dart';
 
 class TaskManager {
   final UserConfig config;
-  final SendPort? port;
+  final SendPort port;
   late ArgParser _parser;
   late SqliteHelper helper;
   late DownLoader downLoader;
@@ -26,7 +26,7 @@ class TaskManager {
       DateTime.parse(gallery.date).compareTo(limit) > 0 &&
       (gallery.artists?.length ?? 0) <= 2 &&
       gallery.files.length >= 18;
-  TaskManager(this.config, [this.port]) {
+  TaskManager(this.config, this.port) {
     helper = SqliteHelper(config.output);
     api = Hitomi.fromPrefenerce(config);
     downLoader =
@@ -78,14 +78,14 @@ class TaskManager {
     return args;
   }
 
-  Future<bool> parseCommandAndRun(String cmd) async {
+  Future<dynamic> parseCommandAndRun(String cmd) async {
     print('\x1b[47;31madd command $cmd \x1b[0m');
     bool hasError = false;
     var args = _parseArgs(cmd);
-    print('args $args');
+    port.send('args $args');
     if (args.isEmpty) {
-      print('$cmd error with ${args}');
-      print(_parser.usage);
+      port.send('$cmd error with ${args}');
+      port.send(_parser.usage);
       return false;
     }
     final result = _parser.parse(args);
@@ -108,7 +108,7 @@ class TaskManager {
       String? artist = result['artist'];
       hasError = artist == null || artist.isEmpty;
       if (!hasError) {
-        await downLoader.downLoadByTag(<Lable>[
+        downLoader.downLoadByTag(<Lable>[
           Artist(artist: artist),
           ...config.languages.map((e) => Language(name: e)),
           TypeLabel('doujinshi'),
@@ -118,10 +118,10 @@ class TaskManager {
       return !hasError;
     } else if (result.wasParsed('group')) {
       String? group = result['group'];
-      print(group);
+      port.send(group);
       hasError = group == null || group.isEmpty;
       if (!hasError) {
-        await downLoader.downLoadByTag(<Lable>[
+        downLoader.downLoadByTag(<Lable>[
           Group(group: group),
           ...config.languages.map((e) => Language(name: e)),
           TypeLabel('doujinshi'),
@@ -143,12 +143,13 @@ class TaskManager {
         }
         tags.addAll(await helper.fetchLablesFromSql(tagWords));
         tags.addAll(config.languages.map((e) => Language(name: e)));
-        print('$tags');
-        await downLoader.downLoadByTag(tags, filter);
+        port.send('$tags');
+        downLoader.downLoadByTag(tags, filter);
       }
+      return !hasError;
     } else if (result.wasParsed('tags')) {
       List<String> tags = result["tags"];
-      await downLoader.downLoadByTag(
+      downLoader.downLoadByTag(
           tags
               .map((e) => e.split(':'))
               .where((value) => value.length >= 2)
@@ -156,6 +157,7 @@ class TaskManager {
               .toList()
             ..addAll(config.languages.map((e) => Language(name: e))),
           filter);
+      return !hasError;
     }
     // else if (result['fixDb']) {
     //   await fixDb();
@@ -163,22 +165,21 @@ class TaskManager {
     //   await fix();
     // }
     else if (result['update']) {
-      print('start update db');
+      port.send('start update db');
       return await helper.updateTagTable(await api.fetchTagsFromNet());
     } else if (result['continue']) {
-      print('continue uncomplete task');
+      port.send('continue uncomplete task');
       var tasks = await helper
           .selectSqlAsync('select id from Tasks where completed = ?', [0]);
       tasks.forEach((element) {
         downLoader.addTask(element['id']);
       });
     } else if (result['list']) {
-      print(downLoader.tasks);
-      return true;
+      return downLoader.tasks;
     }
     if (hasError) {
-      print('$cmd error with ${args}');
-      print(_parser.usage);
+      port.send('$cmd error with ${args}');
+      port.send(_parser.usage);
     }
     return !hasError;
   }

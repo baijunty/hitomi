@@ -59,10 +59,14 @@ void main(List<String> args) async {
     // }
     if (msg is DownLoadFinished) {
       print('${msg.id} is finished miss ${msg.missFiles}');
+    } else if (msg is String) {
+      print(msg);
     }
   });
+  run_server(pool);
   getUserInputId().forEach((element) async {
-    await pool.parseCommandAndRun(element.trim());
+    print(
+        '\x1b[47;31madd command ${element.trim()} return ${await pool.parseCommandAndRun(element.trim())} \x1b[0m');
   });
 }
 

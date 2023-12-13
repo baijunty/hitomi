@@ -282,7 +282,7 @@ class Gallery with Lable {
 
   String get dirName {
     var direct =
-        '${(artists?.isNotEmpty ?? false) ? '(${artists!.first.name})' : ''}${(japaneseTitle ?? title)}';
+        '${(artists?.isNotEmpty ?? false) ? '(${artists!.first.name})' : ''}${name}';
     return illegalCode.where((e) => direct.contains(e)).fold<String>(direct,
         (previousValue, element) => previousValue.replaceAll(element, ''));
   }
@@ -304,7 +304,7 @@ class Gallery with Lable {
   int get hashCode => artists.hashCode ^ name.hashCode;
 
   @override
-  String get name => japaneseTitle ?? title;
+  String get name => (japaneseTitle ?? title).replaceAll("(Decensored)", '');
 
   String get nameFixed {
     final matcher = chapterRex.allMatches(name).toList();

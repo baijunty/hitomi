@@ -1,5 +1,6 @@
 export 'src/hitomi.dart' show Hitomi;
 export 'src/user_config.dart';
+export 'src/http_server.dart';
 
 extension IntParse on dynamic {
   int toInt() {

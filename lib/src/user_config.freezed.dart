@@ -26,6 +26,7 @@ mixin _$UserConfig {
   String get proxy => throw _privateConstructorUsedError;
   List<String> get exinclude => throw _privateConstructorUsedError;
   String get dateLimit => throw _privateConstructorUsedError;
+  String get auth => throw _privateConstructorUsedError;
 
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
   @JsonKey(ignore: true)
@@ -45,7 +46,8 @@ abstract class $UserConfigCopyWith<$Res> {
       List<String> languages,
       String proxy,
       List<String> exinclude,
-      String dateLimit});
+      String dateLimit,
+      String auth});
 }
 
 /// @nodoc
@@ -67,6 +69,7 @@ class _$UserConfigCopyWithImpl<$Res, $Val extends UserConfig>
     Object? proxy = null,
     Object? exinclude = null,
     Object? dateLimit = null,
+    Object? auth = null,
   }) {
     return _then(_value.copyWith(
       output: null == output
@@ -93,6 +96,10 @@ class _$UserConfigCopyWithImpl<$Res, $Val extends UserConfig>
           ? _value.dateLimit
           : dateLimit // ignore: cast_nullable_to_non_nullable
               as String,
+      auth: null == auth
+          ? _value.auth
+          : auth // ignore: cast_nullable_to_non_nullable
+              as String,
     ) as $Val);
   }
 }
@@ -111,7 +118,8 @@ abstract class _$$_UserConfigCopyWith<$Res>
       List<String> languages,
       String proxy,
       List<String> exinclude,
-      String dateLimit});
+      String dateLimit,
+      String auth});
 }
 
 /// @nodoc
@@ -131,6 +139,7 @@ class __$$_UserConfigCopyWithImpl<$Res>
     Object? proxy = null,
     Object? exinclude = null,
     Object? dateLimit = null,
+    Object? auth = null,
   }) {
     return _then(_$_UserConfig(
       null == output
@@ -157,6 +166,10 @@ class __$$_UserConfigCopyWithImpl<$Res>
           ? _value.dateLimit
           : dateLimit // ignore: cast_nullable_to_non_nullable
               as String,
+      auth: null == auth
+          ? _value.auth
+          : auth // ignore: cast_nullable_to_non_nullable
+              as String,
     ));
   }
 }
@@ -169,7 +182,8 @@ class _$_UserConfig implements _UserConfig {
       final List<String> languages = const ["japanese", "chinese"],
       this.proxy = "",
       final List<String> exinclude = const [],
-      this.dateLimit = "1970-01-01"})
+      this.dateLimit = "1970-01-01",
+      this.auth = "12345678"})
       : _languages = languages,
         _exinclude = exinclude;
 
@@ -205,10 +219,13 @@ class _$_UserConfig implements _UserConfig {
   @override
   @JsonKey()
   final String dateLimit;
+  @override
+  @JsonKey()
+  final String auth;
 
   @override
   String toString() {
-    return 'UserConfig(output: $output, maxTasks: $maxTasks, languages: $languages, proxy: $proxy, exinclude: $exinclude, dateLimit: $dateLimit)';
+    return 'UserConfig(output: $output, maxTasks: $maxTasks, languages: $languages, proxy: $proxy, exinclude: $exinclude, dateLimit: $dateLimit, auth: $auth)';
   }
 
   @override
@@ -225,7 +242,8 @@ class _$_UserConfig implements _UserConfig {
             const DeepCollectionEquality()
                 .equals(other._exinclude, _exinclude) &&
             (identical(other.dateLimit, dateLimit) ||
-                other.dateLimit == dateLimit));
+                other.dateLimit == dateLimit) &&
+            (identical(other.auth, auth) || other.auth == auth));
   }
 
   @JsonKey(ignore: true)
@@ -237,7 +255,8 @@ class _$_UserConfig implements _UserConfig {
       const DeepCollectionEquality().hash(_languages),
       proxy,
       const DeepCollectionEquality().hash(_exinclude),
-      dateLimit);
+      dateLimit,
+      auth);
 
   @JsonKey(ignore: true)
   @override
@@ -259,7 +278,8 @@ abstract class _UserConfig implements UserConfig {
       final List<String> languages,
       final String proxy,
       final List<String> exinclude,
-      final String dateLimit}) = _$_UserConfig;
+      final String dateLimit,
+      final String auth}) = _$_UserConfig;
 
   factory _UserConfig.fromJson(Map<String, dynamic> json) =
       _$_UserConfig.fromJson;
@@ -276,6 +296,8 @@ abstract class _UserConfig implements UserConfig {
   List<String> get exinclude;
   @override
   String get dateLimit;
+  @override
+  String get auth;
   @override
   @JsonKey(ignore: true)
   _$$_UserConfigCopyWith<_$_UserConfig> get copyWith =>
