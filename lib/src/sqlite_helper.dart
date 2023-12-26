@@ -6,6 +6,7 @@ import 'package:collection/collection.dart';
 import 'package:hitomi/gallery/gallery.dart';
 import 'package:hitomi/gallery/label.dart';
 import 'package:hitomi/src/dhash.dart';
+import 'package:logger/logger.dart';
 import 'package:path/path.dart';
 import 'package:sqlite3/sqlite3.dart';
 import 'package:uuid/uuid.dart';
@@ -15,7 +16,10 @@ class SqliteHelper {
   static final _version = 1;
   SendPort? _sendPort;
   final result = <String, Completer<dynamic>>{};
-  SqliteHelper(this.dirPath);
+  Logger? logger = null;
+  SqliteHelper(this.dirPath, {Logger? logger = null}) {
+    this.logger = logger;
+  }
 
   Future<void> init() async {
     final _receivePort = ReceivePort();
@@ -78,6 +82,7 @@ class SqliteHelper {
         PreparedStatement? stam;
         try {
           stam = db.prepare(element.sql);
+          logger?.d('excel sql ${element.sql}');
           if (element.query) {
             if (element.params.firstOrNull is List<dynamic>) {
               var sets = element.params.fold(<List<dynamic>, ResultSet>{},
@@ -86,9 +91,11 @@ class SqliteHelper {
                 previousValue[element] = r;
                 return previousValue;
               });
+              logger?.d('excel sql result ${sets}');
               sendPort.send(_SqliteResult(uuid: element.uuid, result: sets));
             } else {
               var cursor = stam.select(element.params);
+              logger?.d('excel sql result ${cursor}');
               sendPort.send(_SqliteResult(uuid: element.uuid, result: cursor));
             }
           } else {
@@ -102,8 +109,8 @@ class SqliteHelper {
             sendPort.send(_SqliteResult(uuid: element.uuid, result: true));
           }
         } catch (e) {
-          print('$e when exec ${element.sql} with ${element.params}');
           sendPort.send(_SqliteResult(uuid: element.uuid, result: e));
+          logger?.e('excel sql result ${e}');
         } finally {
           stam?.dispose();
         }
@@ -191,17 +198,13 @@ class SqliteHelper {
     return f.future;
   }
 
-  Future<void> insertGallery(Gallery gallery, [int? hash]) async {
+  Future<void> insertGallery(Gallery gallery, String path, [int? hash]) async {
     await gallery.translateLable(this);
-    final path = join(dirPath, gallery.dirName);
     var useHash = hash ??
         await File(join(path, gallery.files.first.name))
             .readAsBytes()
             .then((value) => imageHash(value))
-            .catchError((e) {
-          print(e);
-          return 0;
-        }, test: (error) => true);
+            .catchError((e) => 0, test: (e) => true);
     await excuteSqlAsync(
         'replace into Gallery(id,path,author,groupes,serial,language,title,tags,files,hash) values(?,?,?,?,?,?,?,?,?,?)',
         [

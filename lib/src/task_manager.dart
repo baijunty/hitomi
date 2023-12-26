@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:isolate';
 import 'package:args/args.dart';
 import 'package:hitomi/gallery/artist.dart';
@@ -7,6 +8,7 @@ import 'package:hitomi/gallery/label.dart';
 import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/downloader.dart';
 import 'package:hitomi/src/sqlite_helper.dart';
+import 'package:logger/logger.dart';
 
 import '../gallery/gallery.dart';
 import '../gallery/language.dart';
@@ -19,18 +21,40 @@ class TaskManager {
   late DownLoader downLoader;
   late Hitomi api;
   late DateTime limit = DateTime.parse(config.dateLimit);
+  late Logger logger;
   late bool Function(Gallery) filter = (Gallery gallery) =>
-      !(gallery.tags
-              ?.any((element) => config.exinclude.contains(element.tag)) ??
+      !(gallery.tags?.any((element) => config.excludes.contains(element.tag)) ??
           false) &&
       DateTime.parse(gallery.date).compareTo(limit) > 0 &&
       (gallery.artists?.length ?? 0) <= 2 &&
       gallery.files.length >= 18;
   TaskManager(this.config, this.port) {
+    Level level;
+    switch (config.logLevel) {
+      case 'debug':
+        level = Level.debug;
+      case 'none':
+        level = Level.off;
+      case 'trace':
+        level = Level.trace;
+      default:
+        level = Level.fatal;
+    }
+    LogOutput outputEvent;
+    if (config.logOutput.isNotEmpty) {
+      outputEvent = FileOutput(file: File(config.logOutput));
+    } else {
+      outputEvent = ConsoleOutput();
+    }
+    logger = Logger(
+        filter: ProductionFilter(),
+        output: outputEvent,
+        level: level,
+        printer: PrettyPrinter(methodCount: 0));
+    api = Hitomi.fromPrefenerce(config, logger: logger);
     helper = SqliteHelper(config.output);
-    api = Hitomi.fromPrefenerce(config);
-    downLoader =
-        DownLoader(config: config, api: api, helper: helper, port: port);
+    downLoader = DownLoader(
+        config: config, api: api, helper: helper, port: port, logger: logger);
     _parser = ArgParser()
       ..addFlag('fix')
       ..addFlag('fixDb', abbr: 'f')
@@ -82,10 +106,8 @@ class TaskManager {
     print('\x1b[47;31madd command $cmd \x1b[0m');
     bool hasError = false;
     var args = _parseArgs(cmd);
-    port.send('args $args');
+    logger.d('args $args');
     if (args.isEmpty) {
-      port.send('$cmd error with ${args}');
-      port.send(_parser.usage);
       return false;
     }
     final result = _parser.parse(args);

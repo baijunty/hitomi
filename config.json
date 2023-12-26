@@ -6,7 +6,7 @@
         "chinese"
     ],
     "maxTasks": 5,
-    "exinclude": [
+    "excludes": [
         "novel",
         "yaoi",
         "males only",
@@ -20,7 +20,8 @@
         "snuff",
         "tentacles",
         "corruption",
-        "ai generated"
+        "ai generated",
+        "no penetration"
     ],
     "dateLimit": "2014-01-01"
 }

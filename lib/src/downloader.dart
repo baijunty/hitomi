@@ -1,9 +1,11 @@
+import 'dart:io';
 import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
 import 'package:hitomi/lib.dart';
+import 'package:logger/logger.dart';
 import 'package:path/path.dart';
 import 'package:sqlite3/sqlite3.dart';
 import 'package:tuple/tuple.dart';
@@ -24,12 +26,15 @@ class DownLoader {
   List<dynamic> get tasks =>
       [..._pendingTask, ..._runningTask.map((e) => e.id)];
   SendPort port;
+  Logger? _logger;
   DownLoader(
       {required this.config,
       required this.api,
       required this.helper,
-      required SendPort port})
-      : this.port = port;
+      required this.port,
+      Logger? logger = null}) {
+    this._logger = logger;
+  }
 
   Future<bool> _downLoadGallery(_IdentifyToken token) async {
     var lastDate = DateTime.now();
@@ -41,6 +46,7 @@ class DownLoader {
             await helper.updateTask(
                 msg.gallery.id, msg.gallery.dirName, path, false);
             this.port.send(msg);
+            _logger?.d('down start $msg');
           }
         case DownLoadMessage():
           {
@@ -52,7 +58,7 @@ class DownLoader {
           }
         case DownLoadFinished():
           {
-            await helper.insertGallery(msg.gallery);
+            await helper.insertGallery(msg.gallery, msg.dirPath);
             this.port.send(msg);
             if (msg.success) {
               await helper.removeTask(msg.id);
@@ -62,22 +68,23 @@ class DownLoader {
                   msg.gallery.id, msg.gallery.dirName, path, true);
             }
             _runningTask.remove(token);
+            _logger?.d('down finish $msg');
             _notifyTaskChange();
           }
         case IlleagalGallery():
           this.port.send(msg);
           _runningTask.remove(token);
           await helper.removeTask(msg.id);
+          _logger?.d('down stop $msg');
           _notifyTaskChange();
-        case DebugMessage():
-          this.port.send(msg);
       }
     };
     final f = token.id is Gallery
         ? api.downloadImages(token.id, onProcess: handle, token: token)
-        : api.downloadImagesById(token.id, onProcess: handle, token: token);
+        : api.downloadImagesById(token.id,
+            onProcess: handle, token: token, usePrefence: false);
     var b = await f.catchError((e) async {
-      port.send('$token catch error $e');
+      _logger?.e('$token catch error $e');
       await _downLoadGallery(token);
       return false;
     },
@@ -91,7 +98,7 @@ class DownLoader {
   }
 
   void addTask(dynamic id) async {
-    port.send('add task $id');
+    _logger?.d('add task $id');
     _pendingTask.add(id);
     if (id is Gallery) {
       var gallery = id;
@@ -118,114 +125,135 @@ class DownLoader {
   void _notifyTaskChange() async {
     while (_runningTask.length < config.maxTasks && _pendingTask.isNotEmpty) {
       var id = _pendingTask.removeAt(0);
-      port.send('run task $id');
+      _logger?.d('run task $id');
       var token = _IdentifyToken(id);
       _runningTask.add(token);
       _downLoadGallery(token);
     }
-    port.send(
+    _logger?.i(
         'left task ${_pendingTask.length} running task ${_runningTask.length}');
   }
 
   Future<Iterable<Gallery>> _fetchGalleryFromIds(
       List<int> ids, bool where(Gallery gallery), CancelToken token) async {
-    final content = <dynamic, Gallery>{};
-    for (var id in ids) {
-      try {
-        var gallery = await api.fetchGallery(id, token: token);
-        if (where(gallery)) {
-          content[gallery.id] = gallery;
-        }
-      } catch (e) {
-        port.send('fetch $id throw $e');
-      }
+    if (ids.isNotEmpty) {
+      final collection = await helper
+          .selectSqlMultiResultAsync('select path from Gallery where id =?',
+              ids.map((e) => [e]).toList())
+          .then((value) {
+        return Stream.fromIterable(value.entries)
+            .asyncMap((event) async {
+              final path = event.value.firstOrNull?['path'];
+              final meta = File('$path/meta.json');
+              if (path != null && meta.existsSync()) {
+                var gallery = await meta
+                    .readAsString()
+                    .then((value) => Gallery.fromJson(value));
+                if (where(gallery)) {
+                  int hash = await imageHash(
+                          File('$path/${gallery.files.first.name}')
+                              .readAsBytesSync())
+                      .catchError((e) => 0, test: (e) => true);
+                  return Tuple2(hash, gallery);
+                }
+              } else {
+                var gallery =
+                    await api.fetchGallery(event.key[0], token: token);
+                if (where(gallery)) {
+                  int hash = await api
+                      .downloadImage(api.getThumbnailUrl(gallery.files.first),
+                          'https://hitomi.la${Uri.encodeFull(gallery.galleryurl!)}',
+                          token: token)
+                      .then((value) => imageHash(Uint8List.fromList(value)))
+                      .catchError((e) => 0, test: (e) => true);
+                  return Tuple2(hash, gallery);
+                }
+              }
+              return null;
+            })
+            .filterNonNull()
+            .fold<List<Tuple2<int, Gallery>>>([], (previousValue, element) {
+              var samilar = previousValue
+                  .where((e) =>
+                      compareHashDistance(e.item1, element.item1) < 8 ||
+                      e.item2 == element.item2)
+                  .toList();
+              if (samilar.isEmpty ||
+                  samilar
+                      .where((e) =>
+                          e.item2.chapterContains(element.item2) ||
+                          compareHashDistance(e.item1, element.item1) < 8)
+                      .isEmpty ||
+                  samilar
+                          .where(
+                              (e) => e.item2.language == config.languages.first)
+                          .isEmpty &&
+                      element.item2.language == config.languages.first) {
+                if (samilar.isNotEmpty) {
+                  previousValue.removeWhere((tup) =>
+                      samilar.any((e1) => e1.item2.id == tup.item2.id) &&
+                      element.item2.chapterContains(tup.item2));
+                }
+                previousValue.add(element);
+              }
+              return previousValue;
+            })
+            .then((value) => value.map((e) => e.item2));
+      });
+      _logger?.d('search ids ${ids.length} fetch gallery ${collection.length}');
+      return collection;
     }
-    return content.values;
+    return [];
   }
 
   Future<CancelToken> downLoadByTag(
       List<Lable> tags, bool where(Gallery gallery)) async {
-    if (exclude.length != config.exinclude.length) {
-      exclude.addAll(await helper.mapToLabel(config.exinclude));
+    if (exclude.length != config.excludes.length) {
+      exclude.addAll(await helper.mapToLabel(config.excludes));
     }
-    port.send('fetch tags ${tags}');
+    _logger?.d('fetch tags ${tags}');
     CancelToken token = CancelToken();
     final List<Gallery> results = await api
         .search(tags, exclude: exclude)
         .then((value) => _fetchGalleryFromIds(value, where, token))
-        .then((value) {
-          port.send('left result length ${value.length}');
-          return value.asStream().asyncMap((event) async {
-            final img = await api.downloadImage(
-                api.getThumbnailUrl(event.files.first),
-                'https://hitomi.la${Uri.encodeFull(event.galleryurl!)}',
-                token: token);
-            var hash = await imageHash(Uint8List.fromList(img));
-            return Tuple2(hash, event);
-          }).fold<List<Tuple2<int, Gallery>>>([], (previousValue, element) {
-            var samilar = previousValue
-                .where((e) =>
-                    compareHashDistance(e.item1, element.item1) < 8 ||
-                    e.item2 == element.item2)
-                .map((e) => e.item2)
-                .toList();
-            if (samilar.isEmpty ||
-                samilar
-                    .where((e) => e.chapterContains(element.item2))
-                    .isEmpty ||
-                samilar
-                        .where((e) => e.language == config.languages.first)
-                        .isEmpty &&
-                    element.item2.language == config.languages.first) {
-              if (samilar.isNotEmpty) {
-                previousValue.removeWhere((tup) =>
-                    samilar.any((e1) => e1.id == tup.item2.id) &&
-                    element.item2.chapterContains(tup.item2));
-              }
-              previousValue.add(element);
-            }
-            return previousValue;
-          });
-        })
-        .then((value) => value.map((e) => e.item2))
         .then((value) async {
-          port.send('usefull result length ${value.length}');
-          Map<List<dynamic>, ResultSet> map = value.isNotEmpty
-              ? await helper.selectSqlMultiResultAsync(
-                  'select id from Gallery where id =?',
-                  value.map((e) => [e.id]).toList())
-              : {};
-          var r = value.groupListsBy((element) =>
-              map.entries
-                  .firstWhere((e) => e.key.equals([element.id]))
-                  .value
-                  .firstOrNull !=
-              null);
-          var l = r[false] ?? [];
-          if (l.isNotEmpty) {
-            await helper.excuteSqlAsync(
-                'replace into Tasks(id,title,path,completed) values(?,?,?,?)',
-                l
-                    .map((e) => [
-                          e.id,
-                          e.dirName,
-                          join(config.output, e.dirName),
-                          false,
-                        ])
-                    .toList());
-          }
-          return l;
-        })
-        .catchError((e) async {
-          port.send('$tags catch error $e');
-          token.cancel();
-          await downLoadByTag(tags, where);
-          return <Gallery>[];
-        }, test: (error) => error is DioException && error.message == null)
-        .catchError((e) {
-          return <Gallery>[];
-        });
-    port.send('${tags.first} find match gallery ${results.length}');
+      _logger?.d('usefull result length ${value.length}');
+      Map<List<dynamic>, ResultSet> map = value.isNotEmpty
+          ? await helper.selectSqlMultiResultAsync(
+              'select id from Gallery where id =?',
+              value.map((e) => [e.id]).toList())
+          : {};
+      var r = value.groupListsBy((element) =>
+          map.entries
+              .firstWhere((e) => e.key.equals([element.id]))
+              .value
+              .firstOrNull !=
+          null);
+      var l = r[false] ?? [];
+      if (l.isNotEmpty) {
+        await helper.excuteSqlAsync(
+            'replace into Tasks(id,title,path,completed) values(?,?,?,?)',
+            l
+                .map((e) => [
+                      e.id,
+                      e.dirName,
+                      join(config.output, e.dirName),
+                      false,
+                    ])
+                .toList());
+      }
+      return l;
+    }).catchError((e) async {
+      _logger?.e('$tags catch error $e');
+      token.cancel();
+      await downLoadByTag(tags, where);
+      return <Gallery>[];
+    },
+            test: (error) =>
+                error is DioException && error.message == null).catchError((e) {
+      return <Gallery>[];
+    });
+    _logger?.d('${tags.first} find match gallery ${results.length}');
     results.forEach((element) {
       addTask(element);
     });
@@ -257,10 +285,6 @@ sealed class Message<T> {
   }
 }
 
-class DebugMessage extends Message<dynamic> {
-  DebugMessage({required super.id, super.success = true});
-}
-
 class GalleryMessage extends Message<dynamic> {
   Gallery gallery;
   GalleryMessage(this.gallery, {required super.id, required super.success});
@@ -284,7 +308,8 @@ class DownLoadMessage extends Message<dynamic> {
 class DownLoadFinished extends Message<dynamic> {
   List<Image> missFiles;
   Gallery gallery;
-  DownLoadFinished(this.missFiles, this.gallery,
+  String dirPath;
+  DownLoadFinished(this.missFiles, this.gallery, this.dirPath,
       {required super.id, required super.success});
 }
 

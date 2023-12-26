@@ -10,7 +10,7 @@
 // @author      zhangsan
 // @description 2023/12/10 21:45:07
 // ==/UserScript==
-(function () {
+(async function () {
     'use strict';
     GM_addStyle(`.dialog-box {
         position: fixed;
@@ -54,9 +54,39 @@
       text-align:right
     }
       `)
-    let manga = document.getElementsByClassName('gallery-content');
     var remoteUrl = GM_getValue('hitomi_la_remote_url', '')
+    async function fetchRemote({path, data = null, get = true,baseHttp=remoteUrl}) {
+        let url=baseHttp + path
+        return new Promise(function (resolve) {
+            GM_xmlhttpRequest({
+                method: get ? 'GET' : 'POST',
+                responseType: 'json',
+                timeout: 30000, // 3秒超时
+                url:url,
+                data: data,
+                onload: function (res) {
+                    if (res.status == 200) {
+                        resolve(res.responseText)
+                    } else {
+                      showToast('http error ' + res.status);
+                      console.log(res)
+                    }
+                }
+
+            });
+        })
+    }
+    let manga = document.getElementsByClassName('gallery-content');
     var token = GM_getValue('hitomi_la_remote_token', '')
+    var saveExculdes=GM_getValue('hitomi_la_remote_excludes_tags', '')
+    let excludes
+    if(saveExculdes.length==0){
+        saveExculdes=await fetchRemote({path:'excludes',data:JSON.stringify({auth: token}),get:false})
+        excludes=JSON.parse(saveExculdes)
+        GM_setValue('hitomi_la_remote_excludes_tags', saveExculdes)
+    } else {
+        excludes=JSON.parse(saveExculdes)
+    }
     function showToast(msg, duration) {
         duration = isNaN(duration) ? 3000 : duration;
         var m = document.createElement('div');
@@ -72,115 +102,100 @@
     }
     function addDownBtn(element, command) {
         let btnArtist = document.createElement('a')
-        btnArtist.id = 'artist down'
         btnArtist.text = '下载'
         btnArtist.innerHTML = '<button class="button"><span>下载</span></button>'
-        btnArtist.addEventListener('click', function (e) {
-            try {
-                GM_xmlhttpRequest({
-                    method: 'POST',
-                    responseType: 'json',
-                    timeout: 30000, // 3秒超时
-                    url: remoteUrl + 'addTask',
-                    data: JSON.stringify({ auth: token, task: command }),
-                    onload: function (res) {
-                        if (res.status == 200) {
-                            showToast(res.responseText, 2000)
-                        } else {
-                            alert('http error ' + res.status);
-                        }
-                    },
-                });
-            } catch (error) {
-                alert('http invoke error' + error);
-            }
+        btnArtist.addEventListener('click', async function (e) {
+            let resp = await fetchRemote({path:'addTask', data:JSON.stringify({ auth:token, task: command }), get:false})
+            showToast(resp, 2000)
         });
         element.appendChild(btnArtist)
     }
     function loopChildToAddBtn(elements, prefix) {
         for (let index = 0; elements != null && index < Math.min(elements.length, 4); index++) {
             let element = elements[index];
-            let name = element.children[0].text
-            addDownBtn(element, prefix + '"' + name + '"')
+            if(element.children.length==1){
+                let name = element.children[0].text
+                addDownBtn(element, prefix + '"' + name + '"')
+            }
         }
     }
-    let reg=new RegExp('\/(?<type>\\w+)\/(?<sex>(male|female))?:?(?<name>.+)-all')
-    function listTags(tags){
-        let enTags=[]
-        let transMap=new Map()
+    let reg = new RegExp('\/(?<type>\\w+)\/(?<sex>(male|female))?:?(?<name>.+)-all')
+    function listTags(tags) {
+        let enTags = []
+        let transMap = new Map()
         for (const child of tags.children) {
-            let a=child.children[0]
-            let groups= reg.exec(decodeURIComponent(a.getAttribute('href')))
-            if(groups!=null&&groups.length){
-                let namedGroup=groups.groups
-                let map=new Map()
-                let name=namedGroup['name']
-                if(namedGroup['sex']!=null){
-                    map['type']=namedGroup['sex']
+            let a = child.children[0]
+            let groups = reg.exec(decodeURIComponent(a.getAttribute('href')))
+            if (groups != null && groups.length) {
+                let namedGroup = groups.groups
+                let map = new Map()
+                let name = namedGroup['name']
+                if (namedGroup['sex'] != null) {
+                    map['type'] = namedGroup['sex']
                 } else {
-                    map['type']=namedGroup['type']
+                    map['type'] = namedGroup['type']
                 }
-                map['name']=name
-                var list=transMap.get(name)
-                if(list==null){
+                map['name'] = name
+                var list = transMap.get(name)
+                if (list == null) {
                     list = []
-                    transMap.set(name,list)
+                    transMap.set(name, list)
+                }
+                if(excludes.indexOf(name)>=0){
+                    a.style='background: red;'
                 }
                 list.push(a)
                 enTags.push(map)
             }
         }
-        return [enTags,transMap]
+        return [enTags, transMap]
     }
 
-    function translateTag(enTags,transMap) {
-        if(remoteUrl==null||remoteUrl.length==0){
+    async function translateTag(enTags, transMap) {
+        if (remoteUrl == null || remoteUrl.length == 0) {
             return
         }
-        let data=JSON.stringify({ auth: token, tags: enTags})
-        GM_xmlhttpRequest({
-            method: "POST", responseType: 'json',
-            timeout: 300000, // 3秒超时
-            data: data,
-            url: remoteUrl + 'translate',
-            onload: function (res) {
-                if (res.status == 200) {
-                    let resp = JSON.parse(res.responseText)
-                    if (resp.success) {
-                        transMap.forEach(function(v,k){
-                            for (const a of v) {
-                                a.innerText=`${resp[k]}(${k})`
-                            }
-                        })
-                    }
+        let data = JSON.stringify({ auth: token, tags: enTags })
+        let respData = await fetchRemote({path:'translate', data:data,get:false})
+        let resp=JSON.parse(respData)
+        transMap.forEach(function (v, k) {
+            if (resp[k].toLowerCase() != k.toLowerCase()) {
+                for (const a of v) {
+                    a.innerText = `${resp[k]}(${k})`
                 }
             }
         })
     }
 
-    function appendTags([enTags,transMap],[et,es]){
+    function appendTags([enTags, transMap], [et, es]) {
         enTags.push(...et)
-        es.forEach(function(v,k){
-            let old=transMap.get(k)
-            if(old==null){
-                old=[]
-                transMap.set(k,old)
+        es.forEach(function (v, k) {
+            let old = transMap.get(k)
+            if (old == null) {
+                old = []
+                transMap.set(k, old)
             }
             old.push(...v)
         })
-        return [enTags,transMap]
+        return [enTags, transMap]
     }
 
     let start = function () {
-        let [enTags,transMap]=[[],new Map()]
+        let [enTags, transMap] = [[], new Map()]
         if (manga != null && manga.length) {
             manga[0].childNodes.forEach(element => {
+                let [tags,trans]= Array.from(element.getElementsByTagName('ul')).reduce(function (list, uls) {
+                    list.push(uls)
+                    return list
+                }, []).reduce(function ([tags,trans], ul) {
+                    appendTags([tags,trans],listTags(ul))
+                    return [tags,trans]
+                }, [[],new Map()])
+                appendTags([enTags,transMap],[tags,trans])
                 let artistList = element.getElementsByClassName('artist-list')[0];
                 if (artistList != null) {
                     Array.from(artistList.children).forEach(e => {
-                        let artist = e.children
-                        appendTags([enTags,transMap],listTags(e))
-                        loopChildToAddBtn(artist, '-a ')
+                        loopChildToAddBtn(e.children, '-a ')
                     });
                 }
             });
@@ -195,60 +210,49 @@
         let groups = document.getElementById('groups')
         if (groups != null && groups.children.length) {
             let elements = groups.children[0]
-            appendTags([enTags,transMap],listTags(elements))
+            appendTags([enTags, transMap], listTags(elements))
             loopChildToAddBtn(elements.children, '-g ')
         }
         let artistList = document.getElementById('artists')
         if (artistList != null && artistList.children.length) {
             let elements = artistList.children[0]
-            appendTags([enTags,transMap],listTags(elements))
+            appendTags([enTags, transMap], listTags(elements))
             loopChildToAddBtn(elements.children, '-a ')
         }
         let series = document.getElementById('series')
-        if (series != null&&series.length) {
-            let elements = series.children[0]
-            appendTags([enTags,transMap],listTags(elements))
+        if (series != null&& series.children.length) {
+            series.childNodes.forEach((e)=> appendTags([enTags, transMap], listTags(e)))
         }
         let characters = document.getElementById('characters')
-        if (characters != null&&characters.length) {
-            appendTags([enTags,transMap],listTags(characters))
+        if (characters != null) {
+            appendTags([enTags, transMap], listTags(characters))
         }
         let tags = document.getElementById('tags')
         if (tags != null) {
-            appendTags([enTags,transMap],listTags(tags))
+            appendTags([enTags, transMap], listTags(tags))
         }
-        let tagPanels = document.getElementsByClassName('dj-desc')
-        if (tagPanels != null && tagPanels.length) {
-            Array.from(tagPanels).map((panel)=>panel.getElementsByTagName('ul')).reduce(function(list,uls){
-                list.push(...uls)
-                return list
-            },[]).forEach(function (e){
-                appendTags([enTags,transMap],listTags(e))
-            })
-        }
-        translateTag(enTags,transMap)
+        translateTag(enTags, transMap)
     }
     function showDialog() {
-        document.getElementById('dialog-background').open=true
+        document.getElementById('dialog-background').open = true
         let input = document.getElementById('remote-address')
         input.value = remoteUrl
         let tokenInput = document.getElementById('remote-token')
         tokenInput.value = token
-        document.getElementById('remote-confirm').addEventListener('click', function (e) {
-            GM_xmlhttpRequest({
-                method: 'GET', url: input.value, timeout: 3000, onload: function (res) {
-                    if (res.status == 200 && res.responseText == 'ok') {
-                        GM_setValue('hitomi_la_remote_url', input.value)
-                        GM_setValue('hitomi_la_remote_token', tokenInput.value)
-                        showToast('地址已设置为' + input.value, 2000)
-                        remoteUrl = input.value
-                        token = tokenInput.value
-                    } else {
-                        showToast('地址错误', 2000)
-                    }
-                    document.getElementById('dialog-background').open=false
-                }
-            })
+        let tags = document.getElementById('remote-tags')
+        tags.value = saveExculdes
+        document.getElementById('remote-confirm').addEventListener('click', async function (e) {
+            let resp = await fetchRemote({path:'',baseHttp:input.value})
+            if (resp == 'ok') {
+                GM_setValue('hitomi_la_remote_url', input.value)
+                GM_setValue('hitomi_la_remote_token', tokenInput.value)
+                GM_setValue('hitomi_la_remote_excludes_tags', tags.value)
+                showToast('地址已设置为' + input.value, 2000)
+                remoteUrl = input.value
+                token = tokenInput.value
+            } else {
+                showToast('地址错误', 2000)
+            }
         })
     }
     let observer = new MutationObserver(start)
@@ -268,6 +272,10 @@
           <div style="display: flex; justify-content: space-between;margin-top:10px">
             <label for="remote-token" class="label">token：</label>
             <input type="text" id="remote-token" style="width: 80%;margin-left:10px" />
+          </div>
+          <div style="display: flex; justify-content: space-between;margin-top:10px">
+            <label for="remote-tags" class="label">过滤标签：</label>
+            <input type="text" id="remote-tags" style="width: 80%;margin-left:10px" />
           </div>
           <div style="display: flex; justify-content: center; margin-top:10px">
              <button class="button" value="cancel">取消</button>

@@ -15,12 +15,14 @@ _$_UserConfig _$$_UserConfigFromJson(Map<String, dynamic> json) =>
               .toList() ??
           const ["japanese", "chinese"],
       proxy: json['proxy'] as String? ?? "",
-      exinclude: (json['exinclude'] as List<dynamic>?)
+      excludes: (json['excludes'] as List<dynamic>?)
               ?.map((e) => e as String)
               .toList() ??
           const [],
       dateLimit: json['dateLimit'] as String? ?? "1970-01-01",
       auth: json['auth'] as String? ?? "12345678",
+      logLevel: json['logLevel'] as String? ?? "debug",
+      logOutput: json['logOutput'] as String? ?? "",
     );
 
 Map<String, dynamic> _$$_UserConfigToJson(_$_UserConfig instance) =>
@@ -29,7 +31,9 @@ Map<String, dynamic> _$$_UserConfigToJson(_$_UserConfig instance) =>
       'maxTasks': instance.maxTasks,
       'languages': instance.languages,
       'proxy': instance.proxy,
-      'exinclude': instance.exinclude,
+      'excludes': instance.excludes,
       'dateLimit': instance.dateLimit,
       'auth': instance.auth,
+      'logLevel': instance.logLevel,
+      'logOutput': instance.logOutput,
     };

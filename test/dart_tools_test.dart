@@ -6,13 +6,16 @@ import 'package:hitomi/gallery/gallery.dart';
 import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/dhash.dart';
 import 'package:hitomi/src/sqlite_helper.dart';
+import 'package:logger/logger.dart';
 import 'package:test/test.dart';
 
 var config = UserConfig(r'/home/bai/ssd/photos', proxy: '127.0.0.1:8389');
 void main() async {
   test('chapter', () async {
     //-g 'Deko Ga Areba Boko Ga Aru.'
-    await testHttpServer();
+    var logger = Logger(output: ConsoleOutput(), level: Level.debug);
+    logger.i('fucker');
+    // await testHttpServer();
   });
 }
 

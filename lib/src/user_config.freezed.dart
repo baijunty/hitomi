@@ -24,9 +24,11 @@ mixin _$UserConfig {
   int get maxTasks => throw _privateConstructorUsedError;
   List<String> get languages => throw _privateConstructorUsedError;
   String get proxy => throw _privateConstructorUsedError;
-  List<String> get exinclude => throw _privateConstructorUsedError;
+  List<String> get excludes => throw _privateConstructorUsedError;
   String get dateLimit => throw _privateConstructorUsedError;
   String get auth => throw _privateConstructorUsedError;
+  String get logLevel => throw _privateConstructorUsedError;
+  String get logOutput => throw _privateConstructorUsedError;
 
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
   @JsonKey(ignore: true)
@@ -45,9 +47,11 @@ abstract class $UserConfigCopyWith<$Res> {
       int maxTasks,
       List<String> languages,
       String proxy,
-      List<String> exinclude,
+      List<String> excludes,
       String dateLimit,
-      String auth});
+      String auth,
+      String logLevel,
+      String logOutput});
 }
 
 /// @nodoc
@@ -67,9 +71,11 @@ class _$UserConfigCopyWithImpl<$Res, $Val extends UserConfig>
     Object? maxTasks = null,
     Object? languages = null,
     Object? proxy = null,
-    Object? exinclude = null,
+    Object? excludes = null,
     Object? dateLimit = null,
     Object? auth = null,
+    Object? logLevel = null,
+    Object? logOutput = null,
   }) {
     return _then(_value.copyWith(
       output: null == output
@@ -88,9 +94,9 @@ class _$UserConfigCopyWithImpl<$Res, $Val extends UserConfig>
           ? _value.proxy
           : proxy // ignore: cast_nullable_to_non_nullable
               as String,
-      exinclude: null == exinclude
-          ? _value.exinclude
-          : exinclude // ignore: cast_nullable_to_non_nullable
+      excludes: null == excludes
+          ? _value.excludes
+          : excludes // ignore: cast_nullable_to_non_nullable
               as List<String>,
       dateLimit: null == dateLimit
           ? _value.dateLimit
@@ -99,6 +105,14 @@ class _$UserConfigCopyWithImpl<$Res, $Val extends UserConfig>
       auth: null == auth
           ? _value.auth
           : auth // ignore: cast_nullable_to_non_nullable
+              as String,
+      logLevel: null == logLevel
+          ? _value.logLevel
+          : logLevel // ignore: cast_nullable_to_non_nullable
+              as String,
+      logOutput: null == logOutput
+          ? _value.logOutput
+          : logOutput // ignore: cast_nullable_to_non_nullable
               as String,
     ) as $Val);
   }
@@ -117,9 +131,11 @@ abstract class _$$_UserConfigCopyWith<$Res>
       int maxTasks,
       List<String> languages,
       String proxy,
-      List<String> exinclude,
+      List<String> excludes,
       String dateLimit,
-      String auth});
+      String auth,
+      String logLevel,
+      String logOutput});
 }
 
 /// @nodoc
@@ -137,9 +153,11 @@ class __$$_UserConfigCopyWithImpl<$Res>
     Object? maxTasks = null,
     Object? languages = null,
     Object? proxy = null,
-    Object? exinclude = null,
+    Object? excludes = null,
     Object? dateLimit = null,
     Object? auth = null,
+    Object? logLevel = null,
+    Object? logOutput = null,
   }) {
     return _then(_$_UserConfig(
       null == output
@@ -158,9 +176,9 @@ class __$$_UserConfigCopyWithImpl<$Res>
           ? _value.proxy
           : proxy // ignore: cast_nullable_to_non_nullable
               as String,
-      exinclude: null == exinclude
-          ? _value._exinclude
-          : exinclude // ignore: cast_nullable_to_non_nullable
+      excludes: null == excludes
+          ? _value._excludes
+          : excludes // ignore: cast_nullable_to_non_nullable
               as List<String>,
       dateLimit: null == dateLimit
           ? _value.dateLimit
@@ -169,6 +187,14 @@ class __$$_UserConfigCopyWithImpl<$Res>
       auth: null == auth
           ? _value.auth
           : auth // ignore: cast_nullable_to_non_nullable
+              as String,
+      logLevel: null == logLevel
+          ? _value.logLevel
+          : logLevel // ignore: cast_nullable_to_non_nullable
+              as String,
+      logOutput: null == logOutput
+          ? _value.logOutput
+          : logOutput // ignore: cast_nullable_to_non_nullable
               as String,
     ));
   }
@@ -181,11 +207,13 @@ class _$_UserConfig implements _UserConfig {
       {this.maxTasks = 5,
       final List<String> languages = const ["japanese", "chinese"],
       this.proxy = "",
-      final List<String> exinclude = const [],
+      final List<String> excludes = const [],
       this.dateLimit = "1970-01-01",
-      this.auth = "12345678"})
+      this.auth = "12345678",
+      this.logLevel = "debug",
+      this.logOutput = ""})
       : _languages = languages,
-        _exinclude = exinclude;
+        _excludes = excludes;
 
   factory _$_UserConfig.fromJson(Map<String, dynamic> json) =>
       _$$_UserConfigFromJson(json);
@@ -207,13 +235,13 @@ class _$_UserConfig implements _UserConfig {
   @override
   @JsonKey()
   final String proxy;
-  final List<String> _exinclude;
+  final List<String> _excludes;
   @override
   @JsonKey()
-  List<String> get exinclude {
-    if (_exinclude is EqualUnmodifiableListView) return _exinclude;
+  List<String> get excludes {
+    if (_excludes is EqualUnmodifiableListView) return _excludes;
     // ignore: implicit_dynamic_type
-    return EqualUnmodifiableListView(_exinclude);
+    return EqualUnmodifiableListView(_excludes);
   }
 
   @override
@@ -222,10 +250,16 @@ class _$_UserConfig implements _UserConfig {
   @override
   @JsonKey()
   final String auth;
+  @override
+  @JsonKey()
+  final String logLevel;
+  @override
+  @JsonKey()
+  final String logOutput;
 
   @override
   String toString() {
-    return 'UserConfig(output: $output, maxTasks: $maxTasks, languages: $languages, proxy: $proxy, exinclude: $exinclude, dateLimit: $dateLimit, auth: $auth)';
+    return 'UserConfig(output: $output, maxTasks: $maxTasks, languages: $languages, proxy: $proxy, excludes: $excludes, dateLimit: $dateLimit, auth: $auth, logLevel: $logLevel, logOutput: $logOutput)';
   }
 
   @override
@@ -239,11 +273,14 @@ class _$_UserConfig implements _UserConfig {
             const DeepCollectionEquality()
                 .equals(other._languages, _languages) &&
             (identical(other.proxy, proxy) || other.proxy == proxy) &&
-            const DeepCollectionEquality()
-                .equals(other._exinclude, _exinclude) &&
+            const DeepCollectionEquality().equals(other._excludes, _excludes) &&
             (identical(other.dateLimit, dateLimit) ||
                 other.dateLimit == dateLimit) &&
-            (identical(other.auth, auth) || other.auth == auth));
+            (identical(other.auth, auth) || other.auth == auth) &&
+            (identical(other.logLevel, logLevel) ||
+                other.logLevel == logLevel) &&
+            (identical(other.logOutput, logOutput) ||
+                other.logOutput == logOutput));
   }
 
   @JsonKey(ignore: true)
@@ -254,9 +291,11 @@ class _$_UserConfig implements _UserConfig {
       maxTasks,
       const DeepCollectionEquality().hash(_languages),
       proxy,
-      const DeepCollectionEquality().hash(_exinclude),
+      const DeepCollectionEquality().hash(_excludes),
       dateLimit,
-      auth);
+      auth,
+      logLevel,
+      logOutput);
 
   @JsonKey(ignore: true)
   @override
@@ -277,9 +316,11 @@ abstract class _UserConfig implements UserConfig {
       {final int maxTasks,
       final List<String> languages,
       final String proxy,
-      final List<String> exinclude,
+      final List<String> excludes,
       final String dateLimit,
-      final String auth}) = _$_UserConfig;
+      final String auth,
+      final String logLevel,
+      final String logOutput}) = _$_UserConfig;
 
   factory _UserConfig.fromJson(Map<String, dynamic> json) =
       _$_UserConfig.fromJson;
@@ -293,11 +334,15 @@ abstract class _UserConfig implements UserConfig {
   @override
   String get proxy;
   @override
-  List<String> get exinclude;
+  List<String> get excludes;
   @override
   String get dateLimit;
   @override
   String get auth;
+  @override
+  String get logLevel;
+  @override
+  String get logOutput;
   @override
   @JsonKey(ignore: true)
   _$$_UserConfigCopyWith<_$_UserConfig> get copyWith =>

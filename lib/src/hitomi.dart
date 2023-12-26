@@ -8,6 +8,7 @@ import 'package:hitomi/gallery/label.dart';
 import 'package:hitomi/gallery/language.dart';
 import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/dhash.dart';
+import 'package:logger/logger.dart';
 import 'package:tuple/tuple.dart';
 import 'package:collection/collection.dart';
 import '../gallery/gallery.dart';
@@ -38,8 +39,8 @@ abstract class Hitomi {
   Stream<Gallery> viewByTag(Lable tag, {int page = 1, CancelToken? token});
   Stream<Tuple2<Gallery, int>> findSimilarGalleryBySearch(Gallery gallery,
       {CancelToken? token});
-  factory Hitomi.fromPrefenerce(UserConfig config) {
-    return _HitomiImpl(config);
+  factory Hitomi.fromPrefenerce(UserConfig config, {Logger? logger = null}) {
+    return _HitomiImpl(config, logger: logger);
   }
 }
 
@@ -58,13 +59,15 @@ class _HitomiImpl implements Hitomi {
   final UserConfig config;
   final _cache = {};
   Timer? _timer;
-  _HitomiImpl(this.config) {
+  Logger? logger;
+  _HitomiImpl(this.config, {Logger? logger = null}) {
     _dio.httpClientAdapter = IOHttpClientAdapter(createHttpClient: () {
       return HttpClient()
         ..connectionTimeout = Duration(seconds: 60)
         ..findProxy =
             (u) => (config.proxy.isEmpty) ? 'DIRECT' : 'PROXY ${config.proxy}';
     });
+    this.logger = logger;
   }
 
   Future<Gallery> _fetchGalleryJsonById(dynamic id, CancelToken? token) async {
@@ -93,10 +96,11 @@ class _HitomiImpl implements Hitomi {
     final outPath = config.output;
     final title = gallery.dirName;
     var tag = (gallery.tags ?? [])
-        .firstWhereOrNull((element) => config.exinclude.contains(element.tag));
+        .firstWhereOrNull((element) => config.excludes.contains(element.tag));
     if (tag != null && usePrefence) {
-      print('${id} include exclude key ${tag.tag},skip');
-      onProcess?.call(DownLoadFinished([], gallery, id: id, success: true));
+      logger?.w('${id} include exclude key ${tag.tag},skip');
+      onProcess
+          ?.call(DownLoadFinished([], gallery, '', id: id, success: false));
       return false;
     }
     Directory dir;
@@ -104,12 +108,12 @@ class _HitomiImpl implements Hitomi {
     try {
       dir = Directory("${outPath}/${title}")..createSync();
     } catch (e) {
-      print(e);
+      logger?.e(e);
       dir = Directory(
           "${outPath}/${artists?.isNotEmpty ?? false ? '' : '(${artists!.first.name})'}$id")
         ..createSync();
     }
-    print('down $id to ${dir.path}');
+    logger?.i('down $id to ${dir.path}');
     File(dir.path + '/' + 'meta.json').writeAsString(json.encode(gallery));
     final referer = 'https://hitomi.la${Uri.encodeFull(gallery.galleryurl!)}';
     final missImages = <Image>[];
@@ -143,7 +147,7 @@ class _HitomiImpl implements Hitomi {
               break;
             }
           } catch (e) {
-            print(e);
+            logger?.e(e);
           }
         }
       }
@@ -152,8 +156,8 @@ class _HitomiImpl implements Hitomi {
       }
     }
     var b = missImages.isEmpty;
-    onProcess?.call(DownLoadFinished(missImages, gallery, id: id, success: b));
-    print('下载$id完成$b');
+    onProcess?.call(
+        DownLoadFinished(missImages, gallery, dir.path, id: id, success: b));
     return b;
   }
 
@@ -224,7 +228,7 @@ class _HitomiImpl implements Hitomi {
           languages!.firstWhereOrNull((e) => e.name == element) != null);
       final language = languages!.firstWhere((element) => element.name == f);
       if (id != language.galleryid) {
-        print('use language ${language}');
+        logger?.t('use language ${language}');
         return _fetchGalleryJsonById(language.galleryid, token);
       }
     } else if (!config.languages
@@ -233,7 +237,7 @@ class _HitomiImpl implements Hitomi {
           await findSimilarGalleryBySearch(gallery, token: token).toList();
       if (found.isNotEmpty) {
         found.sort((e1, e2) => e1.item2.compareTo(e2.item2));
-        print(
+        logger?.d(
             'use  ${found.first.item1.dirName} id ${found.first.item1.id} distance ${found.first.item2}');
         return found.first.item1;
       }
@@ -264,7 +268,8 @@ class _HitomiImpl implements Hitomi {
     if ((gallery.artists?.length ?? 0) > 0) {
       keys.addAll(gallery.artists!);
     }
-    print('search ${gallery.id} ${gallery.dirName} target language by $keys');
+    logger
+        ?.i('search ${gallery.id} ${gallery.dirName} target language by $keys');
     final ids = await search(keys, token: token);
     final referer = 'https://hitomi.la${Uri.encodeFull(gallery.galleryurl!)}';
     final url = getThumbnailUrl(gallery.files.first);
@@ -476,7 +481,7 @@ class _HitomiImpl implements Hitomi {
       {CancelToken? token}) async {
     if (!_cache.containsKey(lable)) {
       var result = await fetchIdsByTag(lable, token: token);
-      print('fetch label ${lable.name} result ${result.length}');
+      logger?.i('fetch label ${lable.name} result ${result.length}');
       _cache[lable] = result;
     }
     return _cache[lable]!;
@@ -505,7 +510,7 @@ class _HitomiImpl implements Hitomi {
         return l;
       });
     }).catchError((e) {
-      print("$url throw $e");
+      logger?.e("$url throw $e");
       throw e;
     }, test: (e) => true);
   }

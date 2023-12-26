@@ -6,7 +6,6 @@ import 'package:dcache/dcache.dart';
 import 'package:dio/dio.dart' show Dio;
 import 'package:dio/io.dart';
 import 'package:hitomi/gallery/label.dart';
-import 'package:hitomi/gallery/tag.dart';
 import 'package:hitomi/src/task_manager.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart';
@@ -23,6 +22,14 @@ class _TaskWarp {
     router.post('/translate', _translate);
     router.post('/addTask', _addTask);
     router.post('/listTask', _listTask);
+    router.post('/excludes', (req) async {
+      var succ = await _authToken(req);
+      if (succ.item1) {
+        return Response.ok(json.encode(_manager.config.excludes),
+            headers: {HttpHeaders.contentTypeHeader: 'application/json'});
+      }
+      return Response.unauthorized('unauth');
+    });
     _dio.httpClientAdapter = IOHttpClientAdapter(createHttpClient: () {
       return HttpClient()
         ..connectionTimeout = Duration(seconds: 30)
@@ -33,8 +40,12 @@ class _TaskWarp {
   }
 
   Future<Tuple2<bool, Map<String, dynamic>>> _authToken(Request req) async {
-    Map<String, dynamic> body = json.decode(await req.readAsString());
-    return Tuple2(body['auth'] == _manager.config.auth, body);
+    var posted = await req.readAsString();
+    if (posted.isNotEmpty) {
+      Map<String, dynamic> body = json.decode(posted);
+      return Tuple2(body['auth'] == _manager.config.auth, body);
+    }
+    return Tuple2(false, Map());
   }
 
   Future<Response> _translate(Request req) async {
@@ -65,10 +76,9 @@ class _TaskWarp {
         await Stream.fromIterable(missed.toSet()).asyncMap((event) async {
           await _dio
               .getUri<List<dynamic>>(Uri.parse(
-                  'https://baijunty.com/translate_a/t?client=dict-chrome-ex&sl=en&tl=zh&q=${event.name}'))
+                  'https://translate.googleapis.com/translate_a/t?client=dict-chrome-ex&sl=auto&tl=zh&q=${event.name}'))
               .then((value) {
-            final v = value.data![0] as String;
-            print('from net $event return $v ');
+            final v = value.data![0][0] as String;
             _cache[event] = v;
             return v;
           });

@@ -36,9 +36,14 @@ extension NullFillterIterable<E, R> on Iterable<E?> {
           as Iterable<R>;
 }
 
-extension NullFillterStream<E, R> on Stream<E> {
+extension NullMapStream<E, R> on Stream<E> {
   Stream<R> mapNonNull(R? test(E event)) =>
       this.map((e) => test(e)).where((element) => element != null) as Stream<R>;
+}
+
+extension NullFillterStream<E> on Stream<E?> {
+  Stream<E> filterNonNull() =>
+      this.where((element) => element != null).map((event) => event!);
 }
 
 final zhAndJpCodeExp = RegExp(r'[\u0800-\u4e00|\u4e00-\u9fa5|30A0-30FF|\w]+');

@@ -49,7 +49,7 @@ class GalleryInfo {
     var gallery = this.hash == 0
         ? null
         : await api
-            .search(tags, exclude: await helper.mapToLabel(config.exinclude))
+            .search(tags, exclude: await helper.mapToLabel(config.excludes))
             .then((value) async {
             print('result length ${value.length}');
             if (value.length > 50) {
@@ -239,7 +239,7 @@ class GalleryInfo {
     }
     await value.translateLable(helper);
     await computeHash(File(directory.path + '/${value.files.first.name}'));
-    await helper.insertGallery(value, hash);
+    await helper.insertGallery(value, '', hash);
     return value;
   }
 
@@ -464,7 +464,7 @@ class GalleryInfo {
           delGallery(row['id']);
         }
         await api.downloadImagesById(gallery.id);
-        helper.insertGallery(gallery);
+        helper.insertGallery(gallery, '');
       }
     }
     return set != null && set.isNotEmpty;
