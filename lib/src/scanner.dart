@@ -237,7 +237,6 @@ class GalleryInfo {
       }
       directory = newDir;
     }
-    await value.translateLable(helper);
     await computeHash(File(directory.path + '/${value.files.first.name}'));
     await helper.insertGallery(value, '', hash);
     return value;

@@ -1,9 +1,9 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:collection/collection.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:hitomi/gallery/label.dart';
-import 'package:hitomi/src/sqlite_helper.dart';
 
 import 'artist.dart';
 import 'character.dart';
@@ -73,23 +73,6 @@ class Gallery with Lable {
     required this.id,
     this.groups,
   });
-
-  Future<Gallery> translateLable(SqliteHelper helper) async {
-    Map<String, dynamic> empty = const <String, dynamic>{};
-    Map<Lable, List<dynamic>> params = {};
-    lables().fold(params, (p, e) => p..[e] = e.params);
-    if (params.isNotEmpty) {
-      var result = await helper.selectSqlMultiResultAsync(
-          'select * from Tags where type=? and name=?', params.values.toList());
-      params.keys.forEach((key) {
-        var r = result.entries
-            .firstWhereOrNull((element) => element.key.equals(key.params))
-            ?.value;
-        key.trans.addAll(r?.firstOrNull ?? empty);
-      });
-    }
-    return this;
-  }
 
   List<Lable> lables() {
     return <Lable>[]
@@ -285,6 +268,18 @@ class Gallery with Lable {
         '${(artists?.isNotEmpty ?? false) ? '(${artists!.first.name})' : ''}${name}';
     return illegalCode.where((e) => direct.contains(e)).fold<String>(direct,
         (previousValue, element) => previousValue.replaceAll(element, ''));
+  }
+
+  Directory createDir(String outPath) {
+    Directory dir;
+    try {
+      dir = Directory("${outPath}/${dirName}")..createSync();
+    } catch (e) {
+      dir = Directory(
+          "${outPath}/${artists?.isNotEmpty ?? false ? '' : '(${artists!.first.name})'}$id")
+        ..createSync();
+    }
+    return dir;
   }
 
   @override

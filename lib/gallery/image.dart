@@ -69,6 +69,11 @@ class Image {
   }
 
   @override
+  String toString() {
+    return toMap().toString();
+  }
+
+  @override
   bool operator ==(Object other) {
     if (identical(other, this)) return true;
     if (other is! Image) return false;

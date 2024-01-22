@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../gallery/artist.dart';
 import '../gallery/character.dart';
 import '../gallery/group.dart';
@@ -7,10 +9,7 @@ import '../gallery/tag.dart';
 abstract mixin class Lable {
   String get type;
   String get name;
-  final Map<String, dynamic> trans = {};
-  String get translate => trans['translate'] ?? name;
-  String get intro => trans['intro'] ?? '';
-  int get index => (trans['id'] as int?) ?? -1;
+  String? translate;
   String get sqlType => type;
   List<String> get params => [sqlType, name];
   Map<String, dynamic> toMap() => {
@@ -26,6 +25,8 @@ abstract mixin class Lable {
   String toString() {
     return toMap().toString();
   }
+
+  String toJson() => json.encode(toMap());
 
   @override
   bool operator ==(Object other) {

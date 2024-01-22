@@ -20,11 +20,6 @@ class Group with Lable {
     return Group.fromMap(json.decode(data) as Map<String, dynamic>);
   }
 
-  /// `dart:convert`
-  ///
-  /// Converts [Group] to a JSON string.
-  String toJson() => json.encode(toMap());
-
   Group copyWith({
     String? group,
   }) {

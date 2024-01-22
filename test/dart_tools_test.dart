@@ -13,9 +13,7 @@ var config = UserConfig(r'/home/bai/ssd/photos', proxy: '127.0.0.1:8389');
 void main() async {
   test('chapter', () async {
     //-g 'Deko Ga Areba Boko Ga Aru.'
-    var logger = Logger(output: ConsoleOutput(), level: Level.debug);
-    logger.i('fucker');
-    // await testHttpServer();
+    await testHttpServer();
   });
 }
 
@@ -117,7 +115,6 @@ Future<void> galleryTest() async {
   var gallery = await File(config.output + '/(3104)アイの中に閉じ込めた/meta.json')
       .readAsString()
       .then((value) => Gallery.fromJson(value))
-      .then((value) => value.translateLable(helper))
       .then((value) => value.lables());
   print(gallery);
 }

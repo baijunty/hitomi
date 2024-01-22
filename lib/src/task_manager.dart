@@ -1,6 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
-import 'dart:isolate';
 import 'package:args/args.dart';
 import 'package:hitomi/gallery/artist.dart';
 import 'package:hitomi/gallery/group.dart';
@@ -15,7 +15,6 @@ import '../gallery/language.dart';
 
 class TaskManager {
   final UserConfig config;
-  final SendPort port;
   late ArgParser _parser;
   late SqliteHelper helper;
   late DownLoader downLoader;
@@ -28,7 +27,7 @@ class TaskManager {
       DateTime.parse(gallery.date).compareTo(limit) > 0 &&
       (gallery.artists?.length ?? 0) <= 2 &&
       gallery.files.length >= 18;
-  TaskManager(this.config, this.port) {
+  TaskManager(this.config) {
     Level level;
     switch (config.logLevel) {
       case 'debug':
@@ -53,8 +52,8 @@ class TaskManager {
         printer: PrettyPrinter(methodCount: 0));
     api = Hitomi.fromPrefenerce(config, logger: logger);
     helper = SqliteHelper(config.output);
-    downLoader = DownLoader(
-        config: config, api: api, helper: helper, port: port, logger: logger);
+    downLoader =
+        DownLoader(config: config, api: api, helper: helper, logger: logger);
     _parser = ArgParser()
       ..addFlag('fix')
       ..addFlag('fixDb', abbr: 'f')
@@ -124,7 +123,10 @@ class TaskManager {
       String id = cmd;
       hasError = !numberExp.hasMatch(id);
       if (!hasError) {
-        downLoader.addTask(id);
+        await api
+            .fetchGallery(id)
+            .then((value) => downLoader.addTask(value))
+            .catchError((e) => logger.e(e), test: (error) => true);
       }
     } else if (result.wasParsed('artist')) {
       String? artist = result['artist'];
@@ -140,7 +142,6 @@ class TaskManager {
       return !hasError;
     } else if (result.wasParsed('group')) {
       String? group = result['group'];
-      port.send(group);
       hasError = group == null || group.isEmpty;
       if (!hasError) {
         downLoader.downLoadByTag(<Lable>[
@@ -165,7 +166,7 @@ class TaskManager {
         }
         tags.addAll(await helper.fetchLablesFromSql(tagWords));
         tags.addAll(config.languages.map((e) => Language(name: e)));
-        port.send('$tags');
+        logger.d(tags);
         downLoader.downLoadByTag(tags, filter);
       }
       return !hasError;
@@ -187,21 +188,21 @@ class TaskManager {
     //   await fix();
     // }
     else if (result['update']) {
-      port.send('start update db');
       return await helper.updateTagTable(await api.fetchTagsFromNet());
     } else if (result['continue']) {
-      port.send('continue uncomplete task');
       var tasks = await helper
           .selectSqlAsync('select id from Tasks where completed = ?', [0]);
-      tasks.forEach((element) {
-        downLoader.addTask(element['id']);
+      tasks.forEach((element) async {
+        await api
+            .fetchGallery(element['id'])
+            .then((value) => downLoader.addTask(value))
+            .catchError((e) => logger.e(e), test: (error) => true);
       });
     } else if (result['list']) {
       return downLoader.tasks;
     }
     if (hasError) {
-      port.send('$cmd error with ${args}');
-      port.send(_parser.usage);
+      logger.e('$cmd error with ${args}');
     }
     return !hasError;
   }

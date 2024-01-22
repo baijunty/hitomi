@@ -18,13 +18,10 @@ import 'downloader.dart';
 
 abstract class Hitomi {
   Future<bool> downloadImagesById(dynamic id,
-      {void onProcess(Message msg)?,
-      bool usePrefence = true,
-      CancelToken? token});
+      {bool usePrefence = true, CancelToken? token});
+  void registerGallery(Future<bool> Function(Message msg));
   Future<bool> downloadImages(Gallery gallery,
-      {void onProcess(Message msg)?,
-      bool usePrefence = true,
-      CancelToken? token});
+      {bool usePrefence = true, CancelToken? token});
   Future<Gallery> fetchGallery(dynamic id,
       {usePrefence = true, CancelToken? token});
   Future<List<int>> search(List<Lable> include,
@@ -32,11 +29,18 @@ abstract class Hitomi {
   Future<List<int>> fetchIdsByTag(Lable tag,
       {Language? language, CancelToken? token});
   Future<List<int>> downloadImage(String url, String refererUrl,
-      {void onProcess(int now, int total)?, CancelToken? token});
+      {CancelToken? token});
   Future<List<List<dynamic>>> fetchTagsFromNet({CancelToken? token});
   String getThumbnailUrl(Image image,
       {ThumbnaiSize size = ThumbnaiSize.smaill, CancelToken? token});
   Stream<Gallery> viewByTag(Lable tag, {int page = 1, CancelToken? token});
+
+  Future<List<int>> http_invke(String url,
+      {Map<String, dynamic>? headers = null,
+      CancelToken? token,
+      void onProcess(int now, int total)?,
+      String method = "get",
+      Object? data = null});
   Stream<Tuple2<Gallery, int>> findSimilarGalleryBySearch(Gallery gallery,
       {CancelToken? token});
   factory Hitomi.fromPrefenerce(UserConfig config, {Logger? logger = null}) {
@@ -52,6 +56,7 @@ class _HitomiImpl implements Hitomi {
   late String code;
   late List<int> codes;
   late int index;
+  final List<Future<bool> Function(Message)> _calls = [];
   static final _blank = RegExp(r"\s+");
   static final _titleExp = zhAndJpCodeExp;
   static final _emptyList = const <int>[];
@@ -85,34 +90,29 @@ class _HitomiImpl implements Hitomi {
         });
   }
 
+  Future<bool> _loopCallBack(Message msg) async {
+    bool b = true;
+    for (var element in _calls) {
+      b &= await element(msg).catchError((e) => true, test: (error) => true);
+    }
+    return b;
+  }
+
   @override
   Future<bool> downloadImages(Gallery gallery,
-      {void onProcess(Message msg)?,
-      usePrefence = true,
-      CancelToken? token}) async {
+      {usePrefence = true, CancelToken? token}) async {
     await checkInit();
     final id = gallery.id;
-    var artists = gallery.artists;
     final outPath = config.output;
-    final title = gallery.dirName;
     var tag = (gallery.tags ?? [])
         .firstWhereOrNull((element) => config.excludes.contains(element.tag));
     if (tag != null && usePrefence) {
       logger?.w('${id} include exclude key ${tag.tag},skip');
-      onProcess
-          ?.call(DownLoadFinished([], gallery, '', id: id, success: false));
+      _loopCallBack(DownLoadFinished(gallery, gallery, Directory(''), false));
       return false;
     }
-    Directory dir;
-    onProcess?.call(GalleryMessage(gallery, id: id, success: false));
-    try {
-      dir = Directory("${outPath}/${title}")..createSync();
-    } catch (e) {
-      logger?.e(e);
-      dir = Directory(
-          "${outPath}/${artists?.isNotEmpty ?? false ? '' : '(${artists!.first.name})'}$id")
-        ..createSync();
-    }
+    Directory dir = gallery.createDir(outPath);
+    await _loopCallBack(TaskStartMessage(gallery, dir, gallery));
     logger?.i('down $id to ${dir.path}');
     File(dir.path + '/' + 'meta.json').writeAsString(json.encode(gallery));
     final referer = 'https://hitomi.la${Uri.encodeFull(gallery.galleryurl!)}';
@@ -120,26 +120,24 @@ class _HitomiImpl implements Hitomi {
     for (var i = 0; i < gallery.files.length; i++) {
       Image image = gallery.files[i];
       final out = File(dir.path + '/' + image.name);
-      var b = await _checkViallImage(dir, image);
-      if (!b) {
+      var b = await _loopCallBack(TaskStartMessage(gallery, out, image));
+      if (b) {
         for (var j = 0; j < 3; j++) {
           try {
             final url = getDownLoadUrl(image);
             final time = DateTime.now();
-            var data = await downloadImage(url, referer,
-                onProcess: onProcess == null
-                    ? null
-                    : (now, total) => onProcess(DownLoadMessage(
-                        id,
-                        true,
-                        title,
-                        i + 1,
-                        gallery.files.length,
-                        now /
-                            1024 /
-                            DateTime.now().difference(time).inMilliseconds *
-                            1000,
-                        total)),
+            var data = await http_invke(url,
+                headers: _buildRequestHeader(url, referer),
+                onProcess: ((now, total) => _loopCallBack(
+                      DownLoadingMessage(
+                          gallery,
+                          i,
+                          now /
+                              1024 /
+                              DateTime.now().difference(time).inMilliseconds *
+                              1000,
+                          total),
+                    )),
                 token: token);
             if (data.isNotEmpty) {
               await out.writeAsBytes(data, flush: true);
@@ -148,42 +146,37 @@ class _HitomiImpl implements Hitomi {
             }
           } catch (e) {
             logger?.e(e);
+            await _loopCallBack(IlleagalGallery(gallery.id, e.toString(), i));
+            b = false;
           }
         }
-      }
-      if (!b) {
-        missImages.add(image);
+        if (!b) {
+          missImages.add(image);
+        }
+        await _loopCallBack(DownLoadFinished(image, gallery, out, b));
       }
     }
     var b = missImages.isEmpty;
-    onProcess?.call(
-        DownLoadFinished(missImages, gallery, dir.path, id: id, success: b));
-    return b;
+    return await _loopCallBack(
+            DownLoadFinished(missImages, gallery, dir, missImages.isEmpty)) &&
+        b;
   }
 
   @override
   Future<bool> downloadImagesById(dynamic id,
-      {void onProcess(Message msg)?,
-      usePrefence = true,
-      CancelToken? token}) async {
+      {usePrefence = true, CancelToken? token}) async {
     await checkInit();
     final gallery =
         await fetchGallery(id, usePrefence: usePrefence, token: token);
-    return await downloadImages(gallery, onProcess: onProcess, token: token);
-  }
-
-  Future<bool> _checkViallImage(Directory dir, Image image) async {
-    final out = File(dir.path + '/' + image.name);
-    var b = out.existsSync();
-    return b;
+    return await downloadImages(gallery, token: token);
   }
 
   @override
   Future<List<int>> downloadImage(String url, String refererUrl,
-      {void onProcess(int now, int total)?, CancelToken? token}) async {
+      {CancelToken? token}) async {
     final data = await http_invke(url,
         headers: _buildRequestHeader(url, refererUrl),
-        onProcess: onProcess,
+        onProcess: null,
         token: token);
     return data;
   }
@@ -490,19 +483,26 @@ class _HitomiImpl implements Hitomi {
   Future<List<int>> http_invke(String url,
       {Map<String, dynamic>? headers = null,
       CancelToken? token,
-      void onProcess(int now, int total)?}) async {
+      void onProcess(int now, int total)?,
+      String method = "get",
+      Object? data = null}) async {
     final ua = {
       'user-agent':
           'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36 Edg/106.0.1370.47'
     };
     headers?.addAll(ua);
     final useHeader = headers ?? ua;
-    return _dio
-        .get<ResponseBody>(url,
+    Future<Response<ResponseBody>> req = method == 'get'
+        ? _dio.get<ResponseBody>(url,
             options:
                 Options(headers: useHeader, responseType: ResponseType.stream),
             cancelToken: token)
-        .then((resp) {
+        : _dio.post(url,
+            options:
+                Options(headers: useHeader, responseType: ResponseType.stream),
+            data: data,
+            cancelToken: token);
+    return req.then((resp) {
       int total = resp.extra.length;
       return resp.data!.stream.fold<List<int>>(<int>[], (l, ints) {
         l.addAll(ints);
@@ -595,6 +595,11 @@ class _HitomiImpl implements Hitomi {
       result.add(r);
     }
     return result;
+  }
+
+  @override
+  void registerGallery(Future<bool> Function(Message msg) test) {
+    _calls.add(test);
   }
 }
 
