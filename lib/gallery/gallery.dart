@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:collection/collection.dart';
-import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:hitomi/gallery/label.dart';
+import 'package:logger/logger.dart';
 
 import 'artist.dart';
 import 'character.dart';
@@ -13,7 +13,6 @@ import 'language.dart';
 import 'parody.dart';
 import 'tag.dart';
 
-@immutable
 class Gallery with Lable {
   static final zhNum = '零〇一二三四五六七八九十';
   static final chapterRex = RegExp(
@@ -164,6 +163,17 @@ class Gallery with Lable {
   ///
   /// Converts [Gallery] to a JSON string.
   String toJson() => json.encode(toMap());
+
+  bool tagIlleagal(List<String> excludes, [Logger? logger = null]) {
+    var illeagalTags =
+        tags?.where((element) => excludes.contains(element.name)).toList() ??
+            [];
+    final count = illeagalTags.length;
+    if (count > 0) {
+      logger?.i('found $tags');
+    }
+    return count * 20 / (files.length) > 0.5;
+  }
 
   List<int> chapter() {
     final matcher = chapterRex.allMatches(name).toList();

@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:hitomi/gallery/label.dart';
 
-@immutable
 class Language with Lable {
   static final chinese = Language(name: 'chinese');
   static final japanese = Language(name: 'japanese');

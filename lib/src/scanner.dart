@@ -238,7 +238,7 @@ class GalleryInfo {
       directory = newDir;
     }
     await computeHash(File(directory.path + '/${value.files.first.name}'));
-    await helper.insertGallery(value, '', hash);
+    await helper.insertGallery(value, '');
     return value;
   }
 

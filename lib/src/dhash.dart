@@ -17,6 +17,22 @@ Future<int> imageHash(Uint8List data,
   return bits;
 }
 
+Future<Uint8List?> resizeThumbImage(Uint8List data, int width,
+    [int quality = 65]) async {
+  final cmd = Command()
+    ..decodeImage(data)
+    ..copyResize(width: width, interpolation: Interpolation.average)
+    ..encodeJpg(quality: quality);
+  return cmd.getImage().then((value) => cmd.outputBytes);
+  // final out = File(outPath);
+  // if (out.existsSync()) {
+  //   return out.readAsBytes().then((value) {
+  //     // out.deleteSync();
+  //     return value;
+  //   });
+  // }
+}
+
 Future<int> distance(List<int> data1, List<int> data2,
     {ImageHash hash = ImageHash.AHash}) async {
   final hash1 = await imageHash(Uint8List.fromList(data1), hash: hash);

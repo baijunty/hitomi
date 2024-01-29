@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:hitomi/gallery/label.dart';
 
-@immutable
 class Parody with Lable {
   final String parody;
 

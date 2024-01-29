@@ -35,7 +35,7 @@ abstract class Hitomi {
       {ThumbnaiSize size = ThumbnaiSize.smaill, CancelToken? token});
   Stream<Gallery> viewByTag(Lable tag, {int page = 1, CancelToken? token});
 
-  Future<List<int>> http_invke(String url,
+  Future<T> httpInvoke<T>(String url,
       {Map<String, dynamic>? headers = null,
       CancelToken? token,
       void onProcess(int now, int total)?,
@@ -76,24 +76,24 @@ class _HitomiImpl implements Hitomi {
   }
 
   Future<Gallery> _fetchGalleryJsonById(dynamic id, CancelToken? token) async {
-    return http_invke('https://ltn.hitomi.la/galleries/$id.js', token: token)
-        .then((ints) {
-          return Utf8Decoder().convert(ints);
-        })
+    return httpInvoke<String>('https://ltn.hitomi.la/galleries/$id.js',
+            token: token)
         .then((value) => value.indexOf("{") >= 0
             ? value.substring(value.indexOf("{"))
             : value)
         .then((value) {
-          final gallery = Gallery.fromJson(value);
-          // gallery.translateLable(prefenerce.helper);
-          return gallery;
-        });
+      final gallery = Gallery.fromJson(value);
+      return gallery;
+    });
   }
 
   Future<bool> _loopCallBack(Message msg) async {
     bool b = true;
     for (var element in _calls) {
-      b &= await element(msg).catchError((e) => true, test: (error) => true);
+      b &= await element(msg).catchError((e) {
+        logger?.e('_loopCallBack $msg faild $e');
+        return true;
+      }, test: (error) => true);
     }
     return b;
   }
@@ -104,10 +104,8 @@ class _HitomiImpl implements Hitomi {
     await checkInit();
     final id = gallery.id;
     final outPath = config.output;
-    var tag = (gallery.tags ?? [])
-        .firstWhereOrNull((element) => config.excludes.contains(element.tag));
-    if (tag != null && usePrefence) {
-      logger?.w('${id} include exclude key ${tag.tag},skip');
+    if (gallery.tagIlleagal(config.excludes, logger)) {
+      logger?.w('${id} include forbidden key ,skip');
       _loopCallBack(DownLoadFinished(gallery, gallery, Directory(''), false));
       return false;
     }
@@ -126,7 +124,7 @@ class _HitomiImpl implements Hitomi {
           try {
             final url = getDownLoadUrl(image);
             final time = DateTime.now();
-            var data = await http_invke(url,
+            var data = await httpInvoke<List<int>>(url,
                 headers: _buildRequestHeader(url, referer),
                 onProcess: ((now, total) => _loopCallBack(
                       DownLoadingMessage(
@@ -145,7 +143,7 @@ class _HitomiImpl implements Hitomi {
               break;
             }
           } catch (e) {
-            logger?.e(e);
+            logger?.e('down image faild $e');
             await _loopCallBack(IlleagalGallery(gallery.id, e.toString(), i));
             b = false;
           }
@@ -174,7 +172,7 @@ class _HitomiImpl implements Hitomi {
   @override
   Future<List<int>> downloadImage(String url, String refererUrl,
       {CancelToken? token}) async {
-    final data = await http_invke(url,
+    final data = await httpInvoke<List<int>>(url,
         headers: _buildRequestHeader(url, refererUrl),
         onProcess: null,
         token: token);
@@ -222,7 +220,13 @@ class _HitomiImpl implements Hitomi {
       final language = languages!.firstWhere((element) => element.name == f);
       if (id != language.galleryid) {
         logger?.t('use language ${language}');
-        return _fetchGalleryJsonById(language.galleryid, token);
+        var l = await _fetchGalleryJsonById(language.galleryid, token);
+        if (l.tags
+                ?.where((element) => config.excludes.contains(element.name))
+                .isEmpty ==
+            true) {
+          return l;
+        }
       }
     } else if (!config.languages
         .any((element) => element == gallery.language)) {
@@ -313,6 +317,7 @@ class _HitomiImpl implements Hitomi {
               (e) => element.binarySearch(e, (p0, p1) => p0.compareTo(p1)) >= 0)
           .toList();
     });
+    logger?.i('search found id ${includeIds.length}');
     if (exclude.isNotEmpty && includeIds.isNotEmpty) {
       final filtered = await Stream.fromFutures(
               exclude.map((e) => getCacheIdsFromLang(e, token: token)))
@@ -322,6 +327,7 @@ class _HitomiImpl implements Hitomi {
       });
       includeIds = filtered.toList();
     }
+    logger?.i('search left id ${includeIds.length}');
     return includeIds.reversed.toList();
   }
 
@@ -338,7 +344,10 @@ class _HitomiImpl implements Hitomi {
       } else {
         url = 'https://ltn.hitomi.la/n/${tag.urlEncode()}-$useLanguage.nozomi';
       }
-      return _fetchTagIdsByNet(url, token);
+      return _fetchTagIdsByNet(url, token).then((value) {
+        logger?.i('search label $tag found ${value.length}');
+        return value;
+      });
     }
   }
 
@@ -349,7 +358,11 @@ class _HitomiImpl implements Hitomi {
     final url =
         'https://ltn.hitomi.la/galleriesindex/galleries.${galleries_index_version}.index';
     return _fetchNode(url, token: token)
-        .then((value) => _netBTreeSearch(url, value, hash, token));
+        .then((value) => _netBTreeSearch(url, value, hash, token))
+        .then((value) {
+      logger?.i('search key $word found ${value.length}');
+      return value;
+    });
   }
 
   Future<List<int>> _netBTreeSearch(
@@ -380,7 +393,7 @@ class _HitomiImpl implements Hitomi {
     await checkInit();
     final url =
         'https://ltn.hitomi.la/galleriesindex/galleries.${galleries_index_version}.data';
-    return await http_invke(url,
+    return await httpInvoke<List<int>>(url,
             headers: _buildRequestHeader(url, 'https://hitomi.la/',
                 range: tuple.withItem2(tuple.item1 + tuple.item2 - 1)),
             token: token)
@@ -396,7 +409,7 @@ class _HitomiImpl implements Hitomi {
   }
 
   Future<List<int>> _fetchTagIdsByNet(String url, CancelToken? token) async {
-    return await http_invke(url,
+    return await httpInvoke<List<int>>(url,
             headers: _buildRequestHeader(url, 'https://hitomi.la/'),
             token: token)
         .then((value) {
@@ -411,7 +424,7 @@ class _HitomiImpl implements Hitomi {
   }
 
   Future<_Node> _fetchNode(String url, {int start = 0, CancelToken? token}) {
-    return http_invke(url,
+    return httpInvoke<List<int>>(url,
             headers: _buildRequestHeader(url, 'https://hitomi.la/',
                 range: Tuple2(start, start + 463)),
             token: token)
@@ -426,7 +439,7 @@ class _HitomiImpl implements Hitomi {
       referer += '?page=$page';
     }
     final dataUrl = 'https://ltn.hitomi.la/${tag.urlEncode()}-all.nozomi';
-    final ids = await http_invke(dataUrl,
+    final ids = await httpInvoke<List<int>>(dataUrl,
             headers: _buildRequestHeader(dataUrl, referer,
                 range: Tuple2((page - 1) * 100, page * 100 - 1)),
             token: token)
@@ -441,10 +454,9 @@ class _HitomiImpl implements Hitomi {
     //     'select intro from Tags where type=? by intro desc', ['author']);
     // Map<String, dynamic> author =
     //     (data['head'] as Map<String, dynamic>)['author'];
-    final Map<String, dynamic> data = await http_invke(
+    final Map<String, dynamic> data = await httpInvoke<String>(
             'https://github.com/EhTagTranslation/Database/releases/latest/download/db.text.json',
             token: token)
-        .then((value) => Utf8Decoder().convert(value))
         .then((value) => json.decode(value));
     if (data['data'] is List<dynamic>) {
       var rows = data['data'] as List<dynamic>;
@@ -480,7 +492,7 @@ class _HitomiImpl implements Hitomi {
     return _cache[lable]!;
   }
 
-  Future<List<int>> http_invke(String url,
+  Future<T> httpInvoke<T>(String url,
       {Map<String, dynamic>? headers = null,
       CancelToken? token,
       void onProcess(int now, int total)?,
@@ -491,35 +503,36 @@ class _HitomiImpl implements Hitomi {
           'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36 Edg/106.0.1370.47'
     };
     headers?.addAll(ua);
+    ResponseType responseType;
+    if (T == List<int>) {
+      responseType = ResponseType.bytes;
+    } else if (T == String) {
+      responseType = ResponseType.plain;
+    } else {
+      responseType = ResponseType.json;
+    }
     final useHeader = headers ?? ua;
-    Future<Response<ResponseBody>> req = method == 'get'
-        ? _dio.get<ResponseBody>(url,
-            options:
-                Options(headers: useHeader, responseType: ResponseType.stream),
-            cancelToken: token)
-        : _dio.post(url,
-            options:
-                Options(headers: useHeader, responseType: ResponseType.stream),
-            data: data,
-            cancelToken: token);
-    return req.then((resp) {
-      int total = resp.extra.length;
-      return resp.data!.stream.fold<List<int>>(<int>[], (l, ints) {
-        l.addAll(ints);
-        onProcess?.call(l.length, total);
-        return l;
-      });
-    }).catchError((e) {
+    return (method == 'get'
+            ? _dio.get<T>(url,
+                options:
+                    Options(headers: useHeader, responseType: responseType),
+                cancelToken: token,
+                onReceiveProgress: onProcess)
+            : _dio.post<T>(url,
+                options:
+                    Options(headers: useHeader, responseType: responseType),
+                data: data,
+                cancelToken: token,
+                onReceiveProgress: onProcess))
+        .then((value) => value.data!)
+        .catchError((e) {
       logger?.e("$url throw $e");
       throw e;
     }, test: (e) => true);
   }
 
   Future<void> initData() async {
-    final gg = await http_invke('https://ltn.hitomi.la/gg.js')
-        .then((ints) {
-          return Utf8Decoder().convert(ints);
-        })
+    final gg = await httpInvoke<String>('https://ltn.hitomi.la/gg.js')
         .then((value) => LineSplitter.split(value))
         .then((value) => value.toList());
     final codeStr = gg.lastWhere((element) => _codeExp.hasMatch(element));
@@ -531,9 +544,8 @@ class _HitomiImpl implements Hitomi {
         .map((e) => _regExp.firstMatch(e)![1]!)
         .map((e) => int.parse(e))
         .toList();
-    galleries_index_version = await http_invke(
+    galleries_index_version = await httpInvoke<String>(
             'https://ltn.hitomi.la/galleriesindex/version?_=${DateTime.now().millisecondsSinceEpoch}')
-        .then((value) => Utf8Decoder().convert(value))
         .then((value) => int.parse(value));
   }
 

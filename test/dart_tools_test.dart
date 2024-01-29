@@ -6,33 +6,52 @@ import 'package:hitomi/gallery/gallery.dart';
 import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/dhash.dart';
 import 'package:hitomi/src/sqlite_helper.dart';
-import 'package:logger/logger.dart';
 import 'package:test/test.dart';
 
 var config = UserConfig(r'/home/bai/ssd/photos', proxy: '127.0.0.1:8389');
 void main() async {
   test('chapter', () async {
-    //-g 'Deko Ga Areba Boko Ga Aru.'
-    await testHttpServer();
+    await resizeThumbImage(
+            File(r'/home/bai/ssd/photos/(kikurage)恋姦1-9/001.jpg')
+                .readAsBytesSync(),
+            256,
+            60)
+        .then((value) => print(value?.length));
   });
+}
+
+Future<int> testStream(int input) async {
+  print('$input sleep ${6 - input}');
+  var time = DateTime.now();
+  await Future.delayed(Duration(seconds: 6 - input), () => input);
+  return DateTime.now().difference(time).inSeconds;
+}
+
+Future<void> testSqliteImage() async {
+  final helper = SqliteHelper('/home/bai/ssd/photos');
+  await helper
+      .querySql(
+          'select thumb from GalleryFile where gid=2273946 order by name limit 1')
+      .then((value) => value?.first['thumb'])
+      .then((value) => File('test.jpg').writeAsBytes(value, flush: true));
 }
 
 Future<void> testHttpServer() async {
   final c = HttpClient();
   var result = await c
-      .postUrl(Uri.parse('http://192.168.1.107:7890/translate'))
+      .postUrl(Uri.parse('http://127.0.0.1:7890/translate'))
       .then((value) {
     value.add("""{"auth":"12345678","tags":[{"tag":"multi-work series"}]}"""
         .codeUnits);
     return value.close();
   }).then((value) => utf8.decodeStream(value));
   print(result);
-  result = await c
-      .getUrl(Uri.parse('http://192.168.1.107:7890/listTask'))
-      .then((value) {
-    return value.close();
-  }).then((value) => utf8.decodeStream(value));
-  print(result);
+  // result = await c
+  //     .getUrl(Uri.parse('http://192.168.1.107:7890/listTask'))
+  //     .then((value) {
+  //   return value.close();
+  // }).then((value) => utf8.decodeStream(value));
+  // print(result);
 }
 // Future<void> testGalleryInfoDistance() async {
 //   var config = UserContext(UserConfig(r'/home/bai/ssd/photos',
@@ -74,12 +93,6 @@ Future<Gallery> getGalleryInfoFromFile(String name) async {
   return Hitomi.fromPrefenerce(config).fetchGallery(name, usePrefence: false);
 }
 
-Future<void> testImageHash() async {
-  var hash1 = await imageHash(
-      File(r'/home/bai/ssd/photos/三連休は朝まで生ゆきのん。/01.jpg').readAsBytesSync());
-  print(hash1);
-}
-
 Future<void> testSqlHelper() async {
   // await config.initData();
   // var f = await config.helper.selectSqlAsync(
@@ -111,8 +124,7 @@ Future<void> testImageDownload() async {
 }
 
 Future<void> galleryTest() async {
-  var helper = SqliteHelper(config.output);
-  var gallery = await File(config.output + '/(3104)アイの中に閉じ込めた/meta.json')
+  var gallery = await File(config.output + '/(safi)美玲とみだらなラブイチャします/meta.json')
       .readAsString()
       .then((value) => Gallery.fromJson(value))
       .then((value) => value.lables());

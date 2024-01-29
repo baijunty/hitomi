@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 import 'package:args/args.dart';
 import 'package:hitomi/gallery/artist.dart';
@@ -8,10 +7,26 @@ import 'package:hitomi/gallery/label.dart';
 import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/downloader.dart';
 import 'package:hitomi/src/sqlite_helper.dart';
+import 'package:isolate_manager/isolate_manager.dart';
 import 'package:logger/logger.dart';
 
 import '../gallery/gallery.dart';
 import '../gallery/language.dart';
+import 'dhash.dart';
+import 'dir_scanner.dart';
+
+@pragma('vm:entry-point')
+Future<MapEntry<int, List<int>?>> _compressRunner(String imagePath) async {
+  return File(imagePath)
+      .readAsBytes()
+      .then((value) => resizeThumbImage(value, 256).then((v) async {
+            return MapEntry(
+                await imageHash(v ?? value)
+                    .catchError((e) => 0, test: (error) => true),
+                v?.toList(growable: false));
+          }))
+      .catchError((e) => MapEntry(0, null), test: (error) => true);
+}
 
 class TaskManager {
   final UserConfig config;
@@ -21,6 +36,7 @@ class TaskManager {
   late Hitomi api;
   late DateTime limit = DateTime.parse(config.dateLimit);
   late Logger logger;
+  late IsolateManager<MapEntry<int, List<int>?>, String> manager;
   late bool Function(Gallery) filter = (Gallery gallery) =>
       !(gallery.tags?.any((element) => config.excludes.contains(element.tag)) ??
           false) &&
@@ -34,6 +50,10 @@ class TaskManager {
         level = Level.debug;
       case 'none':
         level = Level.off;
+      case 'warn':
+        level = Level.warning;
+      case 'error':
+        level = Level.error;
       case 'trace':
         level = Level.trace;
       default:
@@ -49,11 +69,22 @@ class TaskManager {
         filter: ProductionFilter(),
         output: outputEvent,
         level: level,
-        printer: PrettyPrinter(methodCount: 0));
+        printer: PrettyPrinter(
+            methodCount: 0,
+            errorMethodCount: 10,
+            printEmojis: false,
+            noBoxingByDefault: true));
     api = Hitomi.fromPrefenerce(config, logger: logger);
     helper = SqliteHelper(config.output);
-    downLoader =
-        DownLoader(config: config, api: api, helper: helper, logger: logger);
+    manager = IsolateManager<MapEntry<int, List<int>?>, String>.create(
+        _compressRunner,
+        concurrent: Platform.numberOfProcessors ~/ 2);
+    downLoader = DownLoader(
+        config: config,
+        api: api,
+        helper: helper,
+        manager: this.manager,
+        logger: logger);
     _parser = ArgParser()
       ..addFlag('fix')
       ..addFlag('fixDb', abbr: 'f')
@@ -65,11 +96,12 @@ class TaskManager {
       ..addOption('group', abbr: 'g')
       ..addFlag('list', abbr: 'l')
       ..addMultiOption('tag', abbr: 't')
+      ..addMultiOption('delete', abbr: 'd')
       ..addMultiOption('tags');
   }
 
   void cancel() {
-    downLoader;
+    downLoader.cancelAll();
   }
 
   List<String> _parseArgs(String cmd) {
@@ -126,7 +158,9 @@ class TaskManager {
         await api
             .fetchGallery(id)
             .then((value) => downLoader.addTask(value))
-            .catchError((e) => logger.e(e), test: (error) => true);
+            .catchError((e) {
+          logger.e('add task $e');
+        }, test: (error) => true);
       }
     } else if (result.wasParsed('artist')) {
       String? artist = result['artist'];
@@ -182,12 +216,25 @@ class TaskManager {
           filter);
       return !hasError;
     }
+    // else if (result.wasParsed('delete')) {
+    //   List<String> delete = result["delete"];
+    // }
     // else if (result['fixDb']) {
     //   await fixDb();
-    // } else if (result['fix']) {
-    //   await fix();
     // }
-    else if (result['update']) {
+    else if (result['fix']) {
+      final count =
+          await DirScanner(config, helper, downLoader, manager, logger)
+              .listDirs()
+              .filterNonNull()
+              .asyncMap((element) => element.fixGallery())
+              .fold(
+                  <bool, int>{},
+                  (previous, element) =>
+                      previous..[element] = (previous[element] ?? 0) + 1);
+      logger.d("scan finishd ${count}");
+      return true;
+    } else if (result['update']) {
       return await helper.updateTagTable(await api.fetchTagsFromNet());
     } else if (result['continue']) {
       var tasks = await helper
@@ -196,7 +243,8 @@ class TaskManager {
         await api
             .fetchGallery(element['id'])
             .then((value) => downLoader.addTask(value))
-            .catchError((e) => logger.e(e), test: (error) => true);
+            .catchError((e) => logger.e('continue task $e'),
+                test: (error) => true);
       });
     } else if (result['list']) {
       return downLoader.tasks;
