@@ -22,14 +22,14 @@ void main(List<String> args) async {
         defaultsTo: ["japanese", "chinese"],
         allowed: ["japanese", "chinese", "english"],
         help: 'set language with -l')
-    ..addOption('task', abbr: 't', help: 'set task with -t');
+    ..addMultiOption('task', abbr: 't', help: 'set task with -t');
   print(parser.usage);
   ArgResults argResults = parser.parse(args);
   final outDir = argResults['output'];
   final proxy = argResults['proxy'];
   final file = File(argResults['file']);
   final List<String> languages = argResults["languages"];
-  final String? tasks = argResults["task"];
+  final List<String>? tasks = argResults["task"];
   UserConfig config;
   if (file.existsSync()) {
     config = UserConfig.fromStr(file.readAsStringSync());
@@ -42,7 +42,7 @@ void main(List<String> args) async {
   }
   print(config);
   final pool = TaskManager(config);
-  tasks?.split(';').forEach(
+  tasks?.forEach(
       (element) async => await (await pool.parseCommandAndRun(element.trim())));
   run_server(pool);
   getUserInputId().forEach((element) async {

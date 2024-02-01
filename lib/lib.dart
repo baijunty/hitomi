@@ -1,3 +1,5 @@
+import 'package:sqlite3/sqlite3.dart';
+
 export 'src/hitomi.dart' show Hitomi;
 export 'src/user_config.dart';
 export 'src/http_server.dart';
@@ -24,6 +26,21 @@ extension Comparable on Iterable<int> {
     }
     return 0;
   }
+}
+
+class CursorImpl extends Iterable<Row> {
+  final IteratingCursor cursor;
+  final PreparedStatement statement;
+  CursorImpl(this.cursor, this.statement);
+  @override
+  Iterator<Row> get iterator => cursor;
+
+  void dispose() => statement.dispose();
+}
+
+extension CursorCover on IteratingCursor {
+  CursorImpl asIterable(PreparedStatement statement) =>
+      CursorImpl(this, statement);
 }
 
 extension StreamConvert<E> on Iterable<E> {

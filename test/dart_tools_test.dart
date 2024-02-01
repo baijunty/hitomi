@@ -1,22 +1,23 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
 import 'package:hitomi/gallery/gallery.dart';
 import 'package:hitomi/lib.dart';
-import 'package:hitomi/src/dhash.dart';
 import 'package:hitomi/src/sqlite_helper.dart';
+import 'package:sqlite3/sqlite3.dart';
 import 'package:test/test.dart';
 
 var config = UserConfig(r'/home/bai/ssd/photos', proxy: '127.0.0.1:8389');
 void main() async {
   test('chapter', () async {
-    await resizeThumbImage(
-            File(r'/home/bai/ssd/photos/(kikurage)恋姦1-9/001.jpg')
-                .readAsBytesSync(),
-            256,
-            60)
-        .then((value) => print(value?.length));
+    await Process.run('/home/bai/venv/bin/python3.11', [
+      'test/encode.py',
+      '/home/bai/ssd/photos/(wakamesan)CHALDEAN SUPPORTER'
+    ])
+        .then((value) => json.decode(value.stdout))
+        .then((value) => print(value[0]));
   });
 }
 
@@ -32,7 +33,7 @@ Future<void> testSqliteImage() async {
   await helper
       .querySql(
           'select thumb from GalleryFile where gid=2273946 order by name limit 1')
-      .then((value) => value?.first['thumb'])
+      .then((value) => value.first['thumb'])
       .then((value) => File('test.jpg').writeAsBytes(value, flush: true));
 }
 
@@ -90,28 +91,22 @@ Future<Gallery> getGalleryInfoFromFile(String name) async {
   if (file.existsSync()) {
     return Gallery.fromJson(file.readAsStringSync());
   }
-  return Hitomi.fromPrefenerce(config).fetchGallery(name, usePrefence: false);
+  return Hitomi.fromPrefenerce(config.output, config.languages,
+          proxy: config.proxy)
+      .fetchGallery(name, usePrefence: false);
 }
 
-Future<void> testSqlHelper() async {
-  // await config.initData();
-  // var f = await config.helper.selectSqlAsync(
-  //     r'select translate from Tags where name like ?', ['%yu%']);
-  // f.forEach((element) {
-  //   print(element.values);
-  // });
-}
-
-Future<void> testImageSearch() async {
-  final hitomi = Hitomi.fromPrefenerce(config);
-  var ids = await hitomi.findSimilarGalleryBySearch(
-      await hitomi.fetchGallery(1333333, usePrefence: false));
-  print((await ids.first).item2);
+Future<Row?> testSqlHelper() async {
+  final helper = SqliteHelper('/home/bai/ssd/photos');
+  return helper
+      .querySql('''SELECT json_key_contains(g.tags,'female') as key,json_value_contains(g.tags,'stockings') as value FROM Gallery g where id=756207''').then(
+          (value) => value.firstOrNull);
 }
 
 Future<void> testImageDownload() async {
   var token = CancelToken();
-  var task = Hitomi.fromPrefenerce(config);
+  var task = Hitomi.fromPrefenerce(config.output, config.languages,
+      proxy: config.proxy);
   var gallery = await task.fetchGallery('1467596');
   Directory('${config.output}/${gallery.dirName}').deleteSync(recursive: true);
   task.downloadImages(gallery, token: token);

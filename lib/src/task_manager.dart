@@ -9,9 +9,13 @@ import 'package:hitomi/src/downloader.dart';
 import 'package:hitomi/src/sqlite_helper.dart';
 import 'package:isolate_manager/isolate_manager.dart';
 import 'package:logger/logger.dart';
+import 'package:path/path.dart';
+import 'package:sqlite3/common.dart';
 
 import '../gallery/gallery.dart';
 import '../gallery/language.dart';
+import '../gallery/parody.dart';
+import '../gallery/tag.dart';
 import 'dhash.dart';
 import 'dir_scanner.dart';
 
@@ -38,8 +42,7 @@ class TaskManager {
   late Logger logger;
   late IsolateManager<MapEntry<int, List<int>?>, String> manager;
   late bool Function(Gallery) filter = (Gallery gallery) =>
-      !(gallery.tags?.any((element) => config.excludes.contains(element.tag)) ??
-          false) &&
+      !downLoader.containsIlleagalTags(gallery, config.excludes) &&
       DateTime.parse(gallery.date).compareTo(limit) > 0 &&
       (gallery.artists?.length ?? 0) <= 2 &&
       gallery.files.length >= 18;
@@ -74,11 +77,12 @@ class TaskManager {
             errorMethodCount: 10,
             printEmojis: false,
             noBoxingByDefault: true));
-    api = Hitomi.fromPrefenerce(config, logger: logger);
-    helper = SqliteHelper(config.output);
+    api = Hitomi.fromPrefenerce(config.output, config.languages,
+        proxy: config.proxy, logger: logger);
+    helper = SqliteHelper(config.output, logger: logger);
     manager = IsolateManager<MapEntry<int, List<int>?>, String>.create(
         _compressRunner,
-        concurrent: Platform.numberOfProcessors ~/ 2);
+        concurrent: config.maxTasks);
     downLoader = DownLoader(
         config: config,
         api: api,
@@ -87,11 +91,9 @@ class TaskManager {
         logger: logger);
     _parser = ArgParser()
       ..addFlag('fix')
-      ..addFlag('fixDb', abbr: 'f')
-      ..addFlag('scan', abbr: 's')
+      ..addFlag('fixDb')
       ..addFlag('update', abbr: 'u')
       ..addFlag('continue', abbr: 'c')
-      ..addOption('del')
       ..addOption('artist', abbr: 'a')
       ..addOption('group', abbr: 'g')
       ..addFlag('list', abbr: 'l')
@@ -142,15 +144,6 @@ class TaskManager {
       return false;
     }
     final result = _parser.parse(args);
-    // if (result['scan']) {
-    //   await listInfo();
-    // }  else if (result.wasParsed('del')) {
-    //   String id = result['del'].trim();
-    //   hasError = !numberExp.hasMatch(id);
-    //   if (!hasError) {
-    //     delGallery(id.toInt());
-    //   }
-    // }
     if (numberExp.hasMatch(cmd)) {
       String id = cmd;
       hasError = !numberExp.hasMatch(id);
@@ -215,37 +208,104 @@ class TaskManager {
             ..addAll(config.languages.map((e) => Language(name: e))),
           filter);
       return !hasError;
-    }
-    // else if (result.wasParsed('delete')) {
-    //   List<String> delete = result["delete"];
-    // }
-    // else if (result['fixDb']) {
-    //   await fixDb();
-    // }
-    else if (result['fix']) {
+    } else if (result.wasParsed('delete')) {
+      List<String> delete = result["delete"];
+      delete
+          .map((e) => e.contains(":")
+              ? fromString(
+                  e.substring(0, e.indexOf(':')), e.substring(e.indexOf(':')))
+              : QueryText(e))
+          .forEach((element) async {
+        late Future<ResultSet?> galleryQuery;
+        switch (element) {
+          case QueryText():
+            {
+              downLoader.cancel(element.name);
+              downLoader.removeTask(element.name);
+              galleryQuery = helper.queryGalleryById(element.name);
+            }
+          case Group():
+            {
+              galleryQuery = helper.queryGalleryImpl('groupes', element);
+            }
+          case Parody():
+            {
+              galleryQuery = helper.queryGalleryImpl('series', element);
+            }
+          case Tag():
+            {
+              galleryQuery = helper.queryGalleryImpl('tag', element);
+            }
+          default:
+            {
+              galleryQuery = helper.queryGalleryImpl(element.sqlType, element);
+            }
+        }
+        await galleryQuery
+            .then((value) => File(
+                join(config.output, value?.firstOrNull?['path'], 'meta.json')))
+            .then((value) => value.readAsString())
+            .then((value) => Gallery.fromJson(value))
+            .then((value) => HitomiDir(
+                value.createDir(config.output), downLoader, value, manager))
+            .then((value) => value.deleteGallery())
+            .catchError((e) {
+          logger.e('del form key ${element.name} faild $e');
+          return false;
+        }, test: (error) => true);
+      });
+    } else if (result['fixDb']) {
       final count =
-          await DirScanner(config, helper, downLoader, manager, logger)
-              .listDirs()
-              .filterNonNull()
-              .asyncMap((element) => element.fixGallery())
-              .fold(
-                  <bool, int>{},
-                  (previous, element) =>
-                      previous..[element] = (previous[element] ?? 0) + 1);
+          await DirScanner(config, helper, downLoader, manager).fixMissDbRow();
+      logger.d("database fix ${count}");
+      ;
+    } else if (result['fix']) {
+      final count = await DirScanner(config, helper, downLoader, manager)
+          .listDirs()
+          .filterNonNull()
+          .asyncMap((event) => event.fixGallery())
+          // .slices(config.maxTasks)
+          // .asyncMap((element) => Future.wait(element.map((e) => e.fixGallery()))
+          //     .then((value) => value.fold(
+          //         true, (previousValue, element) => previousValue && element)))
+          .fold(
+              <bool, int>{},
+              (previous, element) =>
+                  previous..[element] = (previous[element] ?? 0) + 1);
       logger.d("scan finishd ${count}");
       return true;
     } else if (result['update']) {
       return await helper.updateTagTable(await api.fetchTagsFromNet());
     } else if (result['continue']) {
       var tasks = await helper
-          .selectSqlAsync('select id from Tasks where completed = ?', [0]);
-      tasks.forEach((element) async {
-        await api
-            .fetchGallery(element['id'])
-            .then((value) => downLoader.addTask(value))
-            .catchError((e) => logger.e('continue task $e'),
-                test: (error) => true);
-      });
+          .querySql('select id from Tasks where completed = ?', [0]);
+      logger.d("left task ${tasks.length}");
+      await Stream.fromIterable(tasks)
+          .asyncMap((event) async {
+            try {
+              var r = await api.fetchGallery(event['id'], usePrefence: false);
+              if (r.id != event['id']) {
+                logger.d(' $event update to ${r.id}');
+                await helper.removeTask(event['id']);
+              }
+              return r;
+            } catch (e) {
+              logger.d('fetchGallery error $e');
+              await helper.removeTask(event['id']);
+            }
+            return null;
+          })
+          .filterNonNull()
+          .forEach((value) async {
+            var b = filter(value);
+            if (!b) {
+              logger.d('delete task $value');
+              value.createDir(config.output).delete(recursive: true);
+              await helper.removeTask(value.id);
+            } else {
+              downLoader.addTask(value);
+            }
+          });
     } else if (result['list']) {
       return downLoader.tasks;
     }

@@ -41,10 +41,9 @@ abstract class Hitomi {
       void onProcess(int now, int total)?,
       String method = "get",
       Object? data = null});
-  Stream<Tuple2<Gallery, int>> findSimilarGalleryBySearch(Gallery gallery,
-      {CancelToken? token});
-  factory Hitomi.fromPrefenerce(UserConfig config, {Logger? logger = null}) {
-    return _HitomiImpl(config, logger: logger);
+  factory Hitomi.fromPrefenerce(String outPut, List<String> languages,
+      {String proxy = "DIRECT", Logger? logger = null}) {
+    return _HitomiImpl(outPut, languages, proxy: proxy, logger: logger);
   }
 }
 
@@ -61,16 +60,17 @@ class _HitomiImpl implements Hitomi {
   static final _titleExp = zhAndJpCodeExp;
   static final _emptyList = const <int>[];
   Dio _dio = Dio();
-  final UserConfig config;
   final _cache = {};
+  final String outPut;
   Timer? _timer;
   Logger? logger;
-  _HitomiImpl(this.config, {Logger? logger = null}) {
+  final List<String> languages;
+  _HitomiImpl(this.outPut, this.languages,
+      {String proxy = "DIRECT", Logger? logger = null}) {
     _dio.httpClientAdapter = IOHttpClientAdapter(createHttpClient: () {
       return HttpClient()
         ..connectionTimeout = Duration(seconds: 60)
-        ..findProxy =
-            (u) => (config.proxy.isEmpty) ? 'DIRECT' : 'PROXY ${config.proxy}';
+        ..findProxy = (u) => (proxy == "DIRECT") ? 'DIRECT' : 'PROXY $proxy';
     });
     this.logger = logger;
   }
@@ -103,15 +103,16 @@ class _HitomiImpl implements Hitomi {
       {usePrefence = true, CancelToken? token}) async {
     await checkInit();
     final id = gallery.id;
-    final outPath = config.output;
-    if (gallery.tagIlleagal(config.excludes, logger)) {
-      logger?.w('${id} include forbidden key ,skip');
-      _loopCallBack(DownLoadFinished(gallery, gallery, Directory(''), false));
+    final outPath = outPut;
+    Directory dir = gallery.createDir(outPath);
+    bool illeagal =
+        await _loopCallBack(TaskStartMessage(gallery, dir, gallery));
+    if (illeagal) {
+      logger?.w('${id} test fiald,skip');
+      await _loopCallBack(DownLoadFinished(gallery, gallery, dir, false));
       return false;
     }
-    Directory dir = gallery.createDir(outPath);
-    await _loopCallBack(TaskStartMessage(gallery, dir, gallery));
-    logger?.i('down $id to ${dir.path}');
+    logger?.i('down $id to ${dir.path} ${dir.existsSync()}');
     File(dir.path + '/' + 'meta.json').writeAsString(json.encode(gallery));
     final referer = 'https://hitomi.la${Uri.encodeFull(gallery.galleryurl!)}';
     final missImages = <Image>[];
@@ -172,6 +173,7 @@ class _HitomiImpl implements Hitomi {
   @override
   Future<List<int>> downloadImage(String url, String refererUrl,
       {CancelToken? token}) async {
+    await checkInit();
     final data = await httpInvoke<List<int>>(url,
         headers: _buildRequestHeader(url, refererUrl),
         onProcess: null,
@@ -202,6 +204,7 @@ class _HitomiImpl implements Hitomi {
   @override
   Future<Gallery> fetchGallery(dynamic id,
       {usePrefence = true, CancelToken? token}) async {
+    await checkInit();
     var gallery = await _fetchGalleryJsonById(id, token);
     if (usePrefence) {
       gallery = await _findBeseMatch(gallery, token: token);
@@ -211,27 +214,23 @@ class _HitomiImpl implements Hitomi {
 
   Future<Gallery> _findBeseMatch(Gallery gallery, {CancelToken? token}) async {
     final id = gallery.id;
-    final languages = gallery.languages
-        ?.where((element) => config.languages.contains(element.name))
+    final langs = gallery.languages
+        ?.where((element) => languages.contains(element.name))
         .toList();
-    if (languages?.isNotEmpty == true) {
-      final f = config.languages.firstWhere((element) =>
-          languages!.firstWhereOrNull((e) => e.name == element) != null);
-      final language = languages!.firstWhere((element) => element.name == f);
+    if (langs?.isNotEmpty == true) {
+      final f = languages.firstWhere((element) =>
+          langs!.firstWhereOrNull((e) => e.name == element) != null);
+      final language = langs!.firstWhere((element) => element.name == f);
       if (id != language.galleryid) {
         logger?.t('use language ${language}');
         var l = await _fetchGalleryJsonById(language.galleryid, token);
-        if (l.tags
-                ?.where((element) => config.excludes.contains(element.name))
-                .isEmpty ==
-            true) {
+        if (await _loopCallBack(TaskStartMessage(l, Directory(''), id))) {
           return l;
         }
       }
-    } else if (!config.languages
-        .any((element) => element == gallery.language)) {
+    } else if (!languages.any((element) => element == gallery.language)) {
       final found =
-          await findSimilarGalleryBySearch(gallery, token: token).toList();
+          await _findSimilarGalleryBySearch(gallery, token: token).toList();
       if (found.isNotEmpty) {
         found.sort((e1, e2) => e1.item2.compareTo(e2.item2));
         logger?.d(
@@ -243,7 +242,7 @@ class _HitomiImpl implements Hitomi {
     return gallery;
   }
 
-  Stream<Tuple2<Gallery, int>> findSimilarGalleryBySearch(Gallery gallery,
+  Stream<Tuple2<Gallery, int>> _findSimilarGalleryBySearch(Gallery gallery,
       {CancelToken? token}) async* {
     await checkInit();
     List<Lable> keys = gallery.title
@@ -258,7 +257,7 @@ class _HitomiImpl implements Hitomi {
       return previousValue;
     });
     keys.add(TypeLabel(gallery.type));
-    keys.addAll(config.languages.map((e) => Language(name: e)));
+    keys.addAll(languages.map((e) => Language(name: e)));
     if ((gallery.parodys?.length ?? 0) > 0) {
       keys.addAll(gallery.parodys!);
     }
@@ -266,7 +265,7 @@ class _HitomiImpl implements Hitomi {
       keys.addAll(gallery.artists!);
     }
     logger
-        ?.i('search ${gallery.id} ${gallery.dirName} target language by $keys');
+        ?.d('search ${gallery.id} ${gallery.dirName} target language by $keys');
     final ids = await search(keys, token: token);
     final referer = 'https://hitomi.la${Uri.encodeFull(gallery.galleryurl!)}';
     final url = getThumbnailUrl(gallery.files.first);
@@ -278,7 +277,7 @@ class _HitomiImpl implements Hitomi {
           token: token);
       final hamming_distance = await distance(data, thumbnail);
       final langIndex =
-          config.languages.indexWhere((element) => element == g1.language);
+          languages.indexWhere((element) => element == g1.language);
       if (hamming_distance <= 16 && langIndex >= 0) {
         yield Tuple2(g1, hamming_distance + langIndex);
       }
@@ -317,7 +316,6 @@ class _HitomiImpl implements Hitomi {
               (e) => element.binarySearch(e, (p0, p1) => p0.compareTo(p1)) >= 0)
           .toList();
     });
-    logger?.i('search found id ${includeIds.length}');
     if (exclude.isNotEmpty && includeIds.isNotEmpty) {
       final filtered = await Stream.fromFutures(
               exclude.map((e) => getCacheIdsFromLang(e, token: token)))
@@ -328,7 +326,7 @@ class _HitomiImpl implements Hitomi {
       includeIds = filtered.toList();
     }
     logger?.i('search left id ${includeIds.length}');
-    return includeIds.reversed.toList();
+    return includeIds.reversed.toSet().toList();
   }
 
   @override
@@ -345,7 +343,7 @@ class _HitomiImpl implements Hitomi {
         url = 'https://ltn.hitomi.la/n/${tag.urlEncode()}-$useLanguage.nozomi';
       }
       return _fetchTagIdsByNet(url, token).then((value) {
-        logger?.i('search label $tag found ${value.length}');
+        logger?.d('search label $tag found ${value.length}');
         return value;
       });
     }
@@ -360,7 +358,7 @@ class _HitomiImpl implements Hitomi {
     return _fetchNode(url, token: token)
         .then((value) => _netBTreeSearch(url, value, hash, token))
         .then((value) {
-      logger?.i('search key $word found ${value.length}');
+      logger?.d('search key $word found ${value.length}');
       return value;
     });
   }
@@ -484,9 +482,10 @@ class _HitomiImpl implements Hitomi {
 
   Future<List<int>> getCacheIdsFromLang(Lable lable,
       {CancelToken? token}) async {
+    await checkInit();
     if (!_cache.containsKey(lable)) {
       var result = await fetchIdsByTag(lable, token: token);
-      logger?.i('fetch label ${lable.name} result ${result.length}');
+      logger?.d('fetch label ${lable.name} result ${result.length}');
       _cache[lable] = result;
     }
     return _cache[lable]!;

@@ -3,13 +3,12 @@ import 'package:collection/collection.dart';
 import 'package:image/image.dart';
 
 Future<int> imageHash(Uint8List data,
-    {ImageHash hash = ImageHash.AHash}) async {
+    {ImageHash hash = ImageHash.AHash,
+    Interpolation interpolation = Interpolation.average}) async {
   final cmd = Command()
     ..decodeImage(data)
     ..copyResize(
-        width: hash.width,
-        height: hash.height,
-        interpolation: Interpolation.average)
+        width: hash.width, height: hash.height, interpolation: interpolation)
     ..grayscale();
   final image = await cmd.getImage();
   final bits = hash.hash(image!).foldIndexed<int>(
@@ -87,9 +86,9 @@ class _AHash with ImageHash {
   @override
   List<bool> hash(Image image) {
     final pixels = image.map((e) => e.getChannel(Channel.luminance)).toList();
-    final average = pixels.fold<num>(
-            0, (previousValue, element) => previousValue + element) /
-        (width * height);
+    final acc = pixels.fold<num>(
+        0, (previousValue, element) => previousValue + element);
+    final average = acc / (width * height);
     return pixels.map((e) => e >= average).toList();
   }
 

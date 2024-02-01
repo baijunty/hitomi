@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 import 'dart:typed_data';
 
+import 'package:async/async.dart';
 import 'package:collection/collection.dart';
 import 'package:dcache/dcache.dart';
 import 'package:dio/dio.dart';
@@ -30,14 +32,13 @@ class DownLoader {
   late IsolateManager<MapEntry<int, List<int>?>, String> manager;
   List<dynamic> get tasks =>
       [..._pendingTask, ..._runningTask.map((e) => e.id)];
-  Logger? _logger;
+  Logger? logger;
   DownLoader(
       {required this.config,
       required this.api,
       required this.helper,
       required this.manager,
-      Logger? logger = null}) {
-    this._logger = logger;
+      required this.logger}) {
     final Future<bool> Function(Message msg) handle = (msg) async {
       switch (msg) {
         case TaskStartMessage():
@@ -47,11 +48,13 @@ class DownLoader {
               await helper.updateTask(
                   msg.gallery.id, msg.gallery.dirName, msg.file.path, false);
               await helper.insertGallery(msg.gallery, msg.file.path);
-              await _findUnCompleteGallery(msg.gallery, msg.file as Directory);
-              _logger?.d('down start $msg');
-            } else {
+              logger?.d('down start $msg');
+              return await _findUnCompleteGallery(
+                  msg.gallery, msg.file as Directory);
+            } else if (msg.target is Image) {
               return !msg.file.existsSync();
             }
+            return containsIlleagalTags(msg.gallery, config.excludes);
           }
         case DownLoadFinished():
           {
@@ -62,14 +65,17 @@ class DownLoader {
                 await helper.updateTask(
                     msg.gallery.id, msg.gallery.dirName, msg.file.path, true);
               }
-              _logger?.d('down finish $msg');
-              return HitomiDir(msg.file as Directory, config, helper,
-                      msg.gallery, manager, this._logger)
+              logger?.i('down finish ${msg}');
+              return HitomiDir(
+                      msg.file as Directory, this, msg.gallery, manager)
                   .fixGallery();
             } else if (msg.target is Image) {
               return manager.compute(msg.file.path).then((value) =>
                   helper.insertGalleryFile(
                       msg.gallery, msg.target, value.key, value.value));
+            } else if (msg.target is Gallery) {
+              logger?.w('illeagal gallery ${msg.id}');
+              await helper.removeTask(msg.id);
             }
           }
         default:
@@ -99,18 +105,15 @@ class DownLoader {
     missed =
         keys.groupListsBy((element) => _cache[element] != null)[false] ?? [];
     if (missed.isNotEmpty) {
-      await Stream.fromIterable(missed.toSet()).asyncMap((event) async {
-        var r = api
-            .httpInvoke<List<dynamic>>(
-                'https://translate.googleapis.com/translate_a/t?client=dict-chrome-ex&sl=auto&tl=zh&q=${event.name}')
-            .then((value) {
-          _logger?.d(value);
-          final v = value[0][0] as String;
-          _cache[event] = v;
-          return v;
-        });
-        return r;
-      }).length;
+      await Future.wait(missed.toSet().map((event) => api
+              .httpInvoke<List<dynamic>>(
+                  'https://translate.googleapis.com/translate_a/t?client=dict-chrome-ex&sl=auto&tl=zh&q=${event.name}')
+              .then((value) {
+            final v = value[0][0] as String;
+            _cache[event] = v;
+            logger?.d('${event.name} translate to $v');
+            return v;
+          })));
     }
     keys.forEach((element) {
       element.translate = _cache[element];
@@ -118,45 +121,71 @@ class DownLoader {
     return keys;
   }
 
-  Future<void> _findUnCompleteGallery(Gallery gallery, Directory newDir) async {
-    var r = await helper.querySql(
-        '''select g.id,g.path,gf.fileHash,gf.name from (select g.* from Gallery g,json_each(g.author) ja where (json_valid(g.author)=1 and ja.value in (?) )
-union all
-select g.* from Gallery g,json_each(g.groupes) jg where (json_valid(g.groupes)=1 and jg.value in (?))) as g LEFT JOIN GalleryFile gf  on gf.gid =g.id where gf.hash is not null group by g.id order by gf.name''',
-        [
-          gallery.artists?.map((e) => e.name).join(','),
-          gallery.groups?.map((e) => e.name).join(',')
-        ]);
+  Future<bool> _findUnCompleteGallery(Gallery gallery, Directory newDir) async {
+    var r = await helper.queryGallery(
+        author: gallery.artists?.map((e) => e.name).join(','),
+        group: gallery.groups?.map((e) => e.name).join(','));
     if (r?.isNotEmpty == true) {
-      int hash = await api
+      await api
           .downloadImage(api.getThumbnailUrl(gallery.files.first),
               'https://hitomi.la${Uri.encodeFull(gallery.galleryurl!)}')
           .then((value) => imageHash(Uint8List.fromList(value)))
           .catchError((e) => 0, test: (e) => true);
-      var befor = r!
-          .where(
-              (element) => compareHashDistance(element['fileHash'], hash) < 8)
-          .map((e) => Gallery.fromJson(
-              File("${config.output}/${e['path']}/meta.json")
-                  .readAsStringSync()))
-          .firstWhereOrNull((element) =>
-              gallery.nameFixed == element.nameFixed &&
-              gallery.chapterContains(element));
-      _logger?.i('found same $befor');
+      var befor = await Stream.fromFutures(r!
+              // .where((element) =>
+              //     compareHashDistance(element['fileHash'], hash) < 8)
+              .map((e) => File("${config.output}/${e['path']}/meta.json"))
+              .where((element) => element.existsSync())
+              .map((e) => e.readAsString()))
+          .map((e) => Gallery.fromJson(e))
+          .where((element) => gallery.chapterContains(element))
+          .firstOrNull;
+      logger?.d('find same? $befor diff $gallery');
       if (befor != null) {
-        var dir = Directory('${config.output}/${befor.dirName}');
-        if (dir.existsSync() && newDir.listSync().length <= 5) {
-          newDir.deleteSync(recursive: true);
-          dir.renameSync(newDir.path);
+        if (gallery.chapterContains(befor)) {
+          var dir = befor.createDir(config.output);
+          if (befor.id != gallery.id &&
+              dir.path != newDir.path &&
+              dir.existsSync()) {
+            return newDir
+                .delete(recursive: true)
+                .then((value) => dir.renameSync(newDir.path))
+                .then((value) => helper.deleteGallery(befor.id))
+                .then((value) => !value)
+                .catchError((e) {
+              gallery.createDir(config.output);
+              return false;
+            }, test: (error) => true);
+          } else if (dir.path == newDir.path && dir.existsSync()) {
+            return config.languages.indexOf(befor.language!) <=
+                config.languages.indexOf(gallery.language!);
+          }
+        } else {
+          return config.languages.indexOf(befor.language!) <=
+              config.languages.indexOf(gallery.language!);
         }
       }
     }
+    return false;
+  }
+
+  bool containsIlleagalTags(Gallery gallery, List<String> excludes) {
+    var illeagalTags = gallery.tags
+            ?.where((element) => excludes.contains(element.name))
+            .toList() ??
+        [];
+    final count = illeagalTags.length;
+    if (count > 0) {
+      logger?.i(
+          '${gallery.id} found ${illeagalTags.map((e) => e.name).toList()} ');
+    }
+    return 2 * pow(10, count) / (gallery.files.length) >= 0.5;
   }
 
   Future<bool> _downLoadGallery(_IdentifyToken token) async {
-    final f = api.downloadImages(token.id, token: token);
-    var b = await f.catchError((e) async {
-      _logger?.e('$token catch error $e');
+    var b =
+        await api.downloadImages(token.id, token: token).catchError((e) async {
+      logger?.e('$token catch error $e');
       return false;
     }, test: (e) => true);
     _runningTask.remove(token);
@@ -164,7 +193,7 @@ select g.* from Gallery g,json_each(g.groupes) jg where (json_valid(g.groupes)=1
   }
 
   void addTask(Gallery gallery) async {
-    _logger?.d('add task ${gallery.id}');
+    logger!.d('add task ${gallery.id}');
     _pendingTask.add(gallery);
     final path = join(config.output, gallery.dirName);
     await helper.updateTask(gallery.id, gallery.dirName, path, false);
@@ -172,9 +201,10 @@ select g.* from Gallery g,json_each(g.groupes) jg where (json_valid(g.groupes)=1
   }
 
   void cancel(dynamic id) {
-    final token = _runningTask
-        .firstWhereOrNull((element) => element.id.toString() == id.toString());
+    final token = _runningTask.firstWhereOrNull(
+        (element) => element.id.id.toString() == id.toString());
     token?.cancel('cancel');
+    logger!.d('cacel task ${token?.id}');
     _runningTask.remove(token);
     _notifyTaskChange();
   }
@@ -196,11 +226,11 @@ select g.* from Gallery g,json_each(g.groupes) jg where (json_valid(g.groupes)=1
     while (_runningTask.length < config.maxTasks && _pendingTask.isNotEmpty) {
       var id = _pendingTask.first;
       _pendingTask.remove(id);
-      _logger?.d('run task $id');
+      logger?.d('run task $id length ${_runningTask.length}');
       var token = _IdentifyToken(id);
       _runningTask.add(token);
       await _downLoadGallery(token);
-      _logger?.i(
+      logger?.i(
           'left task ${_pendingTask.length} running task ${_runningTask.length}');
       _notifyTaskChange();
     }
@@ -222,7 +252,7 @@ select g.* from Gallery g,json_each(g.groupes) jg where (json_valid(g.groupes)=1
                     .readAsString()
                     .then((value) => Gallery.fromJson(value))
                     .catchError((e) {
-                  _logger?.e('read json $e');
+                  logger?.e('read json $e');
                   return api.fetchGallery(event.value.first['id']);
                 }, test: (error) => true);
                 if (where(gallery)) {
@@ -249,34 +279,31 @@ select g.* from Gallery g,json_each(g.groupes) jg where (json_valid(g.groupes)=1
             })
             .filterNonNull()
             .fold<List<Tuple2<int, Gallery>>>([], (previousValue, element) {
-              var samilar = previousValue
+              var exists = previousValue
                   .where((e) =>
                       compareHashDistance(e.item1, element.item1) < 8 ||
                       e.item2 == element.item2)
-                  .toList();
-              if (samilar.isEmpty ||
-                  samilar
-                      .where((e) =>
-                          e.item2.chapterContains(element.item2) ||
-                          compareHashDistance(e.item1, element.item1) < 8)
-                      .isEmpty ||
-                  samilar
-                          .where(
-                              (e) => e.item2.language == config.languages.first)
-                          .isEmpty &&
-                      element.item2.language == config.languages.first) {
-                if (samilar.isNotEmpty) {
-                  previousValue.removeWhere((tup) =>
-                      samilar.any((e1) => e1.item2.id == tup.item2.id) &&
-                      element.item2.chapterContains(tup.item2));
-                }
+                  .where((e) =>
+                      e.item2.chapterContains(element.item2) ||
+                      compareHashDistance(e.item1, element.item1) < 8);
+              if (exists.isEmpty) {
+                logger?.d('add ${element.item2}');
+                previousValue.add(element);
+              } else if (config.languages.indexOf(element.item2.language!) <
+                  exists
+                      .map((e) => config.languages.indexOf(e.item2.language!))
+                      .min) {
+                logger?.d(
+                    '${element.item2} has same ${exists.map((e) => e.item2)}');
+                previousValue.removeWhere((e) =>
+                    exists.any((element) => element.item2.id == e.item2.id));
                 previousValue.add(element);
               }
               return previousValue;
             })
             .then((value) => value.map((e) => e.item2));
       });
-      _logger?.d('search ids ${ids.length} fetch gallery ${collection.length}');
+      logger?.d('search ids ${ids.length} fetch gallery ${collection.length}');
       return collection;
     }
     return [];
@@ -290,7 +317,7 @@ select g.* from Gallery g,json_each(g.groupes) jg where (json_valid(g.groupes)=1
     CancelToken token = CancelToken();
     final results =
         await fetchGallerysByTags(tags, where, token).then((value) async {
-      _logger?.d('usefull result length ${value.length}');
+      logger?.d('usefull result length ${value.length}');
       Map<List<dynamic>, ResultSet> map = value.isNotEmpty
           ? await helper.selectSqlMultiResultAsync(
               'select id from Gallery where id =?',
@@ -304,7 +331,7 @@ select g.* from Gallery g,json_each(g.groupes) jg where (json_valid(g.groupes)=1
           null);
       var l = r[false] ?? [];
       if (l.isNotEmpty) {
-        await helper.excuteSqlAsync(
+        await helper.excuteSqlMultiParams(
             'replace into Tasks(id,title,path,completed) values(?,?,?,?)',
             l
                 .map((e) => [
@@ -317,7 +344,7 @@ select g.* from Gallery g,json_each(g.groupes) jg where (json_valid(g.groupes)=1
       }
       return l;
     });
-    _logger?.d('${tags.first} find match gallery ${results.length}');
+    logger?.i('${tags.first} find match gallery ${results.length}');
     results.forEach((element) {
       addTask(element);
     });
@@ -326,13 +353,13 @@ select g.* from Gallery g,json_each(g.groupes) jg where (json_valid(g.groupes)=1
 
   Future<List<Gallery>> fetchGallerysByTags(
       List<Lable> tags, bool where(Gallery gallery), CancelToken token) async {
-    _logger?.d('fetch tags ${tags}');
+    logger?.d('fetch tags ${tags}');
     return await api
         .search(tags, exclude: exclude)
         .then((value) => _fetchGalleryFromIds(value, where, token))
         .then((value) => value.toList())
         .catchError((e) async {
-      _logger?.e('$tags catch error $e');
+      logger?.e('$tags catch error $e');
       token.cancel();
       await fetchGallerysByTags(tags, where, token);
       return <Gallery>[];
@@ -401,7 +428,7 @@ class DownLoadFinished<T> extends Message<dynamic> {
       : super(id: gallery.id);
   @override
   String toString() {
-    return 'DownLoadingMessage{$id,${file.path},${target} }';
+    return 'DownLoadFinished{$id,${file.path},${target} $success }';
   }
 }
 

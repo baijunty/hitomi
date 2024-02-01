@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:collection/collection.dart';
 import 'package:hitomi/gallery/label.dart';
-import 'package:logger/logger.dart';
 
 import 'artist.dart';
 import 'character.dart';
@@ -84,7 +83,7 @@ class Gallery with Lable {
 
   @override
   String toString() {
-    return 'Gallery(type: $type, title: ${dirName}, language: $language, date: $date, id: $id)';
+    return 'Gallery(type: $type, title: ${dirName}, language: $language, date: $date, id: $id length:${files.length})';
   }
 
   factory Gallery.fromMap(Map<String, dynamic> data) => Gallery(
@@ -164,17 +163,6 @@ class Gallery with Lable {
   /// Converts [Gallery] to a JSON string.
   String toJson() => json.encode(toMap());
 
-  bool tagIlleagal(List<String> excludes, [Logger? logger = null]) {
-    var illeagalTags =
-        tags?.where((element) => excludes.contains(element.name)).toList() ??
-            [];
-    final count = illeagalTags.length;
-    if (count > 0) {
-      logger?.i('found $tags');
-    }
-    return count * 20 / (files.length) > 0.5;
-  }
-
   List<int> chapter() {
     final matcher = chapterRex.allMatches(name).toList();
     if (matcher.isNotEmpty) {
@@ -214,6 +202,9 @@ class Gallery with Lable {
   }
 
   bool chapterContains(Gallery other) {
+    if (this != other) {
+      return false;
+    }
     var chapters1 = chapter();
     var chapters2 = other.chapter();
     if (chapters1.length < chapters2.length) {
