@@ -11,18 +11,18 @@ import 'package:path/path.dart';
 import 'package:sqlite3/sqlite3.dart';
 
 class SqliteHelper {
-  final String dirPath;
+  final String _dirPath;
   static final _version = 5;
-  Logger? logger = null;
-  late Database db;
+  Logger? _logger = null;
+  late Database _db;
   SqliteHelper(
-    this.dirPath, {
+    this._dirPath, {
     String dbName = 'user.db',
     Logger? logger = null,
   }) {
-    this.logger = logger;
-    final dbPath = join(dirPath, dbName);
-    db = sqlite3.open(dbPath);
+    this._logger = logger;
+    final dbPath = join(_dirPath, dbName);
+    _db = sqlite3.open(dbPath);
     init();
   }
 
@@ -34,7 +34,7 @@ class SqliteHelper {
           return data.keys.contains(arguments[1]);
         }
       } catch (e) {
-        logger?.e('illgal json $e');
+        _logger?.e('illgal json $e');
       }
     }
     return false;
@@ -43,7 +43,6 @@ class SqliteHelper {
   bool jsonValueContains(List<Object?> arguments) {
     if (arguments.length > 1) {
       try {
-        print(arguments);
         var data = json.decode(arguments[0].toString());
         if (data is Map<String, dynamic>) {
           if (arguments.length == 3) {
@@ -57,7 +56,7 @@ class SqliteHelper {
           return data.contains(arguments[1].toString());
         }
       } catch (e) {
-        logger?.e('illgal json $e');
+        _logger?.e('illgal json $e');
       }
     }
     return false;
@@ -72,17 +71,17 @@ class SqliteHelper {
   }
 
   void init() async {
-    createTables(db);
-    final stmt = db.prepare('PRAGMA user_version;');
-    db.createFunction(
+    createTables(_db);
+    final stmt = _db.prepare('PRAGMA user_version;');
+    _db.createFunction(
         functionName: 'json_key_contains',
         function: jsonKeyContains,
         argumentCount: AllowedArgumentCount(2));
-    db.createFunction(
+    _db.createFunction(
         functionName: 'json_value_contains',
         function: jsonValueContains,
         argumentCount: AllowedArgumentCount.any());
-    db.createFunction(
+    _db.createFunction(
         functionName: 'hash_distance',
         function: hashDistance,
         argumentCount: AllowedArgumentCount(2));
@@ -90,11 +89,11 @@ class SqliteHelper {
     var version = result.first.columnAt(0) as int;
     if (version != _version) {
       if (version < _version) {
-        dataBaseUpgrade(db, version);
+        dataBaseUpgrade(_db, version);
       } else if (version > _version) {
-        dateBaseDowngrade(db, version);
+        dateBaseDowngrade(_db, version);
       }
-      db.execute('PRAGMA user_version=$_version;');
+      _db.execute('PRAGMA user_version=$_version;');
     }
   }
 
@@ -102,10 +101,10 @@ class SqliteHelper {
       {bool releaseOnce = true}) {
     PreparedStatement? stam;
     try {
-      stam = db.prepare(sql);
+      stam = _db.prepare(sql);
       return operate(stam);
     } catch (e) {
-      logger?.e('excel sql faild ${e}');
+      _logger?.e('excel sql faild ${e}');
       throw e;
     } finally {
       if (releaseOnce) {
@@ -222,10 +221,9 @@ class SqliteHelper {
     return databaseOpera(sql, (stmt) => stmt.select(params));
   }
 
-  Future<CursorImpl> querySqlByCursor(String sql,
-      [List<dynamic> params = const []]) async {
+  Stream<Row> querySqlByCursor(String sql, [List<dynamic> params = const []]) {
     return databaseOpera(
-        sql, (stmt) => stmt.selectCursor(params).asIterable(stmt),
+        sql, (stmt) => stmt.selectCursor(params).asStream(stmt, _logger),
         releaseOnce: false);
   }
 
@@ -265,15 +263,26 @@ class SqliteHelper {
         [
           gallery.id,
           basename(path),
-          json.encode(gallery.artists?.map((e) => e.name).toList()),
-          json.encode(gallery.groups?.map((e) => e.name).toList()),
-          json.encode(gallery.parodys?.map((e) => e.name).toList()),
-          json.encode(gallery.characters?.map((e) => e.name).toList()),
+          gallery.artists == null
+              ? null
+              : json.encode(gallery.artists?.map((e) => e.name).toList()),
+          gallery.groups == null
+              ? null
+              : json.encode(gallery.groups?.map((e) => e.name).toList()),
+          gallery.parodys == null
+              ? null
+              : json.encode(gallery.parodys?.map((e) => e.name).toList()),
+          gallery.characters == null
+              ? null
+              : json.encode(gallery.characters?.map((e) => e.name).toList()),
           gallery.language,
           gallery.name,
-          json.encode(gallery.tags?.groupListsBy((element) => element.type).map(
-              (key, value) =>
-                  MapEntry(key, value.map((e) => e.name).toList()))),
+          gallery.tags == null
+              ? null
+              : json.encode(gallery.tags
+                  ?.groupListsBy((element) => element.type)
+                  .map((key, value) =>
+                      MapEntry(key, value.map((e) => e.name).toList()))),
           gallery.date,
           DateTime.now().millisecondsSinceEpoch,
           0,
@@ -281,28 +290,33 @@ class SqliteHelper {
         ]);
   }
 
-  Future<ResultSet?> queryGallery(
-      {String? author = null, String? group = null}) async {
+  Future<ResultSet> queryGalleryByLabel(String type, Lable lable) async {
     return querySql(
-        '''select g.*,gf.fileHash,gf.name from (select g.* from Gallery g,json_each(g.artist) ja where (json_valid(g.artist)=1 and ja.value in (?) ) union all 
-select g.* from Gallery g,json_each(g.groupes) jg where (json_valid(g.groupes)=1 and jg.value in (?))) as g LEFT JOIN GalleryFile gf  on gf.gid =g.id where gf.hash is not null group by g.id order by gf.name''',
-        [author, group]);
+        'select * from Gallery where json_value_contains($type,?,?)=1',
+        [lable.type, lable.name]);
   }
 
-  Future<ResultSet?> queryGalleryImpl(String type, Lable lable) async {
-    return querySql(
-        '''select g.*,gf.fileHash,gf.name from (select * from Gallery where json_value_contains(?,?,?)=1 ) as g LEFT JOIN GalleryFile gf  on gf.gid =g.id where gf.hash is not null group by g.id order by gf.name''',
-        [type, lable.type, lable.name]);
+  Future<ResultSet> queryGalleryByTag(Lable lable) async {
+    return queryGalleryByLabel('tag', lable);
   }
 
-  Future<ResultSet?> queryGalleryByTag(Lable lable) async {
-    return queryGalleryImpl('tag', lable);
+  Future<ResultSet> queryGalleryById(dynamic id) async {
+    return querySql('''select * from Gallery where id=?''', [id]);
   }
 
-  Future<ResultSet?> queryGalleryById(dynamic id) async {
+  Future<ResultSet> queryImageHashsById(dynamic id) async {
     return querySql(
-        '''select g.*,gf.fileHash,gf.name from (select * from Gallery where id=? ) as g LEFT JOIN GalleryFile gf  on gf.gid =g.id where gf.hash is not null group by g.id order by gf.name''',
-        [id]);
+        '''select * from GalleryFile where gid=? order by name''', [id]);
+  }
+
+  Future<Map<int, List<int>>> queryImageHashsByLable(String type, String name) {
+    return querySqlByCursor(
+        'select gf.gid,gf.fileHash,gf.name,g.path,g.length from Gallery g,json_each(g.${type}) ja left join GalleryFile gf on g.id=gf.gid where (json_valid(g.${type})=1 and ja.value = ? and gf.gid is not null) order by gf.gid,gf.name',
+        [name]).fold(<int, List<int>>{}, (previous, element) {
+      previous[element['gid']] =
+          ((previous[element['gid']] ?? [])..add(element['fileHash']));
+      return previous;
+    });
   }
 
   Future<bool> insertGalleryFile(
@@ -336,7 +350,7 @@ select g.* from Gallery g,json_each(g.groupes) jg where (json_valid(g.groupes)=1
   }
 
   Future<bool> deleteGallery(dynamic id) async {
-    logger?.w('del gallery with id $id');
+    _logger?.w('del gallery with id $id');
     return excuteSqlAsync('delete from Gallery where id =?', [id]).then(
         (value) =>
             excuteSqlAsync('delete from GalleryFile where gid =?', [id]));

@@ -42,7 +42,8 @@ class TaskManager {
   late Logger logger;
   late IsolateManager<MapEntry<int, List<int>?>, String> manager;
   late bool Function(Gallery) filter = (Gallery gallery) =>
-      !downLoader.containsIlleagalTags(gallery, config.excludes) &&
+      !downLoader.containsIlleagalTags(
+          gallery, config.excludes.keys.toList()) &&
       DateTime.parse(gallery.date).compareTo(limit) > 0 &&
       (gallery.artists?.length ?? 0) <= 2 &&
       gallery.files.length >= 18;
@@ -92,14 +93,14 @@ class TaskManager {
     _parser = ArgParser()
       ..addFlag('fix')
       ..addFlag('fixDb')
+      ..addFlag('fixDup')
       ..addFlag('update', abbr: 'u')
       ..addFlag('continue', abbr: 'c')
       ..addOption('artist', abbr: 'a')
       ..addOption('group', abbr: 'g')
       ..addFlag('list', abbr: 'l')
-      ..addMultiOption('tag', abbr: 't')
       ..addMultiOption('delete', abbr: 'd')
-      ..addMultiOption('tags');
+      ..addMultiOption('tags', abbr: 't');
   }
 
   void cancel() {
@@ -136,10 +137,9 @@ class TaskManager {
   }
 
   Future<dynamic> parseCommandAndRun(String cmd) async {
-    print('\x1b[47;31madd command $cmd \x1b[0m');
     bool hasError = false;
     var args = _parseArgs(cmd);
-    logger.d('args $args');
+    logger.w('args $args');
     if (args.isEmpty) {
       return false;
     }
@@ -164,7 +164,7 @@ class TaskManager {
           ...config.languages.map((e) => Language(name: e)),
           TypeLabel('doujinshi'),
           TypeLabel('manga')
-        ], filter);
+        ], filter, MapEntry('artist', artist));
       }
       return !hasError;
     } else if (result.wasParsed('group')) {
@@ -176,102 +176,119 @@ class TaskManager {
           ...config.languages.map((e) => Language(name: e)),
           TypeLabel('doujinshi'),
           TypeLabel('manga')
-        ], filter);
-      }
-      return !hasError;
-    } else if (result.wasParsed('tag')) {
-      var name = result.command?['name'];
-      var type = result.command?['type'];
-      List<String> tagWords = result.wasParsed('tag') ? result['tag'] : [];
-      hasError = name == null && tagWords.isEmpty;
-      if (!hasError) {
-        List<Lable> tags = [];
-        if (type != null) {
-          tags.add(fromString(type, name));
-        } else if (name != null) {
-          tagWords.add(name);
-        }
-        tags.addAll(await helper.fetchLablesFromSql(tagWords));
-        tags.addAll(config.languages.map((e) => Language(name: e)));
-        logger.d(tags);
-        downLoader.downLoadByTag(tags, filter);
+        ], filter, MapEntry('groupes', group));
       }
       return !hasError;
     } else if (result.wasParsed('tags')) {
-      List<String> tags = result["tags"];
+      List<Lable> tags = result["tags"]
+          .map((e) => e.split(':'))
+          .where((value) => value.length >= 2)
+          .map((e) => fromString(e[0], e[1]))
+          .toList();
       downLoader.downLoadByTag(
-          tags
-              .map((e) => e.split(':'))
-              .where((value) => value.length >= 2)
-              .map((e) => fromString(e[0], e[1]))
-              .toList()
-            ..addAll(config.languages.map((e) => Language(name: e))),
-          filter);
+          tags..addAll(config.languages.map((e) => Language(name: e))),
+          filter,
+          MapEntry(tags.first.type, tags.first.name));
       return !hasError;
     } else if (result.wasParsed('delete')) {
       List<String> delete = result["delete"];
+      logger.d('delete ${delete}');
       delete
           .map((e) => e.contains(":")
-              ? fromString(
-                  e.substring(0, e.indexOf(':')), e.substring(e.indexOf(':')))
+              ? fromString(e.substring(0, e.indexOf(':')),
+                  e.substring(e.indexOf(':') + 1))
               : QueryText(e))
           .forEach((element) async {
-        late Future<ResultSet?> galleryQuery;
+        late ResultSet galleryQuery;
         switch (element) {
           case QueryText():
             {
               downLoader.cancel(element.name);
               downLoader.removeTask(element.name);
-              galleryQuery = helper.queryGalleryById(element.name);
+              galleryQuery = await helper.queryGalleryById(element.name);
             }
           case Group():
             {
-              galleryQuery = helper.queryGalleryImpl('groupes', element);
+              downLoader.cancelByTag(element);
+              galleryQuery =
+                  await helper.queryGalleryByLabel('groupes', element);
             }
           case Parody():
             {
-              galleryQuery = helper.queryGalleryImpl('series', element);
+              downLoader.cancelByTag(element);
+              galleryQuery =
+                  await helper.queryGalleryByLabel('series', element);
             }
           case Tag():
             {
-              galleryQuery = helper.queryGalleryImpl('tag', element);
+              downLoader.cancelByTag(element);
+              galleryQuery = await helper.queryGalleryByLabel('tag', element);
             }
           default:
             {
-              galleryQuery = helper.queryGalleryImpl(element.sqlType, element);
+              downLoader.cancelByTag(element);
+              galleryQuery =
+                  await helper.queryGalleryByLabel(element.sqlType, element);
             }
         }
         await galleryQuery
-            .then((value) => File(
-                join(config.output, value?.firstOrNull?['path'], 'meta.json')))
-            .then((value) => value.readAsString())
-            .then((value) => Gallery.fromJson(value))
-            .then((value) => HitomiDir(
-                value.createDir(config.output), downLoader, value, manager))
-            .then((value) => value.deleteGallery())
+            .asStream()
+            .asyncMap((event) => downLoader
+                .readGalleryFromPath(join(config.output, event['path'])))
+            .map((event) => HitomiDir(
+                event.createDir(config.output), downLoader, event, manager))
+            .asyncMap((element) {
+              element.deleteGallery();
+            })
+            .length
             .catchError((e) {
-          logger.e('del form key ${element.name} faild $e');
-          return false;
-        }, test: (error) => true);
+              logger.e('del form key ${element.name} faild $e');
+              return 0;
+            }, test: (error) => true);
       });
     } else if (result['fixDb']) {
       final count =
           await DirScanner(config, helper, downLoader, manager).fixMissDbRow();
       logger.d("database fix ${count}");
-      ;
+    } else if (result['fixDup']) {
+      final count = await DirScanner(config, helper, downLoader, manager)
+          .removeDupGallery();
+      logger.d("database fix ${count}");
+      return count;
     } else if (result['fix']) {
       final count = await DirScanner(config, helper, downLoader, manager)
           .listDirs()
           .filterNonNull()
-          .asyncMap((event) => event.fixGallery())
-          // .slices(config.maxTasks)
-          // .asyncMap((element) => Future.wait(element.map((e) => e.fixGallery()))
-          //     .then((value) => value.fold(
-          //         true, (previousValue, element) => previousValue && element)))
+          .where((event) {
+            var b = event.gallery != null;
+            if (!b) {
+              logger.w('delete empty floder ${event.dir}');
+              event.dir.deleteSync(recursive: true);
+            }
+            return b;
+          })
           .fold(
-              <bool, int>{},
-              (previous, element) =>
-                  previous..[element] = (previous[element] ?? 0) + 1);
+              <String, List<HitomiDir>>{},
+              (previous, element) => previous
+                ..[element.gallery!.id.toString()] =
+                    ((previous[element.gallery!.id.toString()] ?? [])
+                      ..add(element)))
+          .then((value) => value.values.toList())
+          .asStream()
+          .expand((element) => element)
+          .asyncMap((event) {
+            if (event.length > 1) {
+              event
+                  .sublist(1)
+                  .where((element) => element.dir.existsSync())
+                  .forEach((e) {
+                logger.d('delete duplication ${e.gallery?.id} with ${e.dir}');
+                e.dir.deleteSync(recursive: true);
+              });
+            }
+            return event.first.fixGallery();
+          })
+          .length;
       logger.d("scan finishd ${count}");
       return true;
     } else if (result['update']) {
@@ -284,7 +301,7 @@ class TaskManager {
           .asyncMap((event) async {
             try {
               var r = await api.fetchGallery(event['id'], usePrefence: false);
-              if (r.id != event['id']) {
+              if (r.id.toString() != event['id'].toString()) {
                 logger.d(' $event update to ${r.id}');
                 await helper.removeTask(event['id']);
               }

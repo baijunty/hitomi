@@ -19,14 +19,14 @@ class Gallery with Lable {
   static const List<String> illegalCode = [
     r'\',
     '/',
-    '*',
-    ':',
-    '?',
-    '"',
-    '<',
-    '>',
-    '|',
-    '.',
+    // '*',
+    // ':',
+    // '?',
+    // '"',
+    // '<',
+    // '>',
+    // '|',
+    '..',
   ];
   final List<Artist>? artists;
   final List<Tag>? tags;
@@ -46,7 +46,7 @@ class Gallery with Lable {
   final List<Parody>? parodys;
   final String? videofilename;
   final List<Image> files;
-  final id;
+  final int id;
   final List<Group>? groups;
 
   Gallery({
@@ -118,7 +118,7 @@ class Gallery with Lable {
         files: (data['files'] as List<dynamic>)
             .map((e) => Image.fromMap(e as Map<String, dynamic>))
             .toList(),
-        id: data['id'],
+        id: data['id'] is int ? data['id'] : int.parse(data['id']),
         groups: (data['groups'] as List<dynamic>?)
             ?.map((e) => Group.fromMap(e as Map<String, dynamic>))
             .toList(),

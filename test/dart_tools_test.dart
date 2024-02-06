@@ -6,35 +6,33 @@ import 'package:dio/dio.dart';
 import 'package:hitomi/gallery/gallery.dart';
 import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/sqlite_helper.dart';
+import 'package:hitomi/src/task_manager.dart';
 import 'package:sqlite3/sqlite3.dart';
 import 'package:test/test.dart';
 
 var config = UserConfig(r'/home/bai/ssd/photos', proxy: '127.0.0.1:8389');
 void main() async {
   test('chapter', () async {
-    await Process.run('/home/bai/venv/bin/python3.11', [
-      'test/encode.py',
-      '/home/bai/ssd/photos/(wakamesan)CHALDEAN SUPPORTER'
-    ])
-        .then((value) => json.decode(value.stdout))
-        .then((value) => print(value[0]));
+    await testThumbHash();
   });
 }
 
-Future<int> testStream(int input) async {
-  print('$input sleep ${6 - input}');
-  var time = DateTime.now();
-  await Future.delayed(Duration(seconds: 6 - input), () => input);
-  return DateTime.now().difference(time).inSeconds;
-}
-
-Future<void> testSqliteImage() async {
-  final helper = SqliteHelper('/home/bai/ssd/photos');
-  await helper
-      .querySql(
-          'select thumb from GalleryFile where gid=2273946 order by name limit 1')
-      .then((value) => value.first['thumb'])
-      .then((value) => File('test.jpg').writeAsBytes(value, flush: true));
+Future<void> testThumbHash() async {
+  var config = UserConfig('/home/bai/ssd/photos',
+      proxy: '192.168.1.1:8389',
+      languages: ['chinese', 'japanese'],
+      maxTasks: 5);
+  var task = TaskManager(config);
+  // await task.api
+  //     .fetchGallery(1552982, usePrefence: false)
+  //     .then((gallery) => task.downLoader.fetchGalleryHashs(gallery))
+  //     .then((value) async {
+  //   await task.helper.queryImageHashsByLable('artist', 'uno ryoku').then((all) {
+  //     print('$value compare ${all[2415675]}');
+  //     return task.downLoader
+  //         .findSimilerGaller(MapEntry(value.key.id, value.value), all);
+  //   }).then((value) => print(value));
+  // });
 }
 
 Future<void> testHttpServer() async {

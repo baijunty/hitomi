@@ -24,7 +24,7 @@ mixin _$UserConfig {
   int get maxTasks => throw _privateConstructorUsedError;
   List<String> get languages => throw _privateConstructorUsedError;
   String get proxy => throw _privateConstructorUsedError;
-  List<String> get excludes => throw _privateConstructorUsedError;
+  Map<String, bool> get excludes => throw _privateConstructorUsedError;
   String get dateLimit => throw _privateConstructorUsedError;
   String get auth => throw _privateConstructorUsedError;
   String get logLevel => throw _privateConstructorUsedError;
@@ -47,7 +47,7 @@ abstract class $UserConfigCopyWith<$Res> {
       int maxTasks,
       List<String> languages,
       String proxy,
-      List<String> excludes,
+      Map<String, bool> excludes,
       String dateLimit,
       String auth,
       String logLevel,
@@ -97,7 +97,7 @@ class _$UserConfigCopyWithImpl<$Res, $Val extends UserConfig>
       excludes: null == excludes
           ? _value.excludes
           : excludes // ignore: cast_nullable_to_non_nullable
-              as List<String>,
+              as Map<String, bool>,
       dateLimit: null == dateLimit
           ? _value.dateLimit
           : dateLimit // ignore: cast_nullable_to_non_nullable
@@ -119,11 +119,11 @@ class _$UserConfigCopyWithImpl<$Res, $Val extends UserConfig>
 }
 
 /// @nodoc
-abstract class _$$_UserConfigCopyWith<$Res>
+abstract class _$$UserConfigImplCopyWith<$Res>
     implements $UserConfigCopyWith<$Res> {
-  factory _$$_UserConfigCopyWith(
-          _$_UserConfig value, $Res Function(_$_UserConfig) then) =
-      __$$_UserConfigCopyWithImpl<$Res>;
+  factory _$$UserConfigImplCopyWith(
+          _$UserConfigImpl value, $Res Function(_$UserConfigImpl) then) =
+      __$$UserConfigImplCopyWithImpl<$Res>;
   @override
   @useResult
   $Res call(
@@ -131,7 +131,7 @@ abstract class _$$_UserConfigCopyWith<$Res>
       int maxTasks,
       List<String> languages,
       String proxy,
-      List<String> excludes,
+      Map<String, bool> excludes,
       String dateLimit,
       String auth,
       String logLevel,
@@ -139,11 +139,11 @@ abstract class _$$_UserConfigCopyWith<$Res>
 }
 
 /// @nodoc
-class __$$_UserConfigCopyWithImpl<$Res>
-    extends _$UserConfigCopyWithImpl<$Res, _$_UserConfig>
-    implements _$$_UserConfigCopyWith<$Res> {
-  __$$_UserConfigCopyWithImpl(
-      _$_UserConfig _value, $Res Function(_$_UserConfig) _then)
+class __$$UserConfigImplCopyWithImpl<$Res>
+    extends _$UserConfigCopyWithImpl<$Res, _$UserConfigImpl>
+    implements _$$UserConfigImplCopyWith<$Res> {
+  __$$UserConfigImplCopyWithImpl(
+      _$UserConfigImpl _value, $Res Function(_$UserConfigImpl) _then)
       : super(_value, _then);
 
   @pragma('vm:prefer-inline')
@@ -159,7 +159,7 @@ class __$$_UserConfigCopyWithImpl<$Res>
     Object? logLevel = null,
     Object? logOutput = null,
   }) {
-    return _then(_$_UserConfig(
+    return _then(_$UserConfigImpl(
       null == output
           ? _value.output
           : output // ignore: cast_nullable_to_non_nullable
@@ -179,7 +179,7 @@ class __$$_UserConfigCopyWithImpl<$Res>
       excludes: null == excludes
           ? _value._excludes
           : excludes // ignore: cast_nullable_to_non_nullable
-              as List<String>,
+              as Map<String, bool>,
       dateLimit: null == dateLimit
           ? _value.dateLimit
           : dateLimit // ignore: cast_nullable_to_non_nullable
@@ -202,12 +202,12 @@ class __$$_UserConfigCopyWithImpl<$Res>
 
 /// @nodoc
 @JsonSerializable()
-class _$_UserConfig implements _UserConfig {
-  _$_UserConfig(this.output,
+class _$UserConfigImpl implements _UserConfig {
+  _$UserConfigImpl(this.output,
       {this.maxTasks = 5,
       final List<String> languages = const ["japanese", "chinese"],
       this.proxy = "",
-      final List<String> excludes = const [],
+      final Map<String, bool> excludes = const {},
       this.dateLimit = "1970-01-01",
       this.auth = "12345678",
       this.logLevel = "debug",
@@ -215,8 +215,8 @@ class _$_UserConfig implements _UserConfig {
       : _languages = languages,
         _excludes = excludes;
 
-  factory _$_UserConfig.fromJson(Map<String, dynamic> json) =>
-      _$$_UserConfigFromJson(json);
+  factory _$UserConfigImpl.fromJson(Map<String, dynamic> json) =>
+      _$$UserConfigImplFromJson(json);
 
   @override
   final String output;
@@ -235,13 +235,13 @@ class _$_UserConfig implements _UserConfig {
   @override
   @JsonKey()
   final String proxy;
-  final List<String> _excludes;
+  final Map<String, bool> _excludes;
   @override
   @JsonKey()
-  List<String> get excludes {
-    if (_excludes is EqualUnmodifiableListView) return _excludes;
+  Map<String, bool> get excludes {
+    if (_excludes is EqualUnmodifiableMapView) return _excludes;
     // ignore: implicit_dynamic_type
-    return EqualUnmodifiableListView(_excludes);
+    return EqualUnmodifiableMapView(_excludes);
   }
 
   @override
@@ -263,10 +263,10 @@ class _$_UserConfig implements _UserConfig {
   }
 
   @override
-  bool operator ==(dynamic other) {
+  bool operator ==(Object other) {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
-            other is _$_UserConfig &&
+            other is _$UserConfigImpl &&
             (identical(other.output, output) || other.output == output) &&
             (identical(other.maxTasks, maxTasks) ||
                 other.maxTasks == maxTasks) &&
@@ -300,12 +300,12 @@ class _$_UserConfig implements _UserConfig {
   @JsonKey(ignore: true)
   @override
   @pragma('vm:prefer-inline')
-  _$$_UserConfigCopyWith<_$_UserConfig> get copyWith =>
-      __$$_UserConfigCopyWithImpl<_$_UserConfig>(this, _$identity);
+  _$$UserConfigImplCopyWith<_$UserConfigImpl> get copyWith =>
+      __$$UserConfigImplCopyWithImpl<_$UserConfigImpl>(this, _$identity);
 
   @override
   Map<String, dynamic> toJson() {
-    return _$$_UserConfigToJson(
+    return _$$UserConfigImplToJson(
       this,
     );
   }
@@ -316,14 +316,14 @@ abstract class _UserConfig implements UserConfig {
       {final int maxTasks,
       final List<String> languages,
       final String proxy,
-      final List<String> excludes,
+      final Map<String, bool> excludes,
       final String dateLimit,
       final String auth,
       final String logLevel,
-      final String logOutput}) = _$_UserConfig;
+      final String logOutput}) = _$UserConfigImpl;
 
   factory _UserConfig.fromJson(Map<String, dynamic> json) =
-      _$_UserConfig.fromJson;
+      _$UserConfigImpl.fromJson;
 
   @override
   String get output;
@@ -334,7 +334,7 @@ abstract class _UserConfig implements UserConfig {
   @override
   String get proxy;
   @override
-  List<String> get excludes;
+  Map<String, bool> get excludes;
   @override
   String get dateLimit;
   @override
@@ -345,6 +345,6 @@ abstract class _UserConfig implements UserConfig {
   String get logOutput;
   @override
   @JsonKey(ignore: true)
-  _$$_UserConfigCopyWith<_$_UserConfig> get copyWith =>
+  _$$UserConfigImplCopyWith<_$UserConfigImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }

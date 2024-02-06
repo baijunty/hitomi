@@ -6,8 +6,8 @@ part of 'user_config.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
-_$_UserConfig _$$_UserConfigFromJson(Map<String, dynamic> json) =>
-    _$_UserConfig(
+_$UserConfigImpl _$$UserConfigImplFromJson(Map<String, dynamic> json) =>
+    _$UserConfigImpl(
       json['output'] as String,
       maxTasks: json['maxTasks'] as int? ?? 5,
       languages: (json['languages'] as List<dynamic>?)
@@ -15,17 +15,17 @@ _$_UserConfig _$$_UserConfigFromJson(Map<String, dynamic> json) =>
               .toList() ??
           const ["japanese", "chinese"],
       proxy: json['proxy'] as String? ?? "",
-      excludes: (json['excludes'] as List<dynamic>?)
-              ?.map((e) => e as String)
-              .toList() ??
-          const [],
+      excludes: (json['excludes'] as Map<String, dynamic>?)?.map(
+            (k, e) => MapEntry(k, e as bool),
+          ) ??
+          const {},
       dateLimit: json['dateLimit'] as String? ?? "1970-01-01",
       auth: json['auth'] as String? ?? "12345678",
       logLevel: json['logLevel'] as String? ?? "debug",
       logOutput: json['logOutput'] as String? ?? "",
     );
 
-Map<String, dynamic> _$$_UserConfigToJson(_$_UserConfig instance) =>
+Map<String, dynamic> _$$UserConfigImplToJson(_$UserConfigImpl instance) =>
     <String, dynamic>{
       'output': instance.output,
       'maxTasks': instance.maxTasks,

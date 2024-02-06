@@ -14,8 +14,6 @@ import 'package:collection/collection.dart';
 import '../gallery/gallery.dart';
 import 'package:crypto/crypto.dart';
 
-import 'downloader.dart';
-
 abstract class Hitomi {
   Future<bool> downloadImagesById(dynamic id,
       {bool usePrefence = true, CancelToken? token});
@@ -105,8 +103,8 @@ class _HitomiImpl implements Hitomi {
     final id = gallery.id;
     final outPath = outPut;
     Directory dir = gallery.createDir(outPath);
-    bool illeagal =
-        await _loopCallBack(TaskStartMessage(gallery, dir, gallery));
+    bool illeagal = await _loopCallBack(TaskStartMessage(gallery, dir, gallery))
+        .catchError((e) => true, test: (error) => true);
     if (illeagal) {
       logger?.w('${id} test fiald,skip');
       await _loopCallBack(DownLoadFinished(gallery, gallery, dir, false));
