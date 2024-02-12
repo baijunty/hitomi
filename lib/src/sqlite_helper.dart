@@ -195,7 +195,7 @@ class SqliteHelper {
   }
 
   Future<bool> updateTagTable(List<List<dynamic>> params) async {
-    return excuteSqlAsync(
+    return excuteSqlMultiParams(
         'REPLACE INTO Tags(id,type,name,translate,intro) values(?,?,?,?,?)',
         params);
   }

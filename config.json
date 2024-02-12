@@ -1,6 +1,6 @@
 {
-    "output": "/home/bai/ssd/photos",
-    "proxy": "192.168.1.1:8389",
+    "output": "d:manga",
+    "proxy": "127.0.0.1:8389",
     "languages": [
         "japanese",
         "chinese"

@@ -159,7 +159,7 @@ class TaskManager {
       String? artist = result['artist'];
       hasError = artist == null || artist.isEmpty;
       if (!hasError) {
-        downLoader.downLoadByTag(<Lable>[
+        await downLoader.downLoadByTag(<Lable>[
           Artist(artist: artist),
           ...config.languages.map((e) => Language(name: e)),
           TypeLabel('doujinshi'),
@@ -171,7 +171,7 @@ class TaskManager {
       String? group = result['group'];
       hasError = group == null || group.isEmpty;
       if (!hasError) {
-        downLoader.downLoadByTag(<Lable>[
+        await downLoader.downLoadByTag(<Lable>[
           Group(group: group),
           ...config.languages.map((e) => Language(name: e)),
           TypeLabel('doujinshi'),

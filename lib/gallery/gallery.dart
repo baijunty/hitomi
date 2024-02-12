@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:collection/collection.dart';
 import 'package:hitomi/gallery/label.dart';
+import 'package:path/path.dart';
 
 import 'artist.dart';
 import 'character.dart';
@@ -16,18 +18,18 @@ class Gallery with Lable {
   static final zhNum = '零〇一二三四五六七八九十';
   static final chapterRex = RegExp(
       r'第?\s*(?<start>[零〇一二三四五六七八九十|\d]{1,})\s*-?\s*(?<end>[零〇一二三四五六七八九十|\d]*)\s*(?<unit>[章|回|话|話|編|巻|集]*)');
-  static const List<String> illegalCode = [
-    r'\',
-    '/',
-    // '*',
-    // ':',
-    // '?',
-    // '"',
-    // '<',
-    // '>',
-    // '|',
-    '..',
-  ];
+  static const Map<String, String> illegalCode = {
+    r'\': '＼',
+    '/': '／',
+    '*': '※',
+    ':': '∶',
+    '?': '？',
+    '"': '“',
+    '<': '《',
+    '>': '》',
+    '|': '▎',
+    '..': '。。'
+  };
   final List<Artist>? artists;
   final List<Tag>? tags;
   final List<dynamic>? sceneIndexes;
@@ -265,22 +267,18 @@ class Gallery with Lable {
   }
 
   String get dirName {
-    var direct =
-        '${(artists?.isNotEmpty ?? false) ? '(${artists!.first.name})' : ''}${name}';
-    return illegalCode.where((e) => direct.contains(e)).fold<String>(direct,
-        (previousValue, element) => previousValue.replaceAll(element, ''));
+    return '${(artists?.isNotEmpty ?? false) ? '(${artists!.first.name})' : ''}${name}';
   }
 
   Directory createDir(String outPath) {
-    Directory dir;
-    try {
-      dir = Directory("${outPath}/${dirName}")..createSync();
-    } catch (e) {
-      dir = Directory(
-          "${outPath}/${artists?.isNotEmpty ?? false ? '' : '(${artists!.first.name})'}$id")
-        ..createSync();
-    }
-    return dir;
+    String fullName = join(
+        outPath,
+        illegalCode.entries.fold(
+            dirName,
+            (previousValue, element) =>
+                previousValue!.replaceAll(element.key, element.value)));
+    var userName = fullName.substring(0, min(fullName.length, 256));
+    return Directory(userName)..createSync();
   }
 
   @override

@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math';
-import 'dart:typed_data';
 
 import 'package:collection/collection.dart';
 import 'package:dcache/dcache.dart';
@@ -15,7 +14,6 @@ import 'package:sqlite3/sqlite3.dart';
 import '../gallery/gallery.dart';
 import '../gallery/image.dart';
 import '../gallery/label.dart';
-import 'dhash.dart';
 import 'dir_scanner.dart';
 import 'gallery_util.dart';
 import 'sqlite_helper.dart';
@@ -141,27 +139,27 @@ class DownLoader {
     return findDuplicateGalleryIds(gallery, helper, api,
             logger: logger, skipTail: false)
         .then((value) {
-      if (value.isEmpty) {
-        return findDuplicateGalleryIds(gallery, helper, api,
-                logger: logger, skipTail: true)
-            .then((value) => value.firstOrNull)
-            .then((value) {
-          if (value != null) {
-            helper
-                .queryGalleryById(value)
-                .then((value) => readGalleryFromPath(
-                    join(config.output, value.first['path'])))
-                .then((value) => value.createDir(config.output))
-                .then((dir) {
-              logger?.i(
-                  '$value with ${dir.path} hash newer ${gallery.id} ${newDir.path}');
-              dir.renameSync(newDir.path);
-              return false;
-            }).catchError((e) => false, test: (error) => true);
-          }
-          return false;
-        });
-      }
+      // if (value.isEmpty) {
+      //   return findDuplicateGalleryIds(gallery, helper, api,
+      //           logger: logger, skipTail: true)
+      //       .then((value) => value.firstOrNull)
+      //       .then((value) {
+      //     if (value != null) {
+      //       helper
+      //           .queryGalleryById(value)
+      //           .then((value) => readGalleryFromPath(
+      //               join(config.output, value.first['path'])))
+      //           .then((value) => value.createDir(config.output))
+      //           .then((dir) {
+      //         logger?.i(
+      //             '$value with ${dir.path} hash newer ${gallery.id} ${newDir.path}');
+      //         dir.renameSync(newDir.path);
+      //         return false;
+      //       }).catchError((e) => false, test: (error) => true);
+      //     }
+      //     return false;
+      //   });
+      // }
       return value.isNotEmpty;
     });
   }
@@ -253,7 +251,7 @@ class DownLoader {
         .then((value) => Gallery.fromJson(value));
   }
 
-  Future<Iterable<Gallery>> _fetchGalleryFromIds(
+  Future<Iterable<Gallery>> fetchGalleryFromIds(
       List<int> ids,
       bool where(Gallery gallery),
       CancelToken token,
@@ -281,49 +279,53 @@ class DownLoader {
         })).then((value) => value.where((element) => where(element)).toList());
         return list
             .asStream()
-            .asyncMap((event) => fetchLocalGalleryHash(event, helper))
-            .asyncMap((event) async => event.value.isEmpty
-                ? await fetchNetGalleryHash(event.key, api, token)
-                : event)
+            .asyncMap((event) => fetchGalleryHash(event, helper, api, token))
             .where((event) => searchSimilerGaller(
                     MapEntry(event.key.id, event.value), allHash,
                     logger: logger)
                 .isEmpty)
             .fold(
                 <int, List<int>>{},
-                (previous, element) => previous
-                  ..[element.key.id] = element.value).then((downHash) {
-          logger?.d(' ${downHash.keys.toList()} not in local');
-          var useHash =
-              downHash.entries.fold(<int, List<int>>{}, (previous, element) {
-            var duplicate =
-                searchSimilerGaller(element, previous, logger: logger);
-            if (duplicate.isEmpty) {
-              previous[element.key] = element.value;
-            } else {
-              var compare = duplicate
-                  .map((event) =>
-                      list.firstWhere((element) => element.id == event))
-                  .toList();
-              var useGallery = compareGallerWithOther(
-                  list.firstWhere((event) => event.id == element.key),
-                  compare,
-                  config.languages,
-                  logger);
-              logger?.d(
-                  ' ${element.key} find similer $duplicate use ${useGallery.id}');
-              if (useGallery.id == element.key) {
-                previous[useGallery.id] = element.value;
-                previous.removeWhere((key, value) => duplicate.contains(key));
-              } else {
-                previous.remove(useGallery.id);
-                previous[useGallery.id] = downHash[useGallery.id]!;
-              }
-            }
-            return previous;
-          });
-          return useHash.keys;
-        }).then((value) => value
+                (previous, element) =>
+                    previous..[element.key.id] = element.value)
+            .then((value) => value.entries.toList())
+            .then((downHash) {
+              downHash.sort((e1, e2) => e2.value.length - e1.value.length);
+              logger?.d(' ${downHash.map((e) => e.key).toList()} not in local');
+              return downHash.fold(<int, List<int>>{}, (previous, element) {
+                var duplicate =
+                    searchSimilerGaller(element, previous, logger: logger);
+                logger?.d(
+                    '${element.key} found dup $duplicate ${previous.length}');
+                if (duplicate.isEmpty) {
+                  previous[element.key] = element.value;
+                } else {
+                  var compare = duplicate
+                      .map((event) =>
+                          list.firstWhere((element) => element.id == event))
+                      .toList();
+                  var useGallery = compareGallerWithOther(
+                      list.firstWhere((event) => event.id == element.key),
+                      compare,
+                      config.languages,
+                      logger);
+                  if (useGallery.id == element.key) {
+                    previous[useGallery.id] = element.value;
+                    previous
+                        .removeWhere((key, value) => duplicate.contains(key));
+                  } else {
+                    previous.remove(useGallery.id);
+                    previous[useGallery.id] = downHash
+                        .firstWhere((element) => element.key == useGallery.id)
+                        .value;
+                  }
+                  logger?.d(
+                      ' ${element.key} find similer $duplicate use ${useGallery} left ${previous.length}');
+                }
+                return previous;
+              }).keys;
+            })
+            .then((value) => value
                 .map((event) =>
                     list.firstWhere((element) => element.id == event))
                 .toList());
@@ -384,7 +386,7 @@ class DownLoader {
     logger?.d('fetch tags ${tags}');
     return await api
         .search(tags, exclude: exclude)
-        .then((value) => _fetchGalleryFromIds(value, where, token, entry))
+        .then((value) => fetchGalleryFromIds(value, where, token, entry))
         .then((value) => value.toList())
         .catchError((e) async {
       logger?.e('$tags catch error $e');

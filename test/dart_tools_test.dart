@@ -5,24 +5,38 @@ import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
 import 'package:hitomi/gallery/gallery.dart';
 import 'package:hitomi/lib.dart';
+import 'package:hitomi/src/dhash.dart';
 import 'package:hitomi/src/sqlite_helper.dart';
 import 'package:hitomi/src/task_manager.dart';
 import 'package:sqlite3/sqlite3.dart';
 import 'package:test/test.dart';
 
-var config = UserConfig(r'/home/bai/ssd/photos', proxy: '127.0.0.1:8389');
+var config = UserConfig('d:manga',
+    proxy: '127.0.0.1:8389', languages: ['chinese', 'japanese'], maxTasks: 5);
 void main() async {
   test('chapter', () async {
-    await testThumbHash();
+    // await testThumbHash();
+    print(compareHashDistance(-232496494689453701, -2538197667044140165));
   });
 }
 
+Future readIdFromFile() async {
+  var regex = RegExp(r'title: \((?<artist>.+?)\)');
+  await File('fix.log')
+      .readAsLines()
+      .then((value) => value.expand((e) => regex
+          .allMatches(e)
+          .map((element) => element.namedGroup('artist'))
+          .nonNulls))
+      .then((value) => value.toSet())
+      .then((value) => print(value.take(20)));
+}
+
 Future<void> testThumbHash() async {
-  var config = UserConfig('/home/bai/ssd/photos',
-      proxy: '192.168.1.1:8389',
-      languages: ['chinese', 'japanese'],
-      maxTasks: 5);
   var task = TaskManager(config);
+
+  await task.downLoader.fetchGalleryFromIds([1503421, 1261783, 2240431],
+      task.filter, CancelToken(), null).then((value) => print(value.toList()));
   // await task.api
   //     .fetchGallery(1552982, usePrefence: false)
   //     .then((gallery) => task.downLoader.fetchGalleryHashs(gallery))

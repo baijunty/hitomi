@@ -187,6 +187,7 @@ class DirScanner {
             File(dir + '/' + 'meta.json').writeAsString(json.encode(value));
             return value;
           }
+          return null;
         });
   }
 }
@@ -200,18 +201,15 @@ class HitomiDir {
   HitomiDir(this.dir, this._downLoader, this.gallery, this.manager,
       {this.fixFromNet = true});
 
-  bool get dismatchFile => gallery?.files.length != dir.listSync().length - 1;
-
   Future<int> get coverHash => File('${dir.path}/${gallery?.files.first.name}')
       .readAsBytes()
       .then((value) => imageHash(value));
 
   Future<bool> _fixIllegalFiles() async {
-    if (dismatchFile && gallery != null) {
+    if (gallery != null) {
       var files = gallery!.files.map((e) => e.name).toList();
       var fileLost = files
-          .map((e) => path.join(dir.path, e))
-          .map((e) => File(e))
+          .map((e) => File(path.join(dir.path, e)))
           .where((element) => !element.existsSync())
           .toList();
       if (fileLost.isNotEmpty && fixFromNet) {
@@ -223,9 +221,9 @@ class HitomiDir {
       }
       await dir
           .listSync()
-          .whereNot((element) =>
-              files.contains(path.basename(element.path)) ||
-              path.extension(element.path) == '.json')
+          .where((element) =>
+              !files.contains(path.basename(element.path)) &&
+              path.extension(element.path) != '.json')
           .asStream()
           .asyncMap((element) {
         try {
@@ -237,7 +235,7 @@ class HitomiDir {
         return true;
       }).length;
     }
-    return dismatchFile;
+    return false;
   }
 
   bool get tagIlleagal {

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:args/args.dart';
+import 'package:async/async.dart';
 import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/task_manager.dart';
 
@@ -45,10 +46,27 @@ void main(List<String> args) async {
   tasks?.forEach(
       (element) async => await (await pool.parseCommandAndRun(element.trim())));
   run_server(pool);
+  var len = await readIdFromFile().slices(5).asyncMap((event) async {
+    await Future.wait(event.map((e) => pool.parseCommandAndRun("-a \'$e\'")));
+  }).length;
+  print(len);
   getUserInputId().forEach((element) async {
     print(
         '\x1b[47;31madd command ${element.trim()} return ${await pool.parseCommandAndRun(element.trim())} \x1b[0m');
   });
+}
+
+Stream<String> readIdFromFile() {
+  var regex = RegExp(r'title: \((?<artist>.+?)\)');
+  return File('fix.log')
+      .readAsLines()
+      .then((value) => value.expand((e) => regex
+          .allMatches(e)
+          .map((element) => element.namedGroup('artist'))
+          .nonNulls))
+      .then((value) => value.toSet())
+      .asStream()
+      .expand((element) => element);
 }
 
 Stream<String> getUserInputId() {

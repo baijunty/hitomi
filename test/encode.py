@@ -9,6 +9,7 @@ from torchvision import transforms
 from torchvision.transforms import InterpolationMode
 from PIL import Image
 def main():
+    """general image hash by path"""
     parser = ArgumentParser(description='Process some integers.')
     parser.add_argument('path', metavar='p', type=str,help='an path')
     args = parser.parse_args()
@@ -25,12 +26,14 @@ def main():
     print(json.dumps(result))
 
 def check_file(path):
+    """list image file"""
     extension=os.path.splitext(path)
     if (extension[1] in ['.jpg','.png','.webp','jpeg']):
         return {os.path.basename(path):hash_image(path)}
     return {}
 
 def hash_image(path,interpolation:InterpolationMode=InterpolationMode.BICUBIC)->int:
+    """general image hash"""
     image = Image.open(path)
     gray = transforms.Grayscale()
     image=gray(image)
