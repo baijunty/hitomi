@@ -5,7 +5,7 @@ import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
 import 'package:hitomi/gallery/gallery.dart';
 import 'package:hitomi/lib.dart';
-import 'package:hitomi/src/dhash.dart';
+import 'package:hitomi/src/gallery_util.dart';
 import 'package:hitomi/src/sqlite_helper.dart';
 import 'package:hitomi/src/task_manager.dart';
 import 'package:sqlite3/sqlite3.dart';
@@ -15,28 +15,33 @@ var config = UserConfig('d:manga',
     proxy: '127.0.0.1:8389', languages: ['chinese', 'japanese'], maxTasks: 5);
 void main() async {
   test('chapter', () async {
-    // await testThumbHash();
-    print(compareHashDistance(-232496494689453701, -2538197667044140165));
+    await readIdFromFile();
   });
 }
 
 Future readIdFromFile() async {
   var regex = RegExp(r'title: \((?<artist>.+?)\)');
-  await File('fix.log')
+  var value = await File('fix.log')
       .readAsLines()
       .then((value) => value.expand((e) => regex
           .allMatches(e)
           .map((element) => element.namedGroup('artist'))
           .nonNulls))
-      .then((value) => value.toSet())
-      .then((value) => print(value.take(20)));
+      .then((value) => value.toSet().toList());
+  print(value.length);
+  var writer = value.fold(File('artist.txt').openWrite(),
+      (previousValue, element) => previousValue..writeln(element));
+  await writer.flush();
 }
 
 Future<void> testThumbHash() async {
   var task = TaskManager(config);
-
-  await task.downLoader.fetchGalleryFromIds([1503421, 1261783, 2240431],
-      task.filter, CancelToken(), null).then((value) => print(value.toList()));
+  var gallery = await task.api.fetchGallery(719417);
+  await findDuplicateGalleryIds(gallery, task.helper, task.api,
+          logger: task.logger)
+      .then((value) => print(value));
+  // await task.downLoader.fetchGalleryFromIds([1503421, 1261783, 2240431],
+  //     task.filter, CancelToken(), null).then((value) => print(value.toList()));
   // await task.api
   //     .fetchGallery(1552982, usePrefence: false)
   //     .then((gallery) => task.downLoader.fetchGalleryHashs(gallery))

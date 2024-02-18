@@ -22,13 +22,13 @@ class DownLoader {
   final _cache = SimpleCache(storage: InMemoryStorage(1024));
   final UserConfig config;
   final Hitomi api;
-  final Set<Gallery> _pendingTask = <Gallery>{};
-  final List<_IdentifyToken> _runningTask = <_IdentifyToken>[];
+  final Set<IdentifyToken> _pendingTask = <IdentifyToken>{};
+  final List<IdentifyToken> _runningTask = <IdentifyToken>[];
   final exclude = <Lable>[];
   final SqliteHelper helper;
   late IsolateManager<MapEntry<int, List<int>?>, String> manager;
   List<dynamic> get tasks =>
-      [..._pendingTask, ..._runningTask.map((e) => e.id)];
+      [..._pendingTask, ..._runningTask.map((e) => e.gallery)];
   Logger? logger;
   DownLoader(
       {required this.config,
@@ -37,6 +37,10 @@ class DownLoader {
       required this.manager,
       required this.logger}) {
     final Future<bool> Function(Message msg) handle = (msg) async {
+      var useHandle = await _runningTask
+          .firstWhereOrNull((e) => msg.id == e.gallery.id)
+          ?.handle
+          ?.call(msg);
       switch (msg) {
         case TaskStartMessage():
           {
@@ -50,7 +54,7 @@ class DownLoader {
                 logger?.e(StackTrace.current);
                 return true;
               }, test: (error) => true);
-              if (!b) {
+              if (b) {
                 await helper
                     .updateTask(msg.gallery.id, msg.gallery.dirName,
                         msg.file.path, false)
@@ -61,7 +65,7 @@ class DownLoader {
             } else if (msg.target is Image) {
               return !msg.file.existsSync();
             }
-            return containsIlleagalTags(
+            return illeagalTagsCheck(
                 msg.gallery, config.excludes.keys.toList());
           }
         case DownLoadFinished():
@@ -84,18 +88,13 @@ class DownLoader {
                       msg.gallery, msg.target, value.key, value.value));
             } else if (msg.target is Gallery) {
               logger?.w('illeagal gallery ${msg.id}');
-              return HitomiDir(
-                      msg.file as Directory, this, msg.gallery, manager,
-                      fixFromNet: false)
-                  .deleteGallery()
-                  .then((value) => helper.removeTask(msg.id))
-                  .then((value) => helper.deleteGallery(msg.id));
+              return await helper.removeTask(msg.id, withGaller: true);
             }
           }
         default:
           break;
       }
-      return true;
+      return useHandle ?? true;
     };
     api.registerGallery(handle);
   }
@@ -139,6 +138,22 @@ class DownLoader {
     return findDuplicateGalleryIds(gallery, helper, api,
             logger: logger, skipTail: false)
         .then((value) {
+      if (value.isNotEmpty) {
+        logger?.i('found duplicate with $value');
+        return Future.wait(value.map((e) => helper.queryGalleryById(e).then(
+            (value) =>
+                readGalleryFromPath(join(config.output, value.first['path']))
+                    .then((value) => value.createDir(config.output))))).then(
+            (value) => value.every((element) =>
+                !element.existsSync() || element.listSync().length < 18));
+      }
+      if (newDir.listSync().isNotEmpty) {
+        return readGalleryFromPath(newDir.path)
+            .then((value) =>
+                compareGallerWithOther(value, [gallery], config.languages).id !=
+                gallery.id)
+            .catchError((e) => true, test: (error) => true);
+      }
       // if (value.isEmpty) {
       //   return findDuplicateGalleryIds(gallery, helper, api,
       //           logger: logger, skipTail: true)
@@ -160,11 +175,11 @@ class DownLoader {
       //     return false;
       //   });
       // }
-      return value.isNotEmpty;
+      return value.isEmpty;
     });
   }
 
-  bool containsIlleagalTags(Gallery gallery, List<String> excludes) {
+  bool illeagalTagsCheck(Gallery gallery, List<String> excludes) {
     var illeagalTags = gallery.tags
             ?.where((element) => excludes.contains(element.name))
             .toList() ??
@@ -173,14 +188,15 @@ class DownLoader {
       logger?.i(
           '${gallery.id} found ${illeagalTags.map((e) => e.name).toList()} ${gallery.files.length}');
     }
-    return illeagalTags
-            .any((element) => config.excludes[element.name] ?? false) ||
-        pow(10, illeagalTags.length) / gallery.files.length >= 0.5;
+    if (illeagalTags.any((element) => config.excludes[element.name] ?? false)) {
+      return false;
+    }
+    return pow(10, illeagalTags.length) / gallery.files.length < 0.5;
   }
 
-  Future<bool> _downLoadGallery(_IdentifyToken token) async {
-    var b =
-        await api.downloadImages(token.id, token: token).catchError((e) async {
+  Future<bool> _downLoadGallery(IdentifyToken token) async {
+    var b = await api.downloadImages(token.gallery, token: token).catchError(
+        (e) async {
       logger?.e('$token catch error $e');
       return false;
     }, test: (e) => true);
@@ -189,55 +205,56 @@ class DownLoader {
     return b;
   }
 
-  void addTask(Gallery gallery) async {
+  Future<IdentifyToken> addTask(Gallery gallery) async {
     logger!.d('add task ${gallery.id}');
-    _pendingTask.add(gallery);
+    var token = IdentifyToken(gallery);
+    _pendingTask.add(token);
     final path = join(config.output, gallery.dirName);
     await helper.updateTask(gallery.id, gallery.dirName, path, false);
     _notifyTaskChange();
-  }
-
-  void cancel(dynamic id) {
-    final token = _runningTask.firstWhereOrNull(
-        (element) => element.id.id.toString() == id.toString());
-    token?.cancel('cancel');
-    logger!.d('cacel task ${token?.id}');
-    _runningTask.remove(token);
-    _notifyTaskChange();
+    return token;
   }
 
   void cancelByTag(Lable lable) {
     final tokens = _runningTask
-        .where((element) => element.id.lables().contains(lable))
+        .where((element) => element.gallery.lables().contains(lable))
         .toList();
     tokens.forEach((element) {
       element.cancel('cancel');
     });
     logger!.d('cacel task $lable');
     _runningTask.removeWhere((element) => tokens.contains(element));
-    _pendingTask.removeWhere((element) => element.lables().contains(lable));
+    _pendingTask
+        .removeWhere((element) => element.gallery.lables().contains(lable));
     _notifyTaskChange();
+  }
+
+  IdentifyToken? operator [](dynamic key) {
+    return _runningTask
+            .firstWhereOrNull((element) => element.gallery.id == key) ??
+        _pendingTask.firstWhereOrNull((element) => element.gallery.id == key);
   }
 
   void cancelAll() {
     _runningTask.forEach((element) {
       element.cancel();
     });
-    _pendingTask.addAll(_runningTask.map((e) => e.id));
+    _pendingTask.addAll(_runningTask);
     _runningTask.clear();
   }
 
   void removeTask(dynamic id) {
-    _pendingTask.removeWhere((g) => g.id.toString() == id.toString());
-    cancel(id);
+    _pendingTask.removeWhere((g) => g.gallery.id == id);
+    _runningTask
+        .firstWhereOrNull((element) => element.gallery.id == id)
+        ?.cancel('cancel');
   }
 
   void _notifyTaskChange() async {
     while (_runningTask.length < config.maxTasks && _pendingTask.isNotEmpty) {
-      var id = _pendingTask.first;
-      _pendingTask.remove(id);
-      logger?.d('run task $id length ${_runningTask.length}');
-      var token = _IdentifyToken(id);
+      var token = _pendingTask.first;
+      _pendingTask.remove(token);
+      logger?.d('run task ${token.gallery.id} length ${_runningTask.length}');
       _runningTask.add(token);
       _downLoadGallery(token);
     }
@@ -329,19 +346,21 @@ class DownLoader {
                 .map((event) =>
                     list.firstWhere((element) => element.id == event))
                 .toList());
-      });
+      }).catchError((err) {
+        logger?.e(err);
+        return <Gallery>[];
+      }, test: (error) => true);
       logger?.d('search ids ${ids.length} fetch gallery ${collection.length}');
       return collection;
     }
     return [];
   }
 
-  Future<CancelToken> downLoadByTag(List<Lable> tags,
-      bool where(Gallery gallery), MapEntry<String, String> entry) async {
+  Future<bool> downLoadByTag(List<Lable> tags, bool where(Gallery gallery),
+      MapEntry<String, String> entry, CancelToken token) async {
     if (exclude.length != config.excludes.length) {
       exclude.addAll(await helper.mapToLabel(config.excludes.keys.toList()));
     }
-    CancelToken token = CancelToken();
     final results = await fetchGallerysByTags(tags, where, token, entry)
         .then((value) async {
       logger?.d('usefull result length ${value.length}');
@@ -370,12 +389,9 @@ class DownLoader {
                 .toList());
       }
       return l;
-    });
+    }).then((value) => Future.wait(value.map((e) => addTask(e))));
     logger?.i('${tags.first} find match gallery ${results.length}');
-    results.forEach((element) {
-      addTask(element);
-    });
-    return token;
+    return results.isNotEmpty;
   }
 
   Future<List<Gallery>> fetchGallerysByTags(
@@ -390,20 +406,18 @@ class DownLoader {
         .then((value) => value.toList())
         .catchError((e) async {
       logger?.e('$tags catch error $e');
-      token.cancel();
-      await fetchGallerysByTags(tags, where, token, entry);
-      return <Gallery>[];
+      return fetchGallerysByTags(tags, where, token, entry);
     },
             test: (error) =>
                 error is DioException && error.message == null).catchError((e) {
       logger?.e('$tags uncatch error $e');
       return <Gallery>[];
-    });
+    }, test: (error) => true);
   }
 }
 
-class _IdentifyToken extends CancelToken {
-  final Gallery id;
-
-  _IdentifyToken(this.id);
+class IdentifyToken extends CancelToken {
+  final Gallery gallery;
+  Future<bool> Function(Message msg)? handle = null;
+  IdentifyToken(this.gallery);
 }

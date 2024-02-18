@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:args/args.dart';
+import 'package:dio/dio.dart';
 import 'package:hitomi/gallery/artist.dart';
 import 'package:hitomi/gallery/group.dart';
 import 'package:hitomi/gallery/label.dart';
 import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/downloader.dart';
+import 'package:hitomi/src/gallery_util.dart';
 import 'package:hitomi/src/sqlite_helper.dart';
 import 'package:isolate_manager/isolate_manager.dart';
 import 'package:logger/logger.dart';
@@ -42,8 +44,7 @@ class TaskManager {
   late Logger logger;
   late IsolateManager<MapEntry<int, List<int>?>, String> manager;
   late bool Function(Gallery) filter = (Gallery gallery) =>
-      !downLoader.containsIlleagalTags(
-          gallery, config.excludes.keys.toList()) &&
+      downLoader.illeagalTagsCheck(gallery, config.excludes.keys.toList()) &&
       DateTime.parse(gallery.date).compareTo(limit) > 0 &&
       (gallery.artists?.length ?? 0) <= 2 &&
       gallery.files.length >= 18;
@@ -77,6 +78,7 @@ class TaskManager {
             methodCount: 0,
             errorMethodCount: 10,
             printEmojis: false,
+            printTime: false,
             noBoxingByDefault: true));
     api = Hitomi.fromPrefenerce(config.output, config.languages,
         proxy: config.proxy, logger: logger);
@@ -151,32 +153,34 @@ class TaskManager {
         await api
             .fetchGallery(id)
             .then((value) => downLoader.addTask(value))
+            .then((value) => true)
             .catchError((e) {
           logger.e('add task $e');
+          return false;
         }, test: (error) => true);
       }
     } else if (result.wasParsed('artist')) {
       String? artist = result['artist'];
       hasError = artist == null || artist.isEmpty;
       if (!hasError) {
-        await downLoader.downLoadByTag(<Lable>[
+        return await downLoader.downLoadByTag(<Lable>[
           Artist(artist: artist),
           ...config.languages.map((e) => Language(name: e)),
           TypeLabel('doujinshi'),
           TypeLabel('manga')
-        ], filter, MapEntry('artist', artist));
+        ], filter, MapEntry('artist', artist), CancelToken());
       }
       return !hasError;
     } else if (result.wasParsed('group')) {
       String? group = result['group'];
       hasError = group == null || group.isEmpty;
       if (!hasError) {
-        await downLoader.downLoadByTag(<Lable>[
+        return await downLoader.downLoadByTag(<Lable>[
           Group(group: group),
           ...config.languages.map((e) => Language(name: e)),
           TypeLabel('doujinshi'),
           TypeLabel('manga')
-        ], filter, MapEntry('groupes', group));
+        ], filter, MapEntry('groupes', group), CancelToken());
       }
       return !hasError;
     } else if (result.wasParsed('tags')) {
@@ -185,11 +189,11 @@ class TaskManager {
           .where((value) => value.length >= 2)
           .map((e) => fromString(e[0], e[1]))
           .toList();
-      downLoader.downLoadByTag(
+      return downLoader.downLoadByTag(
           tags..addAll(config.languages.map((e) => Language(name: e))),
           filter,
-          MapEntry(tags.first.type, tags.first.name));
-      return !hasError;
+          MapEntry(tags.first.type, tags.first.name),
+          CancelToken());
     } else if (result.wasParsed('delete')) {
       List<String> delete = result["delete"];
       logger.d('delete ${delete}');
@@ -203,7 +207,7 @@ class TaskManager {
         switch (element) {
           case QueryText():
             {
-              downLoader.cancel(element.name);
+              downLoader[element.name]?.cancel();
               downLoader.removeTask(element.name);
               galleryQuery = await helper.queryGalleryById(element.name);
             }
@@ -300,28 +304,39 @@ class TaskManager {
       await Stream.fromIterable(tasks)
           .asyncMap((event) async {
             try {
-              var r = await api.fetchGallery(event['id'], usePrefence: false);
+              var r = await api.fetchGallery(event['id']);
               if (r.id.toString() != event['id'].toString()) {
                 logger.d(' $event update to ${r.id}');
-                await helper.removeTask(event['id']);
+                await helper.removeTask(event['id'], withGaller: true);
               }
               return r;
             } catch (e) {
               logger.d('fetchGallery error $e');
-              await helper.removeTask(event['id']);
+              await helper.removeTask(event['id'], withGaller: true);
             }
             return null;
           })
           .filterNonNull()
-          .forEach((value) async {
+          .asyncMap((value) async {
             var b = filter(value);
+            // logger.d('filter $value $b');
+            if (b) {
+              b = await findDuplicateGalleryIds(value, helper, api,
+                      logger: logger)
+                  .then((value) => value.isEmpty);
+              // logger.d('findDuplicateGalleryIds $value $b');
+            }
             if (!b) {
               logger.d('delete task $value');
               value.createDir(config.output).delete(recursive: true);
-              await helper.removeTask(value.id);
+              await helper.removeTask(value.id, withGaller: true);
             } else {
-              downLoader.addTask(value);
+              return value;
             }
+          })
+          .filterNonNull()
+          .forEach((element) {
+            downLoader.addTask(element);
           });
     } else if (result['list']) {
       return downLoader.tasks;

@@ -345,7 +345,10 @@ class SqliteHelper {
     ]);
   }
 
-  Future<bool> removeTask(dynamic id) async {
+  Future<bool> removeTask(dynamic id, {bool withGaller = false}) async {
+    if (withGaller) {
+      deleteGallery(id);
+    }
     return excuteSqlAsync('delete from Tasks where id =?', [id]);
   }
 

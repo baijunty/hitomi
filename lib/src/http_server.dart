@@ -78,11 +78,14 @@ void run_server(TaskManager manager) async {
   // Use any available host or container IP (usually `0.0.0.0`).
   // Configure a pipeline that logs requests.
   final handler = Pipeline()
-      .addMiddleware(logRequests())
+      .addMiddleware(logRequests(
+          logger: (message, isError) =>
+              isError ? manager.logger.e(message) : manager.logger.d(message)))
       .addHandler(_TaskWarp(manager).router);
   // For running in containers, we respect the PORT environment variable.
   final socketPort = int.parse(Platform.environment['PORT'] ?? '7890');
   final servers = await serve(handler, InternetAddress.anyIPv6, socketPort);
   servers.autoCompress = true;
-  print('Server run on http://${servers.address.address}:${servers.port}');
+  manager.logger
+      .i('Server run on http://${servers.address.address}:${servers.port}');
 }

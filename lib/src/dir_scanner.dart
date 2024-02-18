@@ -238,13 +238,6 @@ class HitomiDir {
     return false;
   }
 
-  bool get tagIlleagal {
-    return gallery != null
-        ? _downLoader.containsIlleagalTags(
-            gallery!, _downLoader.config.excludes.keys.toList())
-        : false;
-  }
-
   Future<bool> compareWithOther(List<HitomiDir> others) async {
     var left = compareGallerWithOther(
         this.gallery!,
@@ -275,9 +268,12 @@ class HitomiDir {
   }
 
   Future<bool> fixGallery() async {
-    if (tagIlleagal || (gallery?.files.length ?? 20) < 18) {
-      return deleteGallery();
-    } else if (gallery != null) {
+    if (gallery != null) {
+      if (!_downLoader.illeagalTagsCheck(
+              gallery!, _downLoader.config.excludes.keys.toList()) ||
+          (gallery!.files.length) < 18) {
+        return deleteGallery();
+      }
       return _fixIllegalFiles()
           // .then((value) => _downLoader.helper.insertGallery(gallery!, dir.path))
           .then((value) => _downLoader.helper.querySql(

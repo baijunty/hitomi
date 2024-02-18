@@ -1,8 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:args/args.dart';
-import 'package:async/async.dart';
 import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/task_manager.dart';
 
@@ -46,27 +46,31 @@ void main(List<String> args) async {
   tasks?.forEach(
       (element) async => await (await pool.parseCommandAndRun(element.trim())));
   run_server(pool);
-  var len = await readIdFromFile().slices(5).asyncMap((event) async {
-    await Future.wait(event.map((e) => pool.parseCommandAndRun("-a \'$e\'")));
-  }).length;
-  print(len);
   getUserInputId().forEach((element) async {
     print(
         '\x1b[47;31madd command ${element.trim()} return ${await pool.parseCommandAndRun(element.trim())} \x1b[0m');
   });
+  // var already = File('already.txt');
+  // var writer = already.openWrite(mode: FileMode.append);
+  // var len = await already
+  //     .readAsLines()
+  //     .then((value) => readIdFromFile(value))
+  //     .asStream()
+  //     .expand((element) => element)
+  //     .asyncMap((event) async {
+  //   var succ = await pool.parseCommandAndRun("-a \'$event\'");
+  //   if (succ) {
+  //     writer.writeln(event);
+  //     await writer.flush();
+  //   }
+  // }).length;
+  // print(len);
 }
 
-Stream<String> readIdFromFile() {
-  var regex = RegExp(r'title: \((?<artist>.+?)\)');
-  return File('fix.log')
+Future<Iterable<String>> readIdFromFile(List<String> downed) {
+  return File('artist.txt')
       .readAsLines()
-      .then((value) => value.expand((e) => regex
-          .allMatches(e)
-          .map((element) => element.namedGroup('artist'))
-          .nonNulls))
-      .then((value) => value.toSet())
-      .asStream()
-      .expand((element) => element);
+      .then((event) => event.where((element) => !downed.contains(element)));
 }
 
 Stream<String> getUserInputId() {

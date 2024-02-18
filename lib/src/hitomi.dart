@@ -68,6 +68,7 @@ class _HitomiImpl implements Hitomi {
     _dio.httpClientAdapter = IOHttpClientAdapter(createHttpClient: () {
       return HttpClient()
         ..connectionTimeout = Duration(seconds: 60)
+        ..idleTimeout = Duration(seconds: 120)
         ..findProxy = (u) => (proxy == "DIRECT") ? 'DIRECT' : 'PROXY $proxy';
     });
     this.logger = logger;
@@ -103,10 +104,13 @@ class _HitomiImpl implements Hitomi {
     final id = gallery.id;
     final outPath = outPut;
     Directory dir = gallery.createDir(outPath);
-    bool illeagal = await _loopCallBack(TaskStartMessage(gallery, dir, gallery))
-        .catchError((e) => true, test: (error) => true);
-    if (illeagal) {
+    bool allow = await _loopCallBack(TaskStartMessage(gallery, dir, gallery))
+        .catchError((e) => false, test: (error) => true);
+    if (!allow) {
       logger?.w('${id} test fiald,skip');
+      if (dir.listSync().isEmpty) {
+        dir.deleteSync(recursive: true);
+      }
       await _loopCallBack(DownLoadFinished(gallery, gallery, dir, false));
       return false;
     }
@@ -542,7 +546,7 @@ class _HitomiImpl implements Hitomi {
         .map((e) => int.parse(e))
         .toList();
     galleries_index_version = await httpInvoke<String>(
-            'https://ltn.hitomi.la/galleriesindex/version?_=${DateTime.now().millisecondsSinceEpoch}')
+            'https://ltn.hitomi.la/tagindex/version?_=${DateTime.now().millisecondsSinceEpoch}')
         .then((value) => int.parse(value));
   }
 

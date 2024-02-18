@@ -90,7 +90,7 @@ sealed class Message<T> {
   }
 
   @override
-  bool operator ==(dynamic other) {
+  bool operator ==(Object other) {
     if (identical(other, this)) return true;
     if (other is! Message) return false;
     return other.id == id;

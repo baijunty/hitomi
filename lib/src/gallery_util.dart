@@ -16,10 +16,7 @@ List<int> searchSimilerGaller(
   int id = gallery.key;
   Set<int> searchSimiler(List<int> hashes) {
     return all.entries
-        .where((element) =>
-            element.key != id &&
-            element.value.any((hash) => hashes
-                .any((element) => compareHashDistance(hash, element) < 8)))
+        .where((element) => element.key != id)
         .map((e) => MapEntry(
             e.key,
             e.value.fold(
@@ -113,12 +110,16 @@ Future<List<int>> findDuplicateGalleryIds(
           ? await helper.queryImageHashsByLable(
               'groupes', gallery.groups!.first.name)
           : {};
-  logger?.d('${gallery.id} hash log length ${allFileHash.length}');
   if (allFileHash.isNotEmpty == true) {
+    // logger?.d('${gallery.id} hash log length ${allFileHash.length}');
     return fetchGalleryHash(gallery, helper, api, token)
         .then((value) => MapEntry(value.key.id, value.value))
         .then((value) => searchSimilerGaller(value, allFileHash,
-            logger: logger, skipTail: skipTail));
+            logger: logger, skipTail: skipTail))
+        .catchError((err) {
+      logger?.e(err);
+      return <int>[];
+    }, test: (error) => true);
   }
   return [];
 }
