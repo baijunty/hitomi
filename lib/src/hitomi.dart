@@ -9,6 +9,7 @@ import 'package:hitomi/gallery/language.dart';
 import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/dhash.dart';
 import 'package:logger/logger.dart';
+import 'package:path/path.dart';
 import 'package:tuple/tuple.dart';
 import 'package:collection/collection.dart';
 import '../gallery/gallery.dart';
@@ -22,16 +23,16 @@ abstract class Hitomi {
       {bool usePrefence = true, CancelToken? token});
   Future<Gallery> fetchGallery(dynamic id,
       {usePrefence = true, CancelToken? token});
-  Future<List<int>> search(List<Lable> include,
-      {List<Lable> exclude, int page = 1, CancelToken? token});
-  Future<List<int>> fetchIdsByTag(Lable tag,
+  Future<List<int>> search(List<Label> include,
+      {List<Label> exclude, int page = 1, CancelToken? token});
+  Future<List<int>> fetchIdsByTag(Label tag,
       {Language? language, CancelToken? token});
   Future<List<int>> downloadImage(String url, String refererUrl,
       {CancelToken? token});
   Future<List<List<dynamic>>> fetchTagsFromNet({CancelToken? token});
   String getThumbnailUrl(Image image,
       {ThumbnaiSize size = ThumbnaiSize.smaill, CancelToken? token});
-  Stream<Gallery> viewByTag(Lable tag, {int page = 1, CancelToken? token});
+  Stream<Gallery> viewByTag(Label tag, {int page = 1, CancelToken? token});
 
   Future<T> httpInvoke<T>(String url,
       {Map<String, dynamic>? headers = null,
@@ -50,6 +51,7 @@ class _HitomiImpl implements Hitomi {
   static final _codeExp = RegExp(r"b:\s+'(\d+)\/'$");
   static final _valueExp = RegExp(r"var\s+o\s+=\s+(\d);");
   int galleries_index_version = 0;
+  int tag_index_version = 0;
   late String code;
   late List<int> codes;
   late int index;
@@ -58,7 +60,7 @@ class _HitomiImpl implements Hitomi {
   static final _titleExp = zhAndJpCodeExp;
   static final _emptyList = const <int>[];
   Dio _dio = Dio();
-  final _cache = {};
+  final _cache = <Label, List<int>>{};
   final String outPut;
   Timer? _timer;
   Logger? logger;
@@ -115,12 +117,18 @@ class _HitomiImpl implements Hitomi {
       return false;
     }
     logger?.i('down $id to ${dir.path} ${dir.existsSync()}');
-    File(dir.path + '/' + 'meta.json').writeAsString(json.encode(gallery));
+    try {
+      File(join(dir.path, 'meta.json')).writeAsStringSync(json.encode(gallery));
+    } catch (e, stack) {
+      logger?.e('write json $e when $stack');
+      await _loopCallBack(DownLoadFinished(gallery, gallery, dir, false));
+      return false;
+    }
     final referer = 'https://hitomi.la${Uri.encodeFull(gallery.galleryurl!)}';
     final missImages = <Image>[];
     for (var i = 0; i < gallery.files.length; i++) {
       Image image = gallery.files[i];
-      final out = File(dir.path + '/' + image.name);
+      final out = File(join(dir.path, image.name));
       var b = await _loopCallBack(TaskStartMessage(gallery, out, image));
       if (b) {
         for (var j = 0; j < 3; j++) {
@@ -247,14 +255,14 @@ class _HitomiImpl implements Hitomi {
   Stream<Tuple2<Gallery, int>> _findSimilarGalleryBySearch(Gallery gallery,
       {CancelToken? token}) async* {
     await checkInit();
-    List<Lable> keys = gallery.title
+    List<Label> keys = gallery.title
         .toLowerCase()
         .split(_blank)
         .where((element) => _titleExp.hasMatch(element))
         .where((element) => element.isNotEmpty)
         .map((e) => QueryText(e))
         .take(6)
-        .fold(<Lable>[], (previousValue, element) {
+        .fold(<Label>[], (previousValue, element) {
       previousValue.add(element);
       return previousValue;
     });
@@ -287,8 +295,8 @@ class _HitomiImpl implements Hitomi {
   }
 
   @override
-  Future<List<int>> search(List<Lable> include,
-      {List<Lable> exclude = const [],
+  Future<List<int>> search(List<Label> include,
+      {List<Label> exclude = const [],
       int page = 1,
       usePrefence = true,
       CancelToken? token}) async {
@@ -297,7 +305,7 @@ class _HitomiImpl implements Hitomi {
     var includeIds =
         await Stream.fromIterable(typeMap.entries).asyncMap((element) async {
       return await Stream.fromIterable(element.value)
-          .asyncMap((e) async => e is Language
+          .asyncMap((e) async => e is Language || e is TypeLabel
               ? await getCacheIdsFromLang(e, token: token)
               : await fetchIdsByTag(e, token: token))
           .fold<Set<int>>(
@@ -332,7 +340,7 @@ class _HitomiImpl implements Hitomi {
   }
 
   @override
-  Future<List<int>> fetchIdsByTag(Lable tag,
+  Future<List<int>> fetchIdsByTag(Label tag,
       {Language? language, CancelToken? token}) {
     if (tag is QueryText) {
       return _fetchQuery(tag.name.toLowerCase(), token);
@@ -432,7 +440,7 @@ class _HitomiImpl implements Hitomi {
   }
 
   @override
-  Stream<Gallery> viewByTag(Lable tag,
+  Stream<Gallery> viewByTag(Label tag,
       {int page = 1, CancelToken? token}) async* {
     var referer = 'https://hitomi.la/${tag.urlEncode()}-all.html';
     if (page > 1) {
@@ -482,15 +490,15 @@ class _HitomiImpl implements Hitomi {
     return [];
   }
 
-  Future<List<int>> getCacheIdsFromLang(Lable lable,
+  Future<List<int>> getCacheIdsFromLang(Label label,
       {CancelToken? token}) async {
     await checkInit();
-    if (!_cache.containsKey(lable)) {
-      var result = await fetchIdsByTag(lable, token: token);
-      logger?.d('fetch label ${lable.name} result ${result.length}');
-      _cache[lable] = result;
+    if (!_cache.containsKey(label)) {
+      var result = await fetchIdsByTag(label, token: token);
+      logger?.d('fetch label ${label.name} result ${result.length}');
+      _cache[label] = result;
     }
-    return _cache[lable]!;
+    return _cache[label]!;
   }
 
   Future<T> httpInvoke<T>(String url,
@@ -546,6 +554,9 @@ class _HitomiImpl implements Hitomi {
         .map((e) => int.parse(e))
         .toList();
     galleries_index_version = await httpInvoke<String>(
+            'https://ltn.hitomi.la/galleriesindex/version?_=${DateTime.now().millisecondsSinceEpoch}')
+        .then((value) => int.parse(value));
+    tag_index_version = await httpInvoke<String>(
             'https://ltn.hitomi.la/tagindex/version?_=${DateTime.now().millisecondsSinceEpoch}')
         .then((value) => int.parse(value));
   }

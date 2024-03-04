@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:hitomi/gallery/label.dart';
 
-class Character with Lable {
+class Character with Label {
   final String character;
 
   Character({required this.character});

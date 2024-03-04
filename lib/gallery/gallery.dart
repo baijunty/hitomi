@@ -14,7 +14,7 @@ import 'language.dart';
 import 'parody.dart';
 import 'tag.dart';
 
-class Gallery with Lable {
+class Gallery with Label {
   static final zhNum = '零〇一二三四五六七八九十';
   static final chapterRex = RegExp(
       r'第?\s*(?<start>[零〇一二三四五六七八九十|\d]{1,})\s*-?\s*(?<end>[零〇一二三四五六七八九十|\d]*)\s*(?<unit>[章|回|话|話|編|巻|集]*)');
@@ -74,8 +74,8 @@ class Gallery with Lable {
     this.groups,
   });
 
-  List<Lable> lables() {
-    return <Lable>[]
+  List<Label> labels() {
+    return <Label>[]
       ..addAll(artists ?? [])
       ..addAll(tags ?? [])
       ..addAll(characters ?? [])
@@ -270,15 +270,22 @@ class Gallery with Lable {
     return '${(artists?.isNotEmpty ?? false) ? '(${artists!.first.name})' : ''}${name}';
   }
 
-  Directory createDir(String outPath) {
+  Directory createDir(String outPath, {bool createDir = true}) {
     String fullName = join(
         outPath,
         illegalCode.entries.fold(
             dirName,
             (previousValue, element) =>
                 previousValue!.replaceAll(element.key, element.value)));
-    var userName = fullName.substring(0, min(fullName.length, 256));
-    return Directory(userName)..createSync();
+    var userName = fullName.substring(0, min(fullName.length, 256)).trim();
+    if (userName.endsWith('.')) {
+      userName = userName.substring(0, userName.length - 1);
+    }
+    var dir = Directory(userName);
+    if (createDir) {
+      dir.createSync();
+    }
+    return dir;
   }
 
   @override

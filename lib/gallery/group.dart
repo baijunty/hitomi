@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:hitomi/gallery/label.dart';
 
-class Group with Lable {
+class Group with Label {
   final String group;
 
   Group({required this.group});
@@ -40,6 +40,9 @@ class Group with Lable {
 
   @override
   String get type => 'group';
+
+  @override
+  String get localSqlType => 'groupes';
 
   @override
   String get name => group;

@@ -33,8 +33,12 @@ class DirScanner {
         .asyncMap((event) async {
       return _downLoader.readGalleryFromPath(event.path).then((value) async {
         final useDir = value.createDir(_config.output);
-        if (path.basename(useDir.path) != path.basename(event.path)) {
-          print('rename ${value.id} from ${event.path} to ${useDir.path}');
+        if (!path
+            .basename(useDir.path)
+            .toLowerCase()
+            .endsWith(path.basename(event.path).toLowerCase())) {
+          print(
+              'rename ${value.id} path ${event.path} from ${path.basename(event.path)} to ${path.basename(useDir.path)}');
           return await useDir
               .delete(recursive: true)
               .then((v) => event.rename(v.path))
@@ -50,9 +54,9 @@ class DirScanner {
       }).catchError((e) {
         _downLoader.logger?.e('$event error $e');
         var dir = event as Directory;
-        if (dir.listSync().isEmpty) {
-          return HitomiDir(dir, _downLoader, null, manager);
-        }
+        // if (dir.listSync().isEmpty) {
+        //   return HitomiDir(dir, _downLoader, null, manager);
+        // }
         return _parseFromDir(event.path)
             .then((value) => HitomiDir(dir, _downLoader, value, manager));
       }, test: (error) => true);
@@ -66,7 +70,7 @@ class DirScanner {
       var id = event['id'];
       var dir = Directory(path.join(_downLoader.config.output, event['path']));
       return _downLoader.readGalleryFromPath(dir.path).then((value) async {
-        HitomiDir(dir, _downLoader, value, manager).fixGallery();
+        await HitomiDir(dir, _downLoader, value, manager).fixGallery();
         if (value.id.toString() != id.toString()) {
           _downLoader.logger?.i('db id $id found id ${value.id}');
           return await _helper.deleteGallery(id);
@@ -99,7 +103,7 @@ class DirScanner {
 
   Future<Map<int, List<int>>> _findDupByLaber(String type, String name) async {
     var r = _helper
-        .queryImageHashsByLable(type, name)
+        .queryImageHashsByLabel(type, name)
         .then((value) => value.entries.fold(
             <int, List<int>>{},
             (previousValue, element) => previousValue
@@ -147,7 +151,7 @@ class DirScanner {
   Future<Gallery?> _parseFromDir(String dir) async {
     final name = path.basename(dir);
     final match = titleReg.firstMatch(name);
-    final tags = <Lable>[];
+    final tags = <Label>[];
     MapEntry<String, String>? entry = null;
     var id = await _helper.querySql('select id from Gallery where path = ?',
         [dir]).then((value) => value.firstOrNull?['path']);
@@ -184,7 +188,7 @@ class DirScanner {
         .then((value) {
           if (value != null) {
             _downLoader.logger?.i('fix meta json ${value.name}');
-            File(dir + '/' + 'meta.json').writeAsString(json.encode(value));
+            File(path.join(dir, 'meta.json')).writeAsString(json.encode(value));
             return value;
           }
           return null;
@@ -220,20 +224,24 @@ class HitomiDir {
             ?.d('${gallery!.id} lost ${fileLost} redownload $result');
       }
       await dir
-          .listSync()
-          .where((element) =>
-              !files.contains(path.basename(element.path)) &&
-              path.extension(element.path) != '.json')
-          .asStream()
-          .asyncMap((element) {
-        try {
-          _downLoader.logger?.w('del file ${element.path}');
-          return element.delete();
-        } catch (e) {
-          _downLoader.logger?.e('del failed $e');
+          .list()
+          .map((e) => path.basename(e.path))
+          .takeWhile(
+              (element) => imageExtension.contains(path.extension(element)))
+          .where((element) => !files.any((f) => f.endsWith(element)))
+          .fold(<String>[], (previous, element) => previous..add(element)).then(
+              (value) async {
+        if ((value.isNotEmpty)) {
+          _downLoader.logger?.w('del ${dir.path} files ${value} from ${files}');
+          value.map((e) => File(path.join(dir.path, e))).forEach((element) {
+            element.deleteSync();
+          });
+          // return _downLoader.helper.excuteSqlMultiParams(
+          //     'delete from GalleryFile where gid =? and name=?',
+          //     value.map((e) => [gallery!.id, e]).toList());
         }
         return true;
-      }).length;
+      });
     }
     return false;
   }

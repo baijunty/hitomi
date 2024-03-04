@@ -12,7 +12,7 @@ import 'package:sqlite3/sqlite3.dart';
 
 class SqliteHelper {
   final String _dirPath;
-  static final _version = 5;
+  static final _version = 6;
   Logger? _logger = null;
   late Database _db;
   SqliteHelper(
@@ -46,8 +46,8 @@ class SqliteHelper {
         var data = json.decode(arguments[0].toString());
         if (data is Map<String, dynamic>) {
           if (arguments.length == 3) {
-            var value = data[arguments[1]].toString();
-            return value.contains(arguments[2].toString());
+            var value = data[arguments[2]].toString();
+            return value.contains(arguments[1].toString());
           } else {
             return data.values
                 .any((e) => e.toString().contains(arguments[1].toString()));
@@ -133,6 +133,7 @@ class SqliteHelper {
       title TEXT not NULL,
       tag TEXT,
       createDate TEXT,
+      type Text,
       date INTEGER,
       mark INTEGER default 0,
       length integer
@@ -162,6 +163,7 @@ class SqliteHelper {
       case 2:
       case 3:
         {
+          db.execute("drop table GalleryTemp ");
           db.execute("ALTER table Gallery rename to GalleryTemp");
           createTables(db);
           db.execute(
@@ -170,10 +172,20 @@ class SqliteHelper {
         }
       case 4:
         {
+          db.execute("drop table GalleryTemp ");
           db.execute("ALTER table Gallery rename to GalleryTemp");
           createTables(db);
           db.execute(
               """insert into  Gallery(id,path,artist,groupes,series,character,language,title,tag,createDate,date,mark,length) select id,path,author,groupes,serial,character,language,title,tags,createDate,date,mark,length from GalleryTemp""");
+          db.execute("drop table GalleryTemp");
+        }
+      case 5:
+        {
+          db.execute("drop table GalleryTemp ");
+          db.execute("ALTER table Gallery rename to GalleryTemp");
+          createTables(db);
+          db.execute(
+              """insert into  Gallery(id,path,artist,groupes,series,character,language,title,tag,createDate,type,date,mark,length) select id,path,artist,groupes,series,character,language,title,tag,createDate,null,date,mark,length from GalleryTemp""");
           db.execute("drop table GalleryTemp");
         }
     }
@@ -200,7 +212,7 @@ class SqliteHelper {
         params);
   }
 
-  Future<List<Lable>> fetchLablesFromSql(List<String> names) async {
+  Future<List<Label>> fetchLabelsFromSql(List<String> names) async {
     var sets = await selectSqlMultiResultAsync(
         'select * from Tags where name=? or translate=?',
         names.map((name) => [name.toLowerCase(), name.toLowerCase()]).toList());
@@ -227,7 +239,7 @@ class SqliteHelper {
         releaseOnce: false);
   }
 
-  Future<List<Lable>> mapToLabel(List<String> names) async {
+  Future<List<Label>> mapToLabel(List<String> names) async {
     var set = await selectSqlMultiResultAsync(
         'select * from Tags where name = ?', names.map((e) => [e]).toList());
     return names.map((e) {
@@ -259,7 +271,7 @@ class SqliteHelper {
 
   Future<bool> insertGallery(Gallery gallery, String path) async {
     return await excuteSqlAsync(
-        'replace into Gallery(id,path,artist,groupes,series,character,language,title,tag,createDate,date,mark,length) values(?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        'replace into Gallery(id,path,artist,groupes,series,character,language,title,tag,createDate,type,date,mark,length) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
         [
           gallery.id,
           basename(path),
@@ -284,20 +296,21 @@ class SqliteHelper {
                   .map((key, value) =>
                       MapEntry(key, value.map((e) => e.name).toList()))),
           gallery.date,
+          gallery.type,
           DateTime.now().millisecondsSinceEpoch,
           0,
           gallery.files.length
         ]);
   }
 
-  Future<ResultSet> queryGalleryByLabel(String type, Lable lable) async {
+  Future<ResultSet> queryGalleryByLabel(String type, Label label) async {
     return querySql(
         'select * from Gallery where json_value_contains($type,?,?)=1',
-        [lable.type, lable.name]);
+        [label.name, label.type]);
   }
 
-  Future<ResultSet> queryGalleryByTag(Lable lable) async {
-    return queryGalleryByLabel('tag', lable);
+  Future<ResultSet> queryGalleryByTag(Label label) async {
+    return queryGalleryByLabel('tag', label);
   }
 
   Future<ResultSet> queryGalleryById(dynamic id) async {
@@ -309,7 +322,7 @@ class SqliteHelper {
         '''select * from GalleryFile where gid=? order by name''', [id]);
   }
 
-  Future<Map<int, List<int>>> queryImageHashsByLable(String type, String name) {
+  Future<Map<int, List<int>>> queryImageHashsByLabel(String type, String name) {
     return querySqlByCursor(
         'select gf.gid,gf.fileHash,gf.name,g.path,g.length from Gallery g,json_each(g.${type}) ja left join GalleryFile gf on g.id=gf.gid where (json_valid(g.${type})=1 and ja.value = ? and gf.gid is not null) order by gf.gid,gf.name',
         [name]).fold(<int, List<int>>{}, (previous, element) {

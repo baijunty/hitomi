@@ -1,5 +1,5 @@
 {
-    "output": "d:manga",
+    "output": "d:\\manga",
     "proxy": "127.0.0.1:8389",
     "languages": [
         "japanese",

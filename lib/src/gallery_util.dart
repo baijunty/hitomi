@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'dart:typed_data';
 
+import 'package:async/async.dart';
 import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
 import 'package:hitomi/lib.dart';
@@ -72,31 +73,36 @@ Gallery compareGallerWithOther(
 
 Future<MapEntry<Gallery, List<int>>> fetchGalleryHash(
     Gallery gallery, SqliteHelper helper, Hitomi api,
-    [CancelToken? token]) async {
+    [CancelToken? token, bool fullHash = false]) async {
   return helper
       .queryImageHashsById(gallery.id)
       .then((value) => value.fold(<int>[],
           (previousValue, element) => previousValue..add(element['fileHash'])))
       .then((value) => MapEntry<Gallery, List<int>>(gallery, value))
-      .then((value) async => value.value.length < 15
-          ? await [
-              ...gallery.files.sublist(0, 5),
-              ...gallery.files.sublist(
-                  gallery.files.length ~/ 2 - 3, gallery.files.length ~/ 2 + 2),
-              ...gallery.files.sublist(
-                  max(gallery.files.length - 10, gallery.files.length ~/ 3 * 2),
-                  max(gallery.files.length - 10,
-                          gallery.files.length ~/ 3 * 2) +
-                      5)
-            ]
+      .then((value) async => value.value.length < 18
+          ? await (fullHash
+                  ? gallery.files
+                  : [
+                      ...gallery.files.sublist(0, 6),
+                      ...gallery.files.sublist(gallery.files.length ~/ 2 - 3,
+                          gallery.files.length ~/ 2 + 3),
+                      ...gallery.files.sublist(
+                          max(gallery.files.length - 10,
+                              gallery.files.length ~/ 3 * 2),
+                          max(gallery.files.length - 10,
+                                  gallery.files.length ~/ 3 * 2) +
+                              6)
+                    ])
               .map((el) => api.getThumbnailUrl(el))
               .asStream()
-              .asyncMap((event) => api.downloadImage(event,
-                  'https://hitomi.la${Uri.encodeFull(gallery.galleryurl!)}',
-                  token: token))
-              .asyncMap((event) => imageHash(Uint8List.fromList(event)))
-              .fold(<int>[], (previous, element) => previous..add(element)).then(
-                  (value) => MapEntry<Gallery, List<int>>(gallery, value))
+              .slices(5)
+              .asyncMap((list) => Future.wait(list.map((event) => api
+                  .downloadImage(
+                      event, 'https://hitomi.la${Uri.encodeFull(gallery.galleryurl!)}',
+                      token: token)
+                  .then((value) => imageHash(Uint8List.fromList(value)))
+                  .catchError((e) => 0, test: (error) => true))))
+              .fold(<int>[], (previous, element) => previous..addAll(element)).then((value) => MapEntry<Gallery, List<int>>(gallery, value))
           : value);
 }
 
@@ -104,10 +110,10 @@ Future<List<int>> findDuplicateGalleryIds(
     Gallery gallery, SqliteHelper helper, Hitomi api,
     {Logger? logger, bool skipTail = false, CancelToken? token}) async {
   Map<int, List<int>> allFileHash = gallery.artists != null
-      ? await helper.queryImageHashsByLable(
+      ? await helper.queryImageHashsByLabel(
           'artist', gallery.artists!.first.name)
       : gallery.groups != null
-          ? await helper.queryImageHashsByLable(
+          ? await helper.queryImageHashsByLabel(
               'groupes', gallery.groups!.first.name)
           : {};
   if (allFileHash.isNotEmpty == true) {

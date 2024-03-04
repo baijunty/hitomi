@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:hitomi/gallery/label.dart';
 
-class Artist with Lable {
+class Artist with Label {
   final String artist;
 
   Artist({required this.artist});

@@ -6,11 +6,12 @@ import '../gallery/group.dart';
 import '../gallery/parody.dart';
 import '../gallery/tag.dart';
 
-abstract mixin class Lable {
+abstract mixin class Label {
   String get type;
   String get name;
   String? translate;
   String get sqlType => type;
+  String get localSqlType => type;
   List<String> get params => [sqlType, name];
   Map<String, dynamic> toMap() => {
         'type': type,
@@ -31,12 +32,12 @@ abstract mixin class Lable {
   @override
   bool operator ==(Object other) {
     if (identical(other, this)) return true;
-    if (other is! Lable) return false;
+    if (other is! Label) return false;
     return this.type == other.type && this.name == other.name;
   }
 }
 
-Lable fromString(String type, String name) {
+Label fromString(String type, String name) {
   switch (type) {
     case 'female':
     case 'male':
@@ -61,7 +62,7 @@ Lable fromString(String type, String name) {
   }
 }
 
-class QueryText extends Lable {
+class QueryText extends Label {
   String text;
   QueryText(this.text);
   @override
@@ -70,7 +71,7 @@ class QueryText extends Lable {
   String get name => text;
 }
 
-class TypeLabel extends Lable {
+class TypeLabel extends Label {
   String typeName;
   TypeLabel(this.typeName);
   @override

@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:hitomi/gallery/label.dart';
 
-class Parody with Lable {
+class Parody with Label {
   final String parody;
 
   Parody({required this.parody});
@@ -49,6 +49,8 @@ class Parody with Lable {
   @override
   String get sqlType => 'parody';
 
+  @override
+  String get localSqlType => type;
   @override
   String get name => parody;
 }

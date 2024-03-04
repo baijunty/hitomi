@@ -1,10 +1,13 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:async/async.dart';
 import 'package:hitomi/gallery/label.dart';
 import 'package:hitomi/src/task_manager.dart';
+import 'package:path/path.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart';
 import 'package:shelf_router/shelf_router.dart';
+import 'package:sqlite3/common.dart';
 import 'package:tuple/tuple.dart';
 
 class _TaskWarp {
@@ -15,10 +18,13 @@ class _TaskWarp {
     router.post('/translate', _translate);
     router.post('/addTask', _addTask);
     router.post('/listTask', _listTask);
+    router.post('/localTag', _localTag);
+    router.get('/thumb/<gid>/<hash>', _thumb);
+    router.get('/image/<gid>/<hash>', _image);
     router.post('/excludes', (req) async {
       var succ = await _authToken(req);
       if (succ.item1) {
-        return Response.ok(json.encode(_manager.config.excludes),
+        return Response.ok(json.encode(_manager.config.excludes.keys.toList()),
             headers: {HttpHeaders.contentTypeHeader: 'application/json'});
       }
       return Response.unauthorized('unauth');
@@ -34,15 +40,68 @@ class _TaskWarp {
     return Tuple2(false, Map());
   }
 
+  Future<Response> _loadImageInner<T>(
+      Request req,
+      Future<MapEntry<String, T>?> Function(String id, String hash)
+          fetch) async {
+    var id = req.params['gid'];
+    var hash = req.params['hash'];
+    _manager.logger.d('req $id $hash');
+    if (id == null || hash == null || hash.length != 64) {
+      return Response.badRequest();
+    }
+    var before = req.headers['If-None-Match'];
+    if (before != null && before == hash) {
+      return Response.notModified();
+    }
+    var data = await fetch(id, hash);
+    if (data != null) {
+      var fileName = data.key;
+      return Response.ok(data.value, headers: {
+        HttpHeaders.contentTypeHeader:
+            'image/${extension(fileName).substring(1)}',
+        HttpHeaders.cacheControlHeader: 'public, max-age=259200',
+        HttpHeaders.etagHeader: hash,
+      });
+    }
+    return Response.notFound(null);
+  }
+
+  Future<Response> _thumb(Request req) async {
+    var fetch = (id, hash) => _manager.helper
+        .querySqlByCursor(
+            'select gf.thumb,gf.name from GalleryFile gf where gid=? and hash=?',
+            [
+              id,
+              hash
+            ])
+        .asyncMap((event) =>
+            MapEntry<String, List<int>>(event['name'], event['thumb']))
+        .firstOrNull;
+    return _loadImageInner<List<int>>(req, fetch);
+  }
+
+  Future<Response> _image(Request req) async {
+    var fetch = (id, hash) => _manager.helper.querySqlByCursor(
+            'select gf.name,g.path from Gallery g left join GalleryFile gf on g.id=gf.gid where gf.gid=? and gf.hash=?',
+            [id, hash]).asyncMap((event) async {
+          String fileName = event['name'];
+          String path = join(_manager.config.output, event['path'], fileName);
+          return MapEntry<String, Stream<List<int>>>(
+              fileName, File(path).openRead());
+        }).firstOrNull;
+    return _loadImageInner<Stream<List<int>>>(req, fetch);
+  }
+
   Future<Response> _translate(Request req) async {
     final task = await _authToken(req);
     if (task.item1) {
-      List<Lable> keys = (task.item2['tags'] as List<dynamic>)
+      Set<Label> keys = (task.item2['tags'] as List<dynamic>)
           .map((e) => e as Map<String, dynamic>)
           .map((e) => fromString(e['type'], e['name']))
-          .toList();
-      final r = await _manager.downLoader.translateLabel(keys).then((value) =>
-          value.fold(
+          .toSet();
+      final r = await _manager.downLoader.translateLabel(keys.toList()).then(
+          (value) => value.fold(
               <String, dynamic>{},
               (previousValue, element) =>
                   previousValue..[element.name] = element.translate));
@@ -56,8 +115,8 @@ class _TaskWarp {
   Future<Response> _addTask(Request req) async {
     final task = await _authToken(req);
     if (task.item1) {
-      bool r = await _manager.parseCommandAndRun(task.item2['task']);
-      return Response.ok("{success:$r}",
+      _manager.parseCommandAndRun(task.item2['task']);
+      return Response.ok("{success:true}",
           headers: {HttpHeaders.contentTypeHeader: 'application/json'});
     }
     return Response.unauthorized('unauth');
@@ -66,8 +125,32 @@ class _TaskWarp {
   Future<Response> _listTask(Request req) async {
     final task = await _authToken(req);
     if (task.item1) {
-      var r = await _manager.parseCommandAndRun('-l');
-      return Response.ok('{"success":true,"content":${json.encode(r)}}',
+      Map<String, dynamic> r = await _manager.parseCommandAndRun('-l');
+      r['success'] = true;
+      return Response.ok(json.encode(r),
+          headers: {HttpHeaders.contentTypeHeader: 'application/json'});
+    }
+    return Response.unauthorized('unauth');
+  }
+
+  Future<Response> _localTag(Request req) async {
+    final task = await _authToken(req);
+    if (task.item1) {
+      Map<String, dynamic> tag = (task.item2['tag'] as Map<String, dynamic>);
+      Label label = fromString(tag['type'], tag['name']);
+      ResultSet set =
+          await _manager.helper.queryGalleryByLabel(label.localSqlType, label);
+      final last = set.lastOrNull;
+      final r = {
+        'success': true,
+        'length': set.length,
+        'lastTitle': last?['title'],
+        'lastDate': last?['createDate'],
+        'lastUpdate': last == null
+            ? null
+            : DateTime.fromMillisecondsSinceEpoch(last['date']).toString()
+      };
+      return Response.ok(json.encode(r),
           headers: {HttpHeaders.contentTypeHeader: 'application/json'});
     }
     return Response.unauthorized('unauth');

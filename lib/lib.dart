@@ -144,3 +144,13 @@ class IlleagalGallery extends Message<int> {
 final zhAndJpCodeExp = RegExp(r'[\u0800-\u4e00|\u4e00-\u9fa5|30A0-30FF|\w]+');
 final blankExp = RegExp(r'\s+');
 final numberExp = RegExp(r'^\d+$');
+final imageExtension = [
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.webp',
+  '.bmp',
+  '.avif',
+  '.gif',
+  '.bmp'
+];

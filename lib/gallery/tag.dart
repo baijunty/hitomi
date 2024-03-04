@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:hitomi/gallery/label.dart';
 
-class Tag with Lable {
+class Tag with Label {
   final dynamic male;
   final String tag;
   final dynamic female;
@@ -69,6 +69,9 @@ class Tag with Lable {
 
   @override
   String get name => tag;
+
+  @override
+  String get localSqlType => 'tag';
 
   @override
   String urlEncode() {

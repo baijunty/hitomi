@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
+import 'package:hitomi/gallery/artist.dart';
 import 'package:hitomi/gallery/gallery.dart';
 import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/gallery_util.dart';
@@ -12,10 +13,13 @@ import 'package:sqlite3/sqlite3.dart';
 import 'package:test/test.dart';
 
 var config = UserConfig('d:manga',
-    proxy: '127.0.0.1:8389', languages: ['chinese', 'japanese'], maxTasks: 5);
+    proxy: '127.0.0.1:8389', languages: ['japanese', 'chinese'], maxTasks: 5);
+var task = TaskManager(config);
 void main() async {
   test('chapter', () async {
-    await readIdFromFile();
+    var r = await task.helper
+        .queryGalleryByLabel('artist', Artist(artist: 'yoshiki'));
+    print(r.length);
   });
 }
 
@@ -35,8 +39,8 @@ Future readIdFromFile() async {
 }
 
 Future<void> testThumbHash() async {
-  var task = TaskManager(config);
   var gallery = await task.api.fetchGallery(719417);
+  print(gallery);
   await findDuplicateGalleryIds(gallery, task.helper, task.api,
           logger: task.logger)
       .then((value) => print(value));
@@ -139,6 +143,6 @@ Future<void> galleryTest() async {
   var gallery = await File(config.output + '/(safi)美玲とみだらなラブイチャします/meta.json')
       .readAsString()
       .then((value) => Gallery.fromJson(value))
-      .then((value) => value.lables());
+      .then((value) => value.labels());
   print(gallery);
 }

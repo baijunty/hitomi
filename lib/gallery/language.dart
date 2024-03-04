@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:hitomi/gallery/label.dart';
 
-class Language with Lable {
+class Language with Label {
   static final chinese = Language(name: 'chinese');
   static final japanese = Language(name: 'japanese');
   static final english = Language(name: 'english');
@@ -18,7 +18,7 @@ class Language with Lable {
   });
 
   factory Language.fromMap(Map<String, dynamic> data) => Language(
-        galleryid: data['galleryid'] as String?,
+        galleryid: data['galleryid']?.toString(),
         languageLocalname: data['language_localname'] as String?,
         name: data['name'] as String,
       );
