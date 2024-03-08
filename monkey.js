@@ -47,6 +47,19 @@
         cursor: pointer;
         margin-left: 10px;
       }
+      .right-frame {
+        position: absolute;
+        transform: translateY(-50%);
+        background-color: #777;
+        height: auto;
+        right: 16px;
+        color: white;
+        padding: 10px 20px;
+        border-radius: 5px;
+        opacity: 1;
+        max-width:${(window.screen.width-1060)/2}px;
+        left:${document.querySelector('.container').offsetLeft+1060}px;
+    }
     .bottom-dialog{
         position: fixed;
         bottom: 20px;
@@ -110,6 +123,10 @@
         background-color:transparent;
         color:
         border-radius: 4px;
+      }
+
+      .hide{
+        display:none;
       }
       `)
     var remoteUrl = GM_getValue('hitomi_la_remote_url', '')
@@ -179,30 +196,43 @@
             }
         }
     }
+
+    let reg = new RegExp('\/(?<type>\\w+)\/(?<sex>(male|female))?:?(?<name>.+)-all')
+    function parseTagFromUrl(url){
+        let groups = reg.exec(url)
+        if (groups != null && groups.length) {
+            let namedGroup = groups.groups
+            var name = namedGroup['name']
+            var type=namedGroup['type']
+            if (namedGroup['sex'] != null) {
+                type = namedGroup['sex']
+            }
+            if(name=='loli'){
+                name='lolicon'
+            }
+            return [type,name]
+        }
+        return []
+    }
+
     function listTags(tags) {
-        let reg = new RegExp('\/(?<type>\\w+)\/(?<sex>(male|female))?:?(?<name>.+)-all')
         let enTags = []
         let transMap = new Map()
         for (const child of tags.children) {
             let a = child.children[0]
-            let groups = reg.exec(decodeURIComponent(a.getAttribute('href')))
-            if (groups != null && groups.length) {
-                let namedGroup = groups.groups
+            let url=decodeURIComponent(a.getAttribute('href'))
+            let [type,name]=parseTagFromUrl(url)
+            if(type!=null&&name!=null){
                 let map = new Map()
-                let name = namedGroup['name']
-                if (namedGroup['sex'] != null) {
-                    map['type'] = namedGroup['sex']
-                } else {
-                    map['type'] = namedGroup['type']
-                }
                 map['name'] = name
-                var list = transMap.get(name)
-                if (list == null) {
-                    list = []
-                    transMap.set(name, list)
-                }
+                map['type']=type
                 if (excludes.includes(name)) {
                     a.style = 'background: red;'
+                }
+                var list = transMap.get(url)
+                if (list == null) {
+                    list = []
+                    transMap.set(url, list)
                 }
                 list.push(a)
                 enTags.push(map)
@@ -219,12 +249,98 @@
         let respData = await fetchRemote({ path: 'translate', data: data, get: false })
         let resp = JSON.parse(respData)
         transMap.forEach(function (v, k) {
-            if (resp[k].toLowerCase() != k.toLowerCase()) {
-                for (const a of v) {
-                    a.innerText = `${resp[k]}(${k})`
+            for (const a of v) {
+                let [type, name] = parseTagFromUrl(k)
+                if (type != null && name != null) {
+                    let v = resp.find((obj)=>obj.type==type&&obj.name==name)
+                    if (v != null) {
+                        a.innerText = `${takeShowText(v['translate'])}(${name})`
+                        let intro = v['intro']
+                        if (intro != null&&intro.length||v.count!=null) {
+                            a.addEventListener('mouseover', () => {
+                                let extension = document.querySelector('#extension')
+                                extension.innerHTML = ''
+                                extension.style.cssText = `top:${a.getBoundingClientRect().y + document.documentElement.scrollTop}px`
+                                extension.classList.remove("hide")
+                                if(intro!=null&&intro.length){
+                                    extension.appendChild(covertHtml(intro))
+                                }
+                                if (v.count != null) {
+                                    let p = document.createElement('p')
+                                    p.innerText = `collected (${v.count}),last update at ${v.date}`
+                                    extension.appendChild(p)
+                                }
+                                // extension.appendChild(covertHtml(v['links']))
+                                a.addEventListener('mouseout', () => {
+                                    extension.classList.add("hide")
+                                });
+                            });
+                        }
+                    }
                 }
             }
         })
+        let [type, name] = parseTagFromUrl(decodeURIComponent(window.location.href))
+        if (type != null && name != null) {
+            let v=resp.find((obj)=>obj.type==type&&obj.name==name)
+            if (v != null) {
+                let top = document.querySelector('.top-content')
+                let info = document.createElement('div')
+                info.style.cssText = "display: inline-block;width:100%;background-color: #777;opacity:0.75"
+                document.querySelector('#artistname').innerText = `${name}(${v.count}) at ${v.date}`
+                info.appendChild(covertHtml(v['intro']))
+                info.appendChild(covertHtml(v['links']))
+                top.appendChild(info)
+            }
+        }
+    }
+    let urlReg = /!?\[(?<name>.*?)\]\(#*\s*\"?(?<url>\S+?)\"?\)/gm;
+    let imgExtension=['.jpg','.jpeg','.png','.webp','.bmp','.avif','.gif','.bmp']
+    function takeShowText(text) {
+        var array
+        var start=0
+        var title=''
+        while ((array = urlReg.exec(text)) != null) {
+            title+=text.slice(start,array.index)
+            start=array.index+array[0].length
+        }
+        title+=text.slice(start)
+        return title
+    }
+
+    function covertHtml(text) {
+        var array
+        let result=document.createElement('div')
+        result.style.cssText="color:white;max-width:960px;overflow-x:hidden;overflow-y:hidden"
+        var start=0
+        var title=''
+        while ((array = urlReg.exec(text)) != null) {
+            let url=array.groups.url
+            let name=array.groups.name
+            if(imgExtension.some((ext)=>url.endsWith(ext))){
+                let img=document.createElement('img')
+                img.src=url
+                img.style.cssText="width:128px;max-height:256px;margin:8px"
+                img.alt=name
+                result.appendChild(img)
+            } else{
+                let img=document.createElement('a')
+                img.style.cssText="margin:8px"
+                img.target = "_blank"
+                img.href=url
+                img.innerText=name
+                result.appendChild(img)
+            }
+            title+=text.slice(start,array.index).trim()
+            start=array.index+array[0].length
+        }
+        title+=text.slice(start).trim()
+        if(title.length){
+            let p=document.createElement('p')
+            p.innerText=title
+            result.appendChild(p)
+        }
+        return result
     }
 
     function appendTags([enTags, transMap], [et, es]) {
@@ -360,19 +476,6 @@
             appendTags([enTags, transMap], listTags(tags))
         }
         translateTag(enTags, transMap)
-        let taskIcon = document.createElement('div')
-        taskIcon.style.cssText = `position: fixed;bottom: 20px;left: 80%;`
-        taskIcon.innerHTML = `<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAACXBIWXMAAAsTAAALEwEAmpwYAAAClklEQVR4nO2YTU8TQRiAe8PLtt2d3V5NvENNE/+DxJNQK1gpYELLr5DEowqrgoofxS+k24JKuMHNi4lnOHiFxUs5+QvG7CwMO93ZnXfJlO1h3uRJemjS53nfdg/NZNSoUaNGjczRHnRuabPOsTbbxhfHYZnh0cLZWDYYtOkNV6u1RsUBM46blmR2msdXilZbPxIHJJTMSpbMclmnQC6QcIstgGAyyVwtii/igEGQzMUACIBLGvNbeHjrEF99/EuqZK72+ZwpFnGAcIu+pDG/iUe2XXzj5z8ScWHJqTg+hUgQEL1Jo97BxVP54s5fjBqb0iTzIT763PcRBgRFr9m/8cj3I4waHSrlvaby2y5GjbZ0yTyXDwRAwPkGPfmgKKq3Wfl6uy+S+UjWAAGBzfUKs/IOV7K0d0LeI4PS3gnOV9coehUUwG4SzTm4+MO/hMf1nWNfPmKLsgP0apNBGMA7tznXwsPfDgnea+i5g9vr3aRPU8B7rN9jEQeAv4/9k9RDvKMAAtKX1DkYk28J4gCuZPNSJY0YhAE8uSsLB3jo0R+fhYNYydKuzB9xFxuTbxgAAWGpoVBA9BblPoW62JhYZRAHAE4NPXfv9kJMrAJ4TUCnAALSl0RB7nq8oggDEgv2QRJF8hISwBOESyIJkiiKCiSAI8Y+hfZjJaU+hXa7GFVWsBkAEBA+tSdNAx7ux27Q+1CZAWZlmUEYIOXclTNWGEwuy3zunPGCQRyQ4PvYL0mTy3MCICB9STOAVQ7yDBAwAJJWDMKAQZC0CHaYcRsQMACSFmUpBCAgWvCyJK0ABcIiBRCQvmTBY6yXpwRhgFW23bQlCxFYY0/Ef6+b4/aoVV5y05IsxMhbtxdvCgPUqFGjRk0mwfwHCkQ7lEj2YiwAAAAASUVORK5CYII=">`
-        taskIcon.addEventListener('click', async function (e) {
-            let taskBar = document.querySelector("#taskBar")
-            if (taskBar == null) {
-                showTask()
-            } else {
-                document.body.removeChild(taskBar)
-            }
-            e.preventDefault()
-        })
-        document.body.appendChild(taskIcon)
     }
     function showDialog() {
         document.getElementById('dialog-background').open = true
@@ -436,18 +539,49 @@
         })
         ul.appendChild(setting)
     }
-    let reg = RegExp('\/(\\w+)\/(.+)-all.html')
-    let matcher = reg.exec(window.location.href)
-    if (matcher != null) {
-        let type = matcher[1]
-        let name = decodeURIComponent(matcher[2])
-        let resp= await fetchRemote({path: 'localTag', data: JSON.stringify({ auth: token, tag: {'type':type,'name':name}}), get: false }).then(value=>JSON.parse(value))
-        document.querySelector('#artistname').innerText=`${name}(${resp.length})`
-        let top=document.querySelector('.top-content')
-        top.childNodes.forEach(element=>element.remove())
-        let title=document.createElement('div')
-        top.appendChild(title)
-        title.style.cssText="width:100%;left:0px;display: flex;"
-        title.innerText=`lastTitle:${resp.lastTitle},lastDate:${resp.lastDate},lastUpdate:${resp.lastUpdate}`
-    }
+    let top = document.querySelector('.top-content')
+    top.childNodes.forEach(element => element.remove())
+    let extension = document.createElement('div');
+    extension.id="extension"
+    extension.className="right-frame"
+    extension.classList.add("right-frame","hide")
+    document.body.appendChild(extension);
+        let bottomMenu = document.createElement('div')
+        bottomMenu.style.cssText = `position: fixed;bottom: 20px;left: 80%;`
+        bottomMenu.innerHTML=`
+        <div style="display:grid">
+        <button id="scrollTop">
+         <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAACXBIWXMAAAsTAAALEwEAmpwYAAABhElEQVR4nN2VvU4CURCFv0CgEX0ACx9A6Kws/eklqNBZGo0Eo43PoPgC9AbfxMpKMGLAwkJ6g4miBeYm5yYT3GXvWnKSSXZn5s7Mnpm5C/OOPFAD2kAP+JD0pKvK51/YBV6ASYIMgEqawFng2gR4AE6BIrAgKUrXMX5NIBOSwAf/Ao4TDrliToCxzlyF0OKDb6T46k2TpBznlDecH5EedZ3txzW+ZjiPoiUPtCT5GLq6irEfleBWxkaEbRm4Mw29B1Yi/M5kv4lK8Czj6pR+HRhGjOdQNouSbG5P/mAkY8HoDk3zxno/AD6l+wEujP+i9KNZCZyTx0TyNlXtGvBq7B5Len8PpWgi7l0PZvUliKK2jG5DPVoJd42frKAmV2XsaOTSIgs8KsZeXDUDObj1T4uGWbRcnFPFTMxWiuDbwLfO7iQ5N02SegJdWVXug1+GVJPRrehHsKvmlbQjBT2fG8598KDr2qMsPpN+OP0QWuKQ08Xlxu5Jy+jEPTudm5bYhs4HfgGN1o3ytrKE/gAAAABJRU5ErkJggg=="/>
+          <p style="text-align: center;margin:0px;">顶部</p>
+          </button>
+           <button id="taskIcon" style="margin:8px 0px 0px 0px">
+          <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAACXBIWXMAAAsTAAALEwEAmpwYAAAAsklEQVR4nO2TwQ3CMAxF3xKJYBQYAnWN9gC70gMrsIV7CVJUFZKmdlAhT/Itrt93UmiUcwOeoa5UpgNkVhfNAZJZJ+C84ry6wAszgZjcj2zp3YeAFKz7NwS20ATkr67AA/23BDwwht6htoAD7qHvARwsBPqQ8lPyceGMisDwZkBquJqAm634mFi7usBS2lRyk0footSp5CYCsUTOcLPf0CfWbi6whiYgpVcgyrUfgQa1mABvie4DBGMStQAAAABJRU5ErkJggg=="
+          />
+          <p style="text-align: center;margin:0px;">任务</p>
+        </button>
+
+           <button id="scrollBottom" style="margin:8px 0px 0px 0px">
+         <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAACXBIWXMAAAsTAAALEwEAmpwYAAABiUlEQVR4nN2VTU4CQRCFv0AgMeLShRxBuICu/NtLUOEGRiPByC0UL8BWDR7DlR5AMGLQLQuX6ELcjOnkddIZujMzLnlJJ9NV1a+K11UNLDqKQBPoAyPgW2skW0Mx/8IB8AFECesdqGchzgPXDsEzcA5UgGWtimwDJ64L5NIksOQ/wGnCIVPMGTDTmas0sljy7Qy/esdJUgsFFR3NT8iOls6OQxffdDRPpaVHrqE4jvDgXs62Y7sBlgjDVNpz9hfiuPMFv8m57tgi4Akoe+LL8pkYi6r2Zk7m8CVnKZYgAj6BLce+CUwcv8WK9oZrDlM5TZDFsdMdM+19tniCaVqJDDZi1do1kY+0EvXlNBMaxyrw4JA/AmueuI78t74EDTkHarlQx/QCfW7OvIjj0JegqIcr0vhnRdsZtEIoqO5c3m4G8j3gV2f3k4K7TpJWQC6LvCq35JdpqsnpVbQXOtSEVjUjJX13HM0teaYnpiY9k/5wxmlkCaGgh8u8La+aULPMt7GZbgle6GLgD1GcjfQfQa4oAAAAAElFTkSuQmCC"/>
+          <p style="text-align: center;margin:0px;">底部</p>
+        </button>
+        </div>
+      `
+        document.body.appendChild(bottomMenu)
+        document.querySelector("#taskIcon").addEventListener('click', async function (e) {
+            let taskBar = document.querySelector("#taskBar")
+            if (taskBar == null) {
+                showTask()
+            } else {
+                document.body.removeChild(taskBar)
+            }
+            e.preventDefault()
+        })
+        document.querySelector("#scrollTop").addEventListener('click', async function (e) {
+            window.scrollTo({top: 0,left: 0,behavior: "smooth"});
+            e.preventDefault()
+        })
+        document.querySelector("#scrollBottom").addEventListener('click', async function (e) {
+            window.scrollTo({top: document.body.scrollHeight,behavior: "smooth"});
+            e.preventDefault()
+        })
 })();

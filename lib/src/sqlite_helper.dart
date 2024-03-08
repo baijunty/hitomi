@@ -12,7 +12,7 @@ import 'package:sqlite3/sqlite3.dart';
 
 class SqliteHelper {
   final String _dirPath;
-  static final _version = 6;
+  static final _version = 7;
   Logger? _logger = null;
   late Database _db;
   SqliteHelper(
@@ -120,6 +120,8 @@ class SqliteHelper {
       name TEXT NOT NULL,
       translate TEXT NOT NULL,
       intro TEXT NOT NULL,
+      links TEXT,
+      superior TEXT,
       CONSTRAINT tag UNIQUE (type,name)
       )''');
     db.execute('''create table if not exists Gallery(
@@ -188,6 +190,15 @@ class SqliteHelper {
               """insert into  Gallery(id,path,artist,groupes,series,character,language,title,tag,createDate,type,date,mark,length) select id,path,artist,groupes,series,character,language,title,tag,createDate,null,date,mark,length from GalleryTemp""");
           db.execute("drop table GalleryTemp");
         }
+      case 6:
+        {
+          db.execute("drop table TagsTemp ");
+          db.execute("ALTER table Tags rename to TagsTemp");
+          createTables(db);
+          db.execute(
+              """insert into  Tags(id,type,name,translate,intro,links,superior) select id,type,name,translate,intro,null,null from TagsTemp""");
+          db.execute("drop table TagsTemp");
+        }
     }
   }
 
@@ -208,7 +219,7 @@ class SqliteHelper {
 
   Future<bool> updateTagTable(List<List<dynamic>> params) async {
     return excuteSqlMultiParams(
-        'REPLACE INTO Tags(id,type,name,translate,intro) values(?,?,?,?,?)',
+        'REPLACE INTO Tags(id,type,name,translate,intro,links,superior) values(?,?,?,?,?,?,?)',
         params);
   }
 

@@ -13,40 +13,21 @@ import 'dhash.dart';
 
 List<int> searchSimilerGaller(
     MapEntry<int, List<int>> gallery, Map<int, List<int>> all,
-    {bool skipTail = false, Logger? logger}) {
-  int id = gallery.key;
-  Set<int> searchSimiler(List<int> hashes) {
-    return all.entries
-        .where((element) => element.key != id)
-        .map((e) => MapEntry(
-            e.key,
-            e.value.fold(
-                0,
-                (previousValue, element) =>
-                    hashes.any((hash) => compareHashDistance(hash, element) < 8)
-                        ? previousValue + 1
-                        : previousValue)))
-        .where((element) => element.value > hashes.length ~/ 2)
-        .map((e) => e.key)
-        .toSet();
-  }
-
-  var head = searchSimiler(gallery.value.sublist(0, 5));
-  var middle = searchSimiler(gallery.value
-      .sublist(gallery.value.length ~/ 2 - 3, gallery.value.length ~/ 2 + 2));
-  var tail = searchSimiler(gallery.value.sublist(
-      max(gallery.value.length - 10, gallery.value.length ~/ 3 * 2),
-      max(gallery.value.length - 10, gallery.value.length ~/ 3 * 2) + 5));
-  // logger?.d(
-  //     '${gallery.key} ${gallery.value.length} has $head $middle $tail ${all.length}');
-  var duplication = head
+    {Logger? logger, double threshold = 0.75}) {
+  return all.entries
       .where((element) =>
-          middle.contains(element) && (skipTail || tail.contains(element)))
-      .toSet();
-  if (duplication.isNotEmpty) {
-    logger?.d('$id skipTail $skipTail duplicate with $duplication');
-  }
-  return duplication.toList();
+          element.key != gallery.key &&
+          searchSimiler(gallery.value, element.value) > threshold)
+      .map((e) => e.key)
+      .toList();
+}
+
+double searchSimiler(List<int> hashes, List<int> other) {
+  return hashes
+          .where((element) =>
+              other.any((hash) => compareHashDistance(hash, element) < 8))
+          .length /
+      hashes.length;
 }
 
 Gallery compareGallerWithOther(
@@ -80,35 +61,41 @@ Future<MapEntry<Gallery, List<int>>> fetchGalleryHash(
           (previousValue, element) => previousValue..add(element['fileHash'])))
       .then((value) => MapEntry<Gallery, List<int>>(gallery, value))
       .then((value) async => value.value.length < 18
-          ? await (fullHash
-                  ? gallery.files
-                  : [
-                      ...gallery.files.sublist(0, 6),
-                      ...gallery.files.sublist(gallery.files.length ~/ 2 - 3,
-                          gallery.files.length ~/ 2 + 3),
-                      ...gallery.files.sublist(
-                          max(gallery.files.length - 10,
-                              gallery.files.length ~/ 3 * 2),
-                          max(gallery.files.length - 10,
-                                  gallery.files.length ~/ 3 * 2) +
-                              6)
-                    ])
-              .map((el) => api.getThumbnailUrl(el))
-              .asStream()
-              .slices(5)
-              .asyncMap((list) => Future.wait(list.map((event) => api
-                  .downloadImage(
-                      event, 'https://hitomi.la${Uri.encodeFull(gallery.galleryurl!)}',
-                      token: token)
-                  .then((value) => imageHash(Uint8List.fromList(value)))
-                  .catchError((e) => 0, test: (error) => true))))
-              .fold(<int>[], (previous, element) => previous..addAll(element)).then((value) => MapEntry<Gallery, List<int>>(gallery, value))
+          ? await fetchGalleryHashFromNet(gallery, api, token, fullHash)
           : value);
+}
+
+Future<MapEntry<Gallery, List<int>>> fetchGalleryHashFromNet(
+    Gallery gallery, Hitomi api,
+    [CancelToken? token, bool fullHash = false]) async {
+  return (fullHash
+          ? gallery.files
+          : [
+              ...gallery.files.sublist(0, 6),
+              ...gallery.files.sublist(
+                  gallery.files.length ~/ 2 - 3, gallery.files.length ~/ 2 + 3),
+              ...gallery.files.sublist(
+                  max(gallery.files.length - 10, gallery.files.length ~/ 3 * 2),
+                  max(gallery.files.length - 10,
+                          gallery.files.length ~/ 3 * 2) +
+                      6)
+            ])
+      .map((el) => api.getThumbnailUrl(el))
+      .asStream()
+      .slices(5)
+      .asyncMap((list) => Future.wait(list.map((event) => api
+          .downloadImage(
+              event, 'https://hitomi.la${Uri.encodeFull(gallery.galleryurl!)}',
+              token: token)
+          .then((value) => imageHash(Uint8List.fromList(value)))
+          .catchError((e) => 0, test: (error) => true))))
+      .fold(<int>[], (previous, element) => previous..addAll(element)).then(
+          (value) => MapEntry<Gallery, List<int>>(gallery, value));
 }
 
 Future<List<int>> findDuplicateGalleryIds(
     Gallery gallery, SqliteHelper helper, Hitomi api,
-    {Logger? logger, bool skipTail = false, CancelToken? token}) async {
+    {Logger? logger, CancelToken? token}) async {
   Map<int, List<int>> allFileHash = gallery.artists != null
       ? await helper.queryImageHashsByLabel(
           'artist', gallery.artists!.first.name)
@@ -120,8 +107,8 @@ Future<List<int>> findDuplicateGalleryIds(
     // logger?.d('${gallery.id} hash log length ${allFileHash.length}');
     return fetchGalleryHash(gallery, helper, api, token)
         .then((value) => MapEntry(value.key.id, value.value))
-        .then((value) => searchSimilerGaller(value, allFileHash,
-            logger: logger, skipTail: skipTail))
+        .then(
+            (value) => searchSimilerGaller(value, allFileHash, logger: logger))
         .catchError((err) {
       logger?.e(err);
       return <int>[];

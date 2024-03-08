@@ -32,13 +32,6 @@ Future<Uint8List?> resizeThumbImage(Uint8List data, int width,
   // }
 }
 
-Future<int> distance(List<int> data1, List<int> data2,
-    {ImageHash hash = ImageHash.AHash}) async {
-  final hash1 = await imageHash(Uint8List.fromList(data1), hash: hash);
-  final hash2 = await imageHash(Uint8List.fromList(data2), hash: hash);
-  return compareHashDistance(hash1, hash2);
-}
-
 int compareHashDistance(int hash1, int hash2) {
   int xor = hash1 ^ hash2;
   int distance = 0;

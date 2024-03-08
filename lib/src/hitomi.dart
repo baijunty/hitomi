@@ -1,13 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:async/async.dart';
 import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
 import 'package:hitomi/gallery/image.dart';
 import 'package:hitomi/gallery/label.dart';
 import 'package:hitomi/gallery/language.dart';
 import 'package:hitomi/lib.dart';
-import 'package:hitomi/src/dhash.dart';
+import 'package:hitomi/src/gallery_util.dart';
 import 'package:logger/logger.dart';
 import 'package:path/path.dart';
 import 'package:tuple/tuple.dart';
@@ -239,22 +240,18 @@ class _HitomiImpl implements Hitomi {
         }
       }
     } else if (!languages.any((element) => element == gallery.language)) {
-      final found =
-          await _findSimilarGalleryBySearch(gallery, token: token).toList();
-      if (found.isNotEmpty) {
-        found.sort((e1, e2) => e1.item2.compareTo(e2.item2));
-        logger?.d(
-            'use  ${found.first.item1.dirName} id ${found.first.item1.id} distance ${found.first.item2}');
-        return found.first.item1;
+      final found = await _findSimilarGalleryBySearch(gallery, token: token);
+      if (found != null) {
+        logger?.d('search similar from ${gallery} found  ${found}');
+        return found;
       }
       throw 'not found othere target language';
     }
     return gallery;
   }
 
-  Stream<Tuple2<Gallery, int>> _findSimilarGalleryBySearch(Gallery gallery,
-      {CancelToken? token}) async* {
-    await checkInit();
+  Future<Gallery?> _findSimilarGalleryBySearch(Gallery gallery,
+      {CancelToken? token}) async {
     List<Label> keys = gallery.title
         .toLowerCase()
         .split(_blank)
@@ -276,22 +273,16 @@ class _HitomiImpl implements Hitomi {
     }
     logger
         ?.d('search ${gallery.id} ${gallery.dirName} target language by $keys');
-    final ids = await search(keys, token: token);
-    final referer = 'https://hitomi.la${Uri.encodeFull(gallery.galleryurl!)}';
-    final url = getThumbnailUrl(gallery.files.first);
-    var data = await downloadImage(url, referer, token: token);
-    for (int id in ids) {
-      final g1 = await _fetchGalleryJsonById(id, token);
-      final thumbnail = await downloadImage(
-          getThumbnailUrl(g1.files.first), referer,
-          token: token);
-      final hamming_distance = await distance(data, thumbnail);
-      final langIndex =
-          languages.indexWhere((element) => element == g1.language);
-      if (hamming_distance <= 16 && langIndex >= 0) {
-        yield Tuple2(g1, hamming_distance + langIndex);
-      }
-    }
+    var data = await fetchGalleryHashFromNet(gallery, this, token, true)
+        .then((value) => value.value);
+    return search(keys, token: token)
+        .asStream()
+        .expand((element) => element)
+        .asyncMap((event) => _fetchGalleryJsonById(event, token))
+        .asyncMap((event) => fetchGalleryHashFromNet(event, this, token, true))
+        .where((event) => searchSimiler(data, event.value) > 0.75)
+        .map((event) => event.key)
+        .firstOrNull;
   }
 
   @override
@@ -463,7 +454,7 @@ class _HitomiImpl implements Hitomi {
     // Map<String, dynamic> author =
     //     (data['head'] as Map<String, dynamic>)['author'];
     final Map<String, dynamic> data = await httpInvoke<String>(
-            'https://github.com/EhTagTranslation/Database/releases/latest/download/db.text.json',
+            'https://github.com/EhTagTranslation/Database/releases/latest/download/db.raw.json',
             token: token)
         .then((value) => json.decode(value));
     if (data['data'] is List<dynamic>) {
@@ -481,7 +472,15 @@ class _HitomiImpl implements Hitomi {
           final name = element.key;
           final value = element.value as Map<String, dynamic>;
           return previousValue
-            ..add([null, key, name, value['name'], value['intro']]);
+            ..add([
+              null,
+              key,
+              name,
+              value['name'],
+              value['intro'],
+              value['links'],
+              null
+            ]);
         });
         return st;
       });

@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
-import 'package:hitomi/gallery/artist.dart';
 import 'package:hitomi/gallery/gallery.dart';
 import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/gallery_util.dart';
@@ -17,9 +16,7 @@ var config = UserConfig('d:manga',
 var task = TaskManager(config);
 void main() async {
   test('chapter', () async {
-    var r = await task.helper
-        .queryGalleryByLabel('artist', Artist(artist: 'yoshiki'));
-    print(r.length);
+    await testThumbHash([1239481, 1229670, 1237376]);
   });
 }
 
@@ -38,24 +35,20 @@ Future readIdFromFile() async {
   await writer.flush();
 }
 
-Future<void> testThumbHash() async {
-  var gallery = await task.api.fetchGallery(719417);
-  print(gallery);
-  await findDuplicateGalleryIds(gallery, task.helper, task.api,
-          logger: task.logger)
-      .then((value) => print(value));
-  // await task.downLoader.fetchGalleryFromIds([1503421, 1261783, 2240431],
-  //     task.filter, CancelToken(), null).then((value) => print(value.toList()));
-  // await task.api
-  //     .fetchGallery(1552982, usePrefence: false)
-  //     .then((gallery) => task.downLoader.fetchGalleryHashs(gallery))
-  //     .then((value) async {
-  //   await task.helper.queryImageHashsByLable('artist', 'uno ryoku').then((all) {
-  //     print('$value compare ${all[2415675]}');
-  //     return task.downLoader
-  //         .findSimilerGaller(MapEntry(value.key.id, value.value), all);
-  //   }).then((value) => print(value));
-  // });
+Future<void> testThumbHash(List<int> ids) async {
+  await Future.wait(
+          ids.map((e) => task.api.fetchGallery(e, usePrefence: false)))
+      .asStream()
+      .expand((element) {
+        return element;
+      })
+      .asyncMap((gallery) => fetchGalleryHash(gallery, task.helper, task.api))
+      .map((event) => MapEntry(event.key.id, event.value))
+      .fold(<int, List<int>>{}, (previousValue, element) {
+        task.logger.i(
+            '${element.key} len ${element.value.length} found ${searchSimilerGaller(element, previousValue, logger: task.logger)} with ${previousValue.length}');
+        return previousValue..[element.key] = element.value;
+      });
 }
 
 Future<void> testHttpServer() async {

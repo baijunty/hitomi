@@ -1,24 +1,27 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:async/async.dart';
+import 'package:collection/collection.dart';
+import 'package:dcache/dcache.dart';
 import 'package:hitomi/gallery/label.dart';
+import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/task_manager.dart';
 import 'package:path/path.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart';
 import 'package:shelf_router/shelf_router.dart';
-import 'package:sqlite3/common.dart';
 import 'package:tuple/tuple.dart';
 
 class _TaskWarp {
   final TaskManager _manager;
+  final _cache = SimpleCache<Label, MapEntry<int, String>?>(
+      storage: InMemoryStorage(1024));
   final Router router = Router();
   _TaskWarp(this._manager) {
     router.get('/', (req) => Response.ok('ok'));
     router.post('/translate', _translate);
     router.post('/addTask', _addTask);
     router.post('/listTask', _listTask);
-    router.post('/localTag', _localTag);
     router.get('/thumb/<gid>/<hash>', _thumb);
     router.get('/image/<gid>/<hash>', _image);
     router.post('/excludes', (req) async {
@@ -99,17 +102,56 @@ class _TaskWarp {
       Set<Label> keys = (task.item2['tags'] as List<dynamic>)
           .map((e) => e as Map<String, dynamic>)
           .map((e) => fromString(e['type'], e['name']))
+          .where((element) => element.runtimeType != QueryText)
           .toSet();
-      final r = await _manager.downLoader.translateLabel(keys.toList()).then(
-          (value) => value.fold(
-              <String, dynamic>{},
-              (previousValue, element) =>
-                  previousValue..[element.name] = element.translate));
-      r['success'] = true;
+      ;
+      final r = await _collectionTags(keys.toList());
       return Response.ok(json.encode(r),
           headers: {HttpHeaders.contentTypeHeader: 'application/json'});
     }
     return Response.unauthorized('unauth');
+  }
+
+  Future<List<Map<String, dynamic>>> _collectionTags(List<Label> keys) async {
+    await keys
+        .where((element) => !_cache.containsKey(element))
+        .groupListsBy((element) => element.localSqlType)
+        .entries
+        .asStream()
+        .forEach((entry) async {
+      await _manager.helper
+          .selectSqlMultiResultAsync(
+              'select count(1) as count,date as date from Gallery where json_value_contains(${entry.key},?,?)=1',
+              entry.value.map((e) => [e.name, e.type]).toList())
+          .then((value) {
+        return value.entries.fold(_cache, (previousValue, element) {
+          final row = element.value.firstOrNull;
+          if (row != null && row['date'] != null) {
+            previousValue[fromString(element.key[1], element.key[0])] =
+                MapEntry(
+                    row['count'],
+                    DateTime.fromMillisecondsSinceEpoch(row['date'])
+                        .toString());
+          }
+          return previousValue;
+        });
+      });
+    });
+    final r = await _manager.downLoader
+        .translateLabel(keys)
+        .then((value) => value.entries.map((entry) {
+              var key = entry.key;
+              var value = entry.value;
+              final cache = _cache[key];
+              if (cache != null) {
+                value['count'] = cache.key;
+                value['date'] = cache.value;
+              }
+              value['type'] = key.type;
+              value['name'] = key.name;
+              return value;
+            }).toList());
+    return r;
   }
 
   Future<Response> _addTask(Request req) async {
@@ -127,29 +169,6 @@ class _TaskWarp {
     if (task.item1) {
       Map<String, dynamic> r = await _manager.parseCommandAndRun('-l');
       r['success'] = true;
-      return Response.ok(json.encode(r),
-          headers: {HttpHeaders.contentTypeHeader: 'application/json'});
-    }
-    return Response.unauthorized('unauth');
-  }
-
-  Future<Response> _localTag(Request req) async {
-    final task = await _authToken(req);
-    if (task.item1) {
-      Map<String, dynamic> tag = (task.item2['tag'] as Map<String, dynamic>);
-      Label label = fromString(tag['type'], tag['name']);
-      ResultSet set =
-          await _manager.helper.queryGalleryByLabel(label.localSqlType, label);
-      final last = set.lastOrNull;
-      final r = {
-        'success': true,
-        'length': set.length,
-        'lastTitle': last?['title'],
-        'lastDate': last?['createDate'],
-        'lastUpdate': last == null
-            ? null
-            : DateTime.fromMillisecondsSinceEpoch(last['date']).toString()
-      };
       return Response.ok(json.encode(r),
           headers: {HttpHeaders.contentTypeHeader: 'application/json'});
     }

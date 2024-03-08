@@ -19,7 +19,8 @@ import 'gallery_util.dart';
 import 'sqlite_helper.dart';
 
 class DownLoader {
-  final _cache = SimpleCache(storage: InMemoryStorage(1024));
+  final _cache =
+      SimpleCache<Label, Map<String, dynamic>>(storage: InMemoryStorage(1024));
   final UserConfig config;
   final Hitomi api;
   final Set<IdentifyToken> _pendingTask = <IdentifyToken>{};
@@ -112,19 +113,22 @@ class DownLoader {
     api.registerGallery(handle);
   }
 
-  Future<List<Label>> translateLabel(List<Label> keys) async {
+  Future<Map<Label, Map<String, dynamic>>> translateLabel(
+      List<Label> keys) async {
     var missed =
         keys.groupListsBy((element) => _cache[element] != null)[false] ?? [];
     if (missed.isNotEmpty) {
       var result = await helper.selectSqlMultiResultAsync(
-          'select translate from Tags where type=? and name=?',
+          'select translate,intro,links from Tags where type=? and name=?',
           missed.map((e) => e.params).toList());
       missed.fold(_cache, (previousValue, element) {
         final v = result.entries
             .firstWhereOrNull((e) => e.key.equals(element.params))
             ?.value
-            .firstOrNull?['translate'];
-        previousValue[element] = v;
+            .firstOrNull;
+        if (v != null) {
+          previousValue[element] = v.map((key, value) => MapEntry(key, value));
+        }
         return previousValue;
       });
     }
@@ -136,15 +140,16 @@ class DownLoader {
                   'https://translate.googleapis.com/translate_a/t?client=dict-chrome-ex&sl=auto&tl=zh&q=${event.name}')
               .then((value) {
             final v = value[0][0] as String;
-            _cache[event] = v;
+            _cache[event] = {'translate': v};
             logger?.d('${event.name} translate to $v');
             return v;
           })));
     }
-    keys.forEach((element) {
-      element.translate = _cache[element];
-    });
-    return keys;
+    final r = keys.fold(
+        <Label, Map<String, dynamic>>{},
+        (previousValue, element) =>
+            previousValue..[element] = _cache[element]!);
+    return r;
   }
 
   Future<bool> _findUnCompleteGallery(Gallery gallery, Directory newDir) async {
@@ -156,8 +161,7 @@ class DownLoader {
             (newDir.listSync().length - 1) != value.files.length;
       }).catchError((e) => true, test: (error) => true);
     } else
-      return findDuplicateGalleryIds(gallery, helper, api,
-              logger: logger, skipTail: false)
+      return findDuplicateGalleryIds(gallery, helper, api, logger: logger)
           .then((value) {
         if (value.isNotEmpty) {
           logger?.i('found duplicate with $value');
@@ -309,19 +313,33 @@ class DownLoader {
               })
               .filterNonNull()
               .where((event) => where(event))
-              .fold(
-                  <Gallery>[], (previous, element) => previous..add(element)));
+              .fold(<Gallery>[], (previous, element) {
+                if (previous.any((pre) =>
+                    pre.languages?.any((lang) =>
+                            lang.galleryid == element.id.toString() &&
+                            max(0, config.languages.indexOf(lang.name)) <=
+                                max(
+                                    0,
+                                    config.languages
+                                        .indexOf(element.language!))) ==
+                        true &&
+                    (pre.files.length - element.files.length).abs() < 4)) {
+                  return previous;
+                }
+                return previous..add(element);
+              }));
     }
     return [];
   }
 
-  Future<List<Gallery>> filterGallery(List<Gallery> list, CancelToken token,
-      MapEntry<String, String>? entry) async {
+  Future<List<Gallery>> filterGalleryByImageHash(List<Gallery> list,
+      CancelToken token, MapEntry<String, String>? entry) async {
     Map<int, List<int>> allHash = entry != null
         ? await helper.queryImageHashsByLabel(entry.key, entry.value)
         : {};
     logger?.d('ids ${list.length} $entry found ${allHash.keys.toList()} in db');
     list.removeWhere((element) => allHash.keys.contains(element.id));
+    list.sort((e1, e2) => e2.files.length - e1.files.length);
     return list
         .asStream()
         .where((event) =>
@@ -330,42 +348,32 @@ class DownLoader {
         .where((event) => searchSimilerGaller(
                 MapEntry(event.key.id, event.value), allHash, logger: logger)
             .isEmpty)
-        .fold(<int, List<int>>{},
-            (previous, element) => previous..[element.key.id] = element.value)
-        .then((value) => value.entries.toList())
-        .then((downHash) {
-          downHash.sort((e1, e2) => e2.value.length - e1.value.length);
-          logger?.d(' ${downHash.map((e) => e.key).toList()} not in local max ${downHash.firstOrNull?.value.length} min ${downHash.lastOrNull?.value.length}');
-          return downHash.fold(<int, List<int>>{}, (previous, element) {
-            var duplicate =
-                searchSimilerGaller(element, previous, logger: logger);
-            logger?.d('${element.key} found dup $duplicate ${previous.length}');
-            if (duplicate.isEmpty) {
-              previous[element.key] = element.value;
-            } else {
-              var compare = duplicate
-                  .map((event) =>
-                      list.firstWhere((element) => element.id == event))
-                  .toList();
-              var useGallery = compareGallerWithOther(
-                  list.firstWhere((event) => event.id == element.key),
-                  compare,
-                  config.languages,
-                  logger);
-              if (useGallery.id == element.key) {
-                previous[useGallery.id] = element.value;
-                previous.removeWhere((key, value) => duplicate.contains(key));
-              } else {
-                previous.remove(useGallery.id);
-                previous[useGallery.id] = downHash
-                    .firstWhere((element) => element.key == useGallery.id)
-                    .value;
-              }
-              logger?.d(
-                  ' ${element.key} find similer $duplicate use ${useGallery} left ${previous.length}');
+        .fold(<int, List<int>>{}, (previous, element) {
+          var duplicate = searchSimilerGaller(
+              MapEntry(element.key.id, element.value), previous,
+              logger: logger);
+          logger?.d('${entry} scan ${element.key.id} count ${previous.length}');
+          if (duplicate.isEmpty) {
+            previous[element.key.id] = element.value;
+          } else {
+            var compare = duplicate
+                .map((event) =>
+                    list.firstWhere((element) => element.id == event))
+                .toList();
+            var useGallery = compareGallerWithOther(
+                element.key, compare, config.languages, logger);
+            if (useGallery.id == element.key.id) {
+              previous[useGallery.id] = element.value;
+              previous.removeWhere((key, value) => duplicate.contains(key));
             }
-            return previous;
-          }).keys;
+            logger?.d(
+                '${element.key} found ${duplicate} use ${useGallery} count ${previous.length}');
+          }
+          return previous;
+        })
+        .then((downHash) {
+          logger?.d('${downHash.length} not in local');
+          return downHash.keys;
         })
         .then((value) => value
             .map((event) => list.firstWhere((element) => element.id == event))
@@ -423,7 +431,7 @@ class DownLoader {
     return await api
         .search(tags, exclude: exclude)
         .then((value) => fetchGalleryFromIds(value, where, token))
-        .then((value) => filterGallery(value, token, entry))
+        .then((value) => filterGalleryByImageHash(value, token, entry))
         .catchError((e) async {
       logger?.e('$tags catch error $e');
       return fetchGallerysByTags(tags, where, token, entry);

@@ -349,8 +349,8 @@ class TaskManager {
                   (e) => {'href': '/${e.urlEncode()}-all.html', 'name': e.name})
               .toList(),
           "downTask": downLoader.tasks
-              .map(
-                  (t) => {'href': t.gallery.galleryurl, 'name': t.gallery.name})
+              .map((t) =>
+                  {'href': t.gallery.galleryurl, 'name': t.gallery.dirName})
               .toList()
         };
       }

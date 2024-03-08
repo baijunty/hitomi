@@ -9,7 +9,6 @@ import '../gallery/tag.dart';
 abstract mixin class Label {
   String get type;
   String get name;
-  String? translate;
   String get sqlType => type;
   String get localSqlType => type;
   List<String> get params => [sqlType, name];
