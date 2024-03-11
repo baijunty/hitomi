@@ -11,7 +11,7 @@ import 'package:hitomi/src/dhash.dart';
 import 'package:hitomi/src/downloader.dart';
 import 'package:isolate_manager/isolate_manager.dart';
 import 'package:path/path.dart' as path;
-import 'package:sqlite3/sqlite3.dart';
+import 'package:sqlite3/common.dart';
 
 import '../gallery/gallery.dart';
 import '../gallery/language.dart';
@@ -31,7 +31,7 @@ class DirScanner {
         .list()
         .where((event) => event is Directory)
         .asyncMap((event) async {
-      return _downLoader.readGalleryFromPath(event.path).then((value) async {
+      return readGalleryFromPath(event.path).then((value) async {
         final useDir = value.createDir(_config.output);
         if (!path
             .basename(useDir.path)
@@ -69,7 +69,7 @@ class DirScanner {
         .asyncMap((event) {
       var id = event['id'];
       var dir = Directory(path.join(_downLoader.config.output, event['path']));
-      return _downLoader.readGalleryFromPath(dir.path).then((value) async {
+      return readGalleryFromPath(dir.path).then((value) async {
         await HitomiDir(dir, _downLoader, value, manager).fixGallery();
         if (value.id.toString() != id.toString()) {
           _downLoader.logger?.i('db id $id found id ${value.id}');
@@ -136,8 +136,7 @@ class DirScanner {
             Directory(path.join(_config.output, event.value['path']))))
         .where((event) => event.value.existsSync())
         .asyncMap((event) async {
-      return _downLoader
-          .readGalleryFromPath(event.value.path)
+      return readGalleryFromPath(event.value.path)
           .then((value) => HitomiDir(event.value, _downLoader, value, manager))
           .then((value) => MapEntry(event.key, value));
     }).fold(<int, HitomiDir>{},

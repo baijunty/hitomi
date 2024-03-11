@@ -3,12 +3,12 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
+import 'package:hitomi/gallery/artist.dart';
 import 'package:hitomi/gallery/gallery.dart';
+import 'package:hitomi/gallery/label.dart';
 import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/gallery_util.dart';
 import 'package:hitomi/src/sqlite_helper.dart';
-import 'package:hitomi/src/task_manager.dart';
-import 'package:sqlite3/sqlite3.dart';
 import 'package:test/test.dart';
 
 var config = UserConfig('d:manga',
@@ -16,8 +16,8 @@ var config = UserConfig('d:manga',
 var task = TaskManager(config);
 void main() async {
   test('chapter', () async {
-    await testThumbHash([1239481, 1229670, 1237376]);
-  });
+    await testLocalDb(false);
+  }, timeout: Timeout(Duration(minutes: 2)));
 }
 
 Future readIdFromFile() async {
@@ -33,6 +33,13 @@ Future readIdFromFile() async {
   var writer = value.fold(File('artist.txt').openWrite(),
       (previousValue, element) => previousValue..writeln(element));
   await writer.flush();
+}
+
+Future<void> testLocalDb(bool local) async {
+  final api = Hitomi.fromPrefenerce(task, localDb: local);
+  await api.search([QueryText('青春'), Artist(artist: 'nagase tooru')]).then(
+      (value) => print(value));
+  await api.viewByTag(QueryText(''), page: 1).forEach((value) => print(value));
 }
 
 Future<void> testThumbHash(List<int> ids) async {
@@ -105,28 +112,18 @@ Future<Gallery> getGalleryInfoFromFile(String name) async {
   if (file.existsSync()) {
     return Gallery.fromJson(file.readAsStringSync());
   }
-  return Hitomi.fromPrefenerce(config.output, config.languages,
-          proxy: config.proxy)
-      .fetchGallery(name, usePrefence: false);
-}
-
-Future<Row?> testSqlHelper() async {
-  final helper = SqliteHelper('/home/bai/ssd/photos');
-  return helper
-      .querySql('''SELECT json_key_contains(g.tags,'female') as key,json_value_contains(g.tags,'stockings') as value FROM Gallery g where id=756207''').then(
-          (value) => value.firstOrNull);
+  return Hitomi.fromPrefenerce(task).fetchGallery(name, usePrefence: false);
 }
 
 Future<void> testImageDownload() async {
   var token = CancelToken();
-  var task = Hitomi.fromPrefenerce(config.output, config.languages,
-      proxy: config.proxy);
-  var gallery = await task.fetchGallery('1467596');
+  var api = Hitomi.fromPrefenerce(task);
+  var gallery = await api.fetchGallery('1467596');
   Directory('${config.output}/${gallery.dirName}').deleteSync(recursive: true);
-  task.downloadImages(gallery, token: token);
+  api.downloadImages(gallery, token: token);
   await Future.delayed(Duration(seconds: 1));
   token.cancel();
-  task.downloadImages(gallery, token: token);
+  api.downloadImages(gallery, token: token);
   await Future.delayed(Duration(seconds: 6));
   token.cancel();
   await Future.delayed(Duration(seconds: 20));

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:args/args.dart';
 import 'package:dio/dio.dart';
@@ -18,6 +19,7 @@ import '../gallery/gallery.dart';
 import '../gallery/language.dart';
 import 'dhash.dart';
 import 'dir_scanner.dart';
+import 'multi_paltform.dart';
 
 @pragma('vm:entry-point')
 Future<MapEntry<int, List<int>?>> _compressRunner(String imagePath) async {
@@ -40,6 +42,7 @@ class TaskManager {
   late Hitomi api;
   late DateTime limit = DateTime.parse(config.dateLimit);
   late Logger logger;
+  final Dio dio = Dio();
   final _tasks = <Label>{};
   late IsolateManager<MapEntry<int, List<int>?>, String> manager;
   late bool Function(Gallery) filter = (Gallery gallery) =>
@@ -79,8 +82,7 @@ class TaskManager {
             printEmojis: false,
             printTime: false,
             noBoxingByDefault: true));
-    api = Hitomi.fromPrefenerce(config.output, config.languages,
-        proxy: config.proxy, logger: logger);
+    api = Hitomi.fromPrefenerce(this);
     helper = SqliteHelper(config.output, logger: logger);
     manager = IsolateManager<MapEntry<int, List<int>?>, String>.create(
         _compressRunner,
@@ -90,7 +92,9 @@ class TaskManager {
         api: api,
         helper: helper,
         manager: this.manager,
-        logger: logger);
+        logger: logger,
+        dio: dio);
+    dio.httpClientAdapter = crateHttpClientAdapter(config.proxy);
     _parser = ArgParser()
       ..addFlag('fix')
       ..addFlag('fixDb')
@@ -106,6 +110,48 @@ class TaskManager {
 
   void cancel() {
     downLoader.cancelAll();
+  }
+
+  Future<List<List<dynamic>>> fetchTagsFromNet({CancelToken? token}) async {
+    // var rows = _db.select(
+    //     'select intro from Tags where type=? by intro desc', ['author']);
+    // Map<String, dynamic> author =
+    //     (data['head'] as Map<String, dynamic>)['author'];
+    final Map<String, dynamic> data = await dio
+        .httpInvoke<String>(
+            'https://github.com/EhTagTranslation/Database/releases/latest/download/db.raw.json',
+            token: token)
+        .then((value) => json.decode(value));
+    if (data['data'] is List<dynamic>) {
+      var rows = data['data'] as List<dynamic>;
+      var params = rows
+          .sublist(1)
+          .map((e) => e as Map<String, dynamic>)
+          .map((e) => MapEntry(
+              e['namespace'] as String, e['data'] as Map<String, dynamic>))
+          .fold<List<List<dynamic>>>([], (st, e) {
+        final key = ['mixed', 'other', 'cosplayer', 'temp'].contains(e.key)
+            ? 'tag'
+            : e.key.replaceAll('reclass', 'type');
+        e.value.entries.fold<List<List<dynamic>>>(st, (previousValue, element) {
+          final name = element.key;
+          final value = element.value as Map<String, dynamic>;
+          return previousValue
+            ..add([
+              null,
+              key,
+              name,
+              value['name'],
+              value['intro'],
+              value['links'],
+              null
+            ]);
+        });
+        return st;
+      });
+      return params;
+    }
+    return [];
   }
 
   List<String> _parseArgs(String cmd) {
@@ -156,8 +202,8 @@ class TaskManager {
       }
       await galleryQuery
           .asStream()
-          .asyncMap((event) => downLoader
-              .readGalleryFromPath(join(config.output, event['path'])))
+          .asyncMap((event) =>
+              readGalleryFromPath(join(config.output, event['path'])))
           .map((event) => HitomiDir(
               event.createDir(config.output), downLoader, event, manager))
           .asyncMap((element) {
@@ -338,7 +384,8 @@ class TaskManager {
       } else if (result['fix']) {
         return await fixGallerys().then((value) => value > 0);
       } else if (result['update']) {
-        return await helper.updateTagTable(await api.fetchTagsFromNet());
+        return await fetchTagsFromNet()
+            .then((value) => helper.updateTagTable(value));
       } else if (result['continue']) {
         return await runRemainTask().then((value) => value > 0);
       } else if (result['list']) {

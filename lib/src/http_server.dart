@@ -5,7 +5,6 @@ import 'package:collection/collection.dart';
 import 'package:dcache/dcache.dart';
 import 'package:hitomi/gallery/label.dart';
 import 'package:hitomi/lib.dart';
-import 'package:hitomi/src/task_manager.dart';
 import 'package:path/path.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart';

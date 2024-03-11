@@ -94,5 +94,6 @@ class Image {
 enum ThumbnaiSize {
   smaill,
   medium,
-  big;
+  big,
+  origin;
 }

@@ -9,7 +9,7 @@ import 'package:hitomi/lib.dart';
 import 'package:isolate_manager/isolate_manager.dart';
 import 'package:logger/logger.dart';
 import 'package:path/path.dart';
-import 'package:sqlite3/sqlite3.dart';
+import 'package:sqlite3/common.dart';
 
 import '../gallery/gallery.dart';
 import '../gallery/image.dart';
@@ -30,12 +30,14 @@ class DownLoader {
   late IsolateManager<MapEntry<int, List<int>?>, String> manager;
   List<IdentifyToken> get tasks => [..._pendingTask, ..._runningTask];
   Logger? logger;
+  final Dio dio;
   DownLoader(
       {required this.config,
       required this.api,
       required this.helper,
       required this.manager,
-      required this.logger}) {
+      required this.logger,
+      required this.dio}) {
     final Future<bool> Function(Message msg) handle = (msg) async {
       var useHandle = await _runningTask
           .firstWhereOrNull((e) => msg.id == e.gallery.id)
@@ -135,7 +137,7 @@ class DownLoader {
     missed =
         keys.groupListsBy((element) => _cache[element] != null)[false] ?? [];
     if (missed.isNotEmpty) {
-      await Future.wait(missed.toSet().map((event) => api
+      await Future.wait(missed.toSet().map((event) => dio
               .httpInvoke<List<dynamic>>(
                   'https://translate.googleapis.com/translate_a/t?client=dict-chrome-ex&sl=auto&tl=zh&q=${event.name}')
               .then((value) {
@@ -277,12 +279,6 @@ class DownLoader {
     }
     logger?.i(
         'left task ${_pendingTask.length} running task ${_runningTask.length}');
-  }
-
-  Future<Gallery> readGalleryFromPath(String path) {
-    return File(join(path, 'meta.json'))
-        .readAsString()
-        .then((value) => Gallery.fromJson(value));
   }
 
   Future<List<Gallery>> fetchGalleryFromIds(

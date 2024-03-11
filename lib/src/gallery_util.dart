@@ -80,12 +80,12 @@ Future<MapEntry<Gallery, List<int>>> fetchGalleryHashFromNet(
                           gallery.files.length ~/ 3 * 2) +
                       6)
             ])
-      .map((el) => api.getThumbnailUrl(el))
       .asStream()
       .slices(5)
       .asyncMap((list) => Future.wait(list.map((event) => api
-          .downloadImage(
-              event, 'https://hitomi.la${Uri.encodeFull(gallery.galleryurl!)}',
+          .fetchImageData(event,
+              refererUrl:
+                  'https://hitomi.la${Uri.encodeFull(gallery.galleryurl!)}',
               token: token)
           .then((value) => imageHash(Uint8List.fromList(value)))
           .catchError((e) => 0, test: (error) => true))))
@@ -96,13 +96,21 @@ Future<MapEntry<Gallery, List<int>>> fetchGalleryHashFromNet(
 Future<List<int>> findDuplicateGalleryIds(
     Gallery gallery, SqliteHelper helper, Hitomi api,
     {Logger? logger, CancelToken? token}) async {
-  Map<int, List<int>> allFileHash = gallery.artists != null
-      ? await helper.queryImageHashsByLabel(
-          'artist', gallery.artists!.first.name)
-      : gallery.groups != null
-          ? await helper.queryImageHashsByLabel(
-              'groupes', gallery.groups!.first.name)
-          : {};
+  Map<int, List<int>> allFileHash = {};
+  if (gallery.artists != null) {
+    await gallery.artists!
+        .asStream()
+        .asyncMap(
+            (event) => helper.queryImageHashsByLabel('artist', event.name))
+        .fold(allFileHash, (previous, element) => previous..addAll(element));
+  }
+  if (gallery.groups != null) {
+    await gallery.groups!
+        .asStream()
+        .asyncMap(
+            (event) => helper.queryImageHashsByLabel('groupes', event.name))
+        .fold(allFileHash, (previous, element) => previous..addAll(element));
+  }
   if (allFileHash.isNotEmpty == true) {
     // logger?.d('${gallery.id} hash log length ${allFileHash.length}');
     return fetchGalleryHash(gallery, helper, api, token)

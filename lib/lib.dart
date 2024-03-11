@@ -1,14 +1,17 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'package:logger/logger.dart';
-import 'package:sqlite3/sqlite3.dart';
+import 'package:path/path.dart' as p;
+import 'package:sqlite3/common.dart';
 
 import 'gallery/gallery.dart';
 
 export 'src/hitomi.dart' show Hitomi;
 export 'src/user_config.dart';
 export 'src/http_server.dart';
+export 'src/task_manager.dart';
 
 extension IntParse on dynamic {
   int toInt() {
@@ -35,7 +38,7 @@ extension Comparable on Iterable<int> {
 }
 
 extension CursorCover on IteratingCursor {
-  Stream<Row> asStream(PreparedStatement statement, [Logger? logger]) {
+  Stream<Row> asStream(CommonPreparedStatement statement, [Logger? logger]) {
     late StreamController<Row> controller;
 
     void stop() {
@@ -60,6 +63,12 @@ extension CursorCover on IteratingCursor {
   }
 }
 
+Future<Gallery> readGalleryFromPath(String path) {
+  return File(p.join(path, 'meta.json'))
+      .readAsString()
+      .then((value) => Gallery.fromJson(value));
+}
+
 extension StreamConvert<E> on Iterable<E> {
   Stream<E> asStream() => Stream.fromIterable(this);
 }
@@ -78,6 +87,48 @@ extension NullMapStream<E, R> on Stream<E> {
 extension NullFillterStream<E> on Stream<E?> {
   Stream<E> filterNonNull() =>
       this.where((element) => element != null).map((event) => event!);
+}
+
+extension HttpInvoke<T> on Dio {
+  Future<T> httpInvoke<T>(String url,
+      {Map<String, dynamic>? headers = null,
+      CancelToken? token,
+      void onProcess(int now, int total)?,
+      String method = "get",
+      Object? data = null,
+      Logger? logger}) async {
+    final ua = {
+      'user-agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36 Edg/106.0.1370.47'
+    };
+    headers?.addAll(ua);
+    ResponseType responseType;
+    if (T == List<int>) {
+      responseType = ResponseType.bytes;
+    } else if (T == String) {
+      responseType = ResponseType.plain;
+    } else {
+      responseType = ResponseType.json;
+    }
+    final useHeader = headers ?? ua;
+    return (method == 'get'
+            ? this.get<T>(url,
+                options:
+                    Options(headers: useHeader, responseType: responseType),
+                cancelToken: token,
+                onReceiveProgress: onProcess)
+            : this.post<T>(url,
+                options:
+                    Options(headers: useHeader, responseType: responseType),
+                data: data,
+                cancelToken: token,
+                onReceiveProgress: onProcess))
+        .then((value) => value.data!)
+        .catchError((e) {
+      logger?.e("$url throw $e");
+      throw e;
+    }, test: (e) => true);
+  }
 }
 
 sealed class Message<T> {

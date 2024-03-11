@@ -8,22 +8,23 @@ import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/dhash.dart';
 import 'package:logger/logger.dart';
 import 'package:path/path.dart';
-import 'package:sqlite3/sqlite3.dart';
+import 'package:sqlite3/common.dart';
+import 'multi_paltform.dart' show openSqliteDb;
 
 class SqliteHelper {
   final String _dirPath;
   static final _version = 7;
   Logger? _logger = null;
-  late Database _db;
+  late CommonDatabase _db;
   SqliteHelper(
     this._dirPath, {
     String dbName = 'user.db',
     Logger? logger = null,
   }) {
     this._logger = logger;
-    final dbPath = join(_dirPath, dbName);
-    _db = sqlite3.open(dbPath);
-    init();
+    openSqliteDb(_dirPath, dbName)
+        .then((value) => _db = value)
+        .then((value) => init());
   }
 
   bool jsonKeyContains(List<Object?> arguments) {
@@ -97,9 +98,9 @@ class SqliteHelper {
     }
   }
 
-  T databaseOpera<T>(String sql, T operate(PreparedStatement statement),
+  T databaseOpera<T>(String sql, T operate(CommonPreparedStatement statement),
       {bool releaseOnce = true}) {
-    PreparedStatement? stam;
+    CommonPreparedStatement? stam;
     try {
       stam = _db.prepare(sql);
       return operate(stam);
@@ -113,7 +114,7 @@ class SqliteHelper {
     }
   }
 
-  void createTables(Database db) {
+  void createTables(CommonDatabase db) {
     db.execute('''create table  if not exists Tags(
       id Integer PRIMARY KEY autoincrement,
       type TEXT NOT NULL,
@@ -159,7 +160,7 @@ class SqliteHelper {
       )''');
   }
 
-  void dataBaseUpgrade(Database db, int oldVersion) {
+  void dataBaseUpgrade(CommonDatabase db, int oldVersion) {
     switch (oldVersion) {
       case 1:
       case 2:
@@ -202,7 +203,7 @@ class SqliteHelper {
     }
   }
 
-  void dateBaseDowngrade(Database db, int oldVersion) {}
+  void dateBaseDowngrade(CommonDatabase db, int oldVersion) {}
 
   Future<Map<List<dynamic>, ResultSet>> selectSqlMultiResultAsync(
       String sql, List<List<dynamic>> params) async {

@@ -68,6 +68,11 @@ class QueryText extends Label {
   String get type => '';
   @override
   String get name => text;
+
+  @override
+  String urlEncode() {
+    return 'index';
+  }
 }
 
 class TypeLabel extends Label {

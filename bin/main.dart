@@ -4,7 +4,6 @@ import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:hitomi/lib.dart';
-import 'package:hitomi/src/task_manager.dart';
 
 void main(List<String> args) async {
   final parser = ArgParser()

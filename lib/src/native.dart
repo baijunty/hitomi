@@ -1,0 +1,23 @@
+import 'dart:io';
+
+import 'package:dio/dio.dart';
+import 'package:dio/io.dart';
+import 'package:path/path.dart' as path;
+import 'package:sqlite3/common.dart' show CommonDatabase;
+import 'package:sqlite3/sqlite3.dart' show sqlite3;
+
+Future<CommonDatabase> openSqliteDb(String dirPath, String name) async {
+  final filename = path.join(dirPath, name);
+  return sqlite3.open(filename);
+}
+
+HttpClientAdapter crateHttpClientAdapter(String proxy,
+    {Duration? connectionTimeout, Duration? idelTimeout}) {
+  return IOHttpClientAdapter(createHttpClient: () {
+    return HttpClient()
+      ..connectionTimeout = connectionTimeout ?? Duration(seconds: 60)
+      ..idleTimeout = idelTimeout ?? Duration(seconds: 120)
+      ..findProxy = (u) =>
+          (proxy == "DIRECT" || proxy.isEmpty) ? 'DIRECT' : 'PROXY ${proxy}';
+  });
+}
