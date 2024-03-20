@@ -23,6 +23,7 @@ _$UserConfigImpl _$$UserConfigImplFromJson(Map<String, dynamic> json) =>
       auth: json['auth'] as String? ?? "12345678",
       logLevel: json['logLevel'] as String? ?? "debug",
       logOutput: json['logOutput'] as String? ?? "",
+      remoteHttp: json['remoteHttp'] as String? ?? "127.0.0.1:7890",
     );
 
 Map<String, dynamic> _$$UserConfigImplToJson(_$UserConfigImpl instance) =>
@@ -36,4 +37,5 @@ Map<String, dynamic> _$$UserConfigImplToJson(_$UserConfigImpl instance) =>
       'auth': instance.auth,
       'logLevel': instance.logLevel,
       'logOutput': instance.logOutput,
+      'remoteHttp': instance.remoteHttp,
     };

@@ -6,6 +6,8 @@ import 'package:path/path.dart' as path;
 import 'package:sqlite3/common.dart' show CommonDatabase;
 import 'package:sqlite3/sqlite3.dart' show sqlite3;
 
+import '../lib.dart';
+
 Future<CommonDatabase> openSqliteDb(String dirPath, String name) async {
   final filename = path.join(dirPath, name);
   return sqlite3.open(filename);
@@ -20,4 +22,8 @@ HttpClientAdapter crateHttpClientAdapter(String proxy,
       ..findProxy = (u) =>
           (proxy == "DIRECT" || proxy.isEmpty) ? 'DIRECT' : 'PROXY ${proxy}';
   });
+}
+
+Hitomi crateHitomi(TaskManager _manager, bool localDb, String baseHttp) {
+  return fromPrefenerce(_manager, localDb, baseHttp);
 }

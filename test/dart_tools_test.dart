@@ -1,14 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
 import 'package:hitomi/gallery/artist.dart';
 import 'package:hitomi/gallery/gallery.dart';
 import 'package:hitomi/gallery/label.dart';
 import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/gallery_util.dart';
-import 'package:hitomi/src/sqlite_helper.dart';
+import 'package:hitomi/src/web.dart';
 import 'package:test/test.dart';
 
 var config = UserConfig('d:manga',
@@ -36,10 +35,10 @@ Future readIdFromFile() async {
 }
 
 Future<void> testLocalDb(bool local) async {
-  final api = Hitomi.fromPrefenerce(task, localDb: local);
+  final api = WebHitomi(task.dio, local, config.auth, '');
   await api.search([QueryText('青春'), Artist(artist: 'nagase tooru')]).then(
       (value) => print(value));
-  await api.viewByTag(QueryText(''), page: 1).forEach((value) => print(value));
+  await api.viewByTag(QueryText(''), page: 1).then((value) => print(value));
 }
 
 Future<void> testThumbHash(List<int> ids) async {
@@ -112,12 +111,12 @@ Future<Gallery> getGalleryInfoFromFile(String name) async {
   if (file.existsSync()) {
     return Gallery.fromJson(file.readAsStringSync());
   }
-  return Hitomi.fromPrefenerce(task).fetchGallery(name, usePrefence: false);
+  return fromPrefenerce(task, false, '').fetchGallery(name, usePrefence: false);
 }
 
 Future<void> testImageDownload() async {
   var token = CancelToken();
-  var api = Hitomi.fromPrefenerce(task);
+  var api = fromPrefenerce(task, false, '');
   var gallery = await api.fetchGallery('1467596');
   Directory('${config.output}/${gallery.dirName}').deleteSync(recursive: true);
   api.downloadImages(gallery, token: token);

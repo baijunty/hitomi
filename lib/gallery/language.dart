@@ -27,6 +27,7 @@ class Language with Label {
         'galleryid': galleryid,
         'language_localname': languageLocalname,
         'name': name,
+        'type': type
       };
 
   /// `dart:convert`

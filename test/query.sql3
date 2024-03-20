@@ -1,8 +1,8 @@
 
-SELECT * FROM Gallery g,json_each(g.artist) ja  where (json_valid(g.artist)=1 and ja.value = 'michiking') 
+SELECT * FROM Gallery g,json_each(g.artist) ja  where (json_valid(g.artist)=1 and ja.value = 'doumou') 
 SELECT * from Tasks WHERE completed=0
-SELECT * FROM Tags WHERE name='kotori minami'
-select * from Gallery g  limit 20
+SELECT * FROM Tags WHERE type='character' and name like '%sakura%'
+select * from Gallery g order by length desc limit 20
 select count(distinct(gid)) from GalleryFile where gid=1435461 order by name
 select * from Gallery g  where title like '%青春%' and artist like '%nagase tooru%'
 select distinct(ja.value) from Gallery g,json_each(g.artist) ja where json_valid(g.artist)=1 group by ja.value  limit 20
@@ -12,3 +12,4 @@ where (json_valid(g.artist)=1 and ja.value = 'yahiro pochi' ) order by gf.gid,gf
 
 SELECT gf.gid  from (SELECT DISTINCT(gid) from GalleryFile)  gf WHERE  not EXISTS (SELECT 1 from Gallery g WHERE g.id=gf.gid)
 select g.id from  Gallery g,json_each(g.artist) ja left join GalleryFile gf on g.id=gf.gid where json_valid(g.artist)=1 and ja.value = 'fuuga' and gf.gid is null
+select gf.thumb,gf.name,gf.gid from GalleryFile gf where gid=508271 and hash='0f4cda8385ff5e27b49360e87141d4ef11b4821cfbee3577d1e76c1355478d0f'

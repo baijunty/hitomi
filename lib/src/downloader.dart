@@ -112,7 +112,7 @@ class DownLoader {
       }
       return useHandle ?? true;
     };
-    api.registerGallery(handle);
+    api.registerCallBack(handle);
   }
 
   Future<Map<Label, Map<String, dynamic>>> translateLabel(
@@ -284,6 +284,7 @@ class DownLoader {
   Future<List<Gallery>> fetchGalleryFromIds(
       List<int> ids, bool where(Gallery gallery), CancelToken token) async {
     if (ids.isNotEmpty) {
+      logger?.d('fetch gallery from ids ${ids.length}');
       return helper
           .selectSqlMultiResultAsync('select id,path from Gallery where id =?',
               ids.map((e) => [e]).toList())
@@ -334,13 +335,11 @@ class DownLoader {
         ? await helper.queryImageHashsByLabel(entry.key, entry.value)
         : {};
     logger?.d('ids ${list.length} $entry found ${allHash.keys.toList()} in db');
-    list.removeWhere((element) => allHash.keys.contains(element.id));
     list.sort((e1, e2) => e2.files.length - e1.files.length);
     return list
         .asStream()
-        .where((event) =>
-            !event.createDir(config.output, createDir: false).existsSync())
-        .asyncMap((event) => fetchGalleryHash(event, helper, api, token, true))
+        .asyncMap((event) =>
+            fetchGalleryHash(event, helper, api, token, true, config.output))
         .where((event) => searchSimilerGaller(
                 MapEntry(event.key.id, event.value), allHash, logger: logger)
             .isEmpty)
@@ -381,7 +380,8 @@ class DownLoader {
   }
 
   Future<bool> downLoadByTag(List<Label> tags, bool where(Gallery gallery),
-      MapEntry<String, String> entry, CancelToken token) async {
+      MapEntry<String, String> entry, CancelToken token,
+      {void Function(bool success)? onFinish}) async {
     if (exclude.length != config.excludes.length) {
       exclude.addAll(await helper.mapToLabel(config.excludes.keys.toList()));
     }
@@ -413,7 +413,29 @@ class DownLoader {
                 .toList());
       }
       return l;
-    }).then((value) => Future.wait(value.map((e) => addTask(e))));
+    }).then((value) {
+      if (onFinish != null) {
+        final result = <int, bool>{};
+        late Future<bool> Function(Message msg) handle;
+        handle = (msg) async {
+          if (msg is DownLoadFinished) {
+            result[msg.gallery.id] = msg.success;
+            if (result.length == value.length) {
+              onFinish.call(result.values.reduce(
+                  (previousValue, element) => previousValue && element));
+              api.removeCallBack(handle);
+            }
+          }
+          return true;
+        };
+        if (value.isNotEmpty) {
+          api.registerCallBack(handle);
+        } else {
+          onFinish.call(true);
+        }
+      }
+      return Future.wait(value.map((e) => addTask(e)));
+    });
     logger?.i('${tags.first} find match gallery ${results.length}');
     return results.isNotEmpty;
   }

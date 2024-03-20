@@ -16,11 +16,8 @@ class Tag with Label {
         female: data['female'],
       );
 
-  Map<String, dynamic> toMap() => {
-        'male': male,
-        'tag': tag,
-        'female': female,
-      };
+  Map<String, dynamic> toMap() =>
+      {'male': male, 'tag': tag, 'female': female, 'type': type};
 
   /// `dart:convert`
   ///

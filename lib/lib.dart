@@ -8,10 +8,11 @@ import 'package:sqlite3/common.dart';
 
 import 'gallery/gallery.dart';
 
-export 'src/hitomi.dart' show Hitomi;
+export 'src/hitomi_impl.dart';
 export 'src/user_config.dart';
 export 'src/http_server.dart';
 export 'src/task_manager.dart';
+export 'src/hitomi_api.dart';
 
 extension IntParse on dynamic {
   int toInt() {
@@ -103,13 +104,16 @@ extension HttpInvoke<T> on Dio {
     };
     headers?.addAll(ua);
     ResponseType responseType;
-    if (T == List<int>) {
+    if (T == ResponseBody) {
+      responseType = ResponseType.stream;
+    } else if (T == List<int>) {
       responseType = ResponseType.bytes;
     } else if (T == String) {
       responseType = ResponseType.plain;
     } else {
       responseType = ResponseType.json;
     }
+    // logger?.d('$url with $responseType');
     final useHeader = headers ?? ua;
     return (method == 'get'
             ? this.get<T>(url,
@@ -131,65 +135,24 @@ extension HttpInvoke<T> on Dio {
   }
 }
 
-sealed class Message<T> {
-  final T id;
-  Message({required this.id});
-
-  @override
-  String toString() {
-    return 'Message {$id}';
+Map<String, String> buildRequestHeader(String url, String referer,
+    {MapEntry<int, int>? range = null,
+    void append(Map<String, String> header)?}) {
+  Uri uri = Uri.parse(url);
+  final headers = {
+    'referer': referer,
+    'authority': uri.authority,
+    'path': uri.path,
+    'user-agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36 Edg/106.0.1370.47'
+  };
+  if (range != null) {
+    headers.putIfAbsent('range', () => 'bytes=${range.key}-${range.value}');
   }
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(other, this)) return true;
-    if (other is! Message) return false;
-    return other.id == id;
+  if (append != null) {
+    append(headers);
   }
-}
-
-class TaskStartMessage<T> extends Message<int> {
-  Gallery gallery;
-  FileSystemEntity file;
-  T target;
-  TaskStartMessage(this.gallery, this.file, this.target)
-      : super(id: gallery.id);
-  @override
-  String toString() {
-    return 'TaskStartMessage{$id,${file.path},${target}, ${gallery.files.length} }';
-  }
-}
-
-class DownLoadingMessage extends Message<int> {
-  Gallery gallery;
-  int current;
-  double speed;
-  int length;
-  DownLoadingMessage(this.gallery, this.current, this.speed, this.length)
-      : super(id: gallery.id);
-  @override
-  String toString() {
-    return 'DownLoadMessage{$id,$current $speed,$length }';
-  }
-}
-
-class DownLoadFinished<T> extends Message<int> {
-  Gallery gallery;
-  FileSystemEntity file;
-  T target;
-  bool success;
-  DownLoadFinished(this.target, this.gallery, this.file, this.success)
-      : super(id: gallery.id);
-  @override
-  String toString() {
-    return 'DownLoadFinished{$id,${file.path},${target} $success }';
-  }
-}
-
-class IlleagalGallery extends Message<int> {
-  String errorMsg;
-  int index;
-  IlleagalGallery(dynamic id, this.errorMsg, this.index) : super(id: id);
+  return headers;
 }
 
 final zhAndJpCodeExp = RegExp(r'[\u0800-\u4e00|\u4e00-\u9fa5|30A0-30FF|\w]+');

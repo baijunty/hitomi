@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:hitomi/lib.dart';
 import 'package:sqlite3/common.dart' show CommonDatabase;
 
 Future<CommonDatabase> openSqliteDb(String dirPath, String name) async {
@@ -7,5 +8,9 @@ Future<CommonDatabase> openSqliteDb(String dirPath, String name) async {
 
 HttpClientAdapter crateHttpClientAdapter(String proxy,
     {Duration? connectionTimeout, Duration? idelTimeout}) {
+  throw UnsupportedError('Sqlite3 is unsupported on this platform.');
+}
+
+Hitomi crateHitomi(TaskManager _manager, bool localDb, String baseHttp) {
   throw UnsupportedError('Sqlite3 is unsupported on this platform.');
 }

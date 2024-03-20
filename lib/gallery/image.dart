@@ -96,4 +96,25 @@ enum ThumbnaiSize {
   medium,
   big,
   origin;
+
+  factory ThumbnaiSize.fromStr(String name) {
+    switch (name) {
+      case 'smaill':
+        {
+          return ThumbnaiSize.smaill;
+        }
+      case 'medium':
+        {
+          return ThumbnaiSize.medium;
+        }
+      case 'big':
+        {
+          return ThumbnaiSize.big;
+        }
+      default:
+        {
+          return ThumbnaiSize.origin;
+        }
+    }
+  }
 }

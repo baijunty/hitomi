@@ -16,33 +16,18 @@ import 'package:collection/collection.dart';
 import '../gallery/gallery.dart';
 import 'package:crypto/crypto.dart';
 
-abstract class Hitomi {
-  void registerGallery(Future<bool> Function(Message msg));
-  Future<bool> downloadImages(Gallery gallery,
-      {bool usePrefence = true, CancelToken? token});
-  Future<Gallery> fetchGallery(dynamic id,
-      {usePrefence = true, CancelToken? token});
-  Future<List<int>> search(List<Label> include,
-      {List<Label> exclude, int page = 1, CancelToken? token});
-  Future<List<int>> fetchImageData(Image image,
-      {String refererUrl,
-      CancelToken? token,
-      ThumbnaiSize size = ThumbnaiSize.smaill});
-  Stream<Gallery> viewByTag(Label tag, {int page = 1, CancelToken? token});
-  String buildImageUrl(Image image, {ThumbnaiSize size = ThumbnaiSize.smaill});
-  factory Hitomi.fromPrefenerce(TaskManager manager, {bool localDb = false}) {
-    final netHitomi = _HitomiImpl(
-        manager.config.output, manager.config.languages, manager.dio,
-        proxy: manager.config.proxy, logger: manager.logger);
-    return localDb ? _LocalHitomiImpl(manager, netHitomi) : netHitomi;
-  }
+Hitomi fromPrefenerce(TaskManager _manager, bool localDb, String baseHttp) {
+  return localDb
+      ? _LocalHitomiImpl(_manager, _HitomiImpl(_manager), baseHttp)
+      : _HitomiImpl(_manager);
 }
 
 class _LocalHitomiImpl implements Hitomi {
   late SqliteHelper _helper;
   final TaskManager _manager;
   final _HitomiImpl _hitomiImpl;
-  _LocalHitomiImpl(this._manager, this._hitomiImpl) {
+  final String _baseHttp;
+  _LocalHitomiImpl(this._manager, this._hitomiImpl, this._baseHttp) {
     _helper = _manager.helper;
   }
 
@@ -50,12 +35,14 @@ class _LocalHitomiImpl implements Hitomi {
   Future<List<int>> fetchImageData(Image image,
       {String refererUrl = '',
       CancelToken? token,
+      int id = 0,
       ThumbnaiSize size = ThumbnaiSize.smaill}) {
     if (size == ThumbnaiSize.origin) {
       return _helper
           .querySql(
-              'select path from Gallery g left join GalleryFile gf on g.id=gf.gid where gf.hash=?',
+              'select path from Gallery g left join GalleryFile gf on g.id=gf.gid where g.id=? and gf.hash=?',
               [
+                id,
                 image.hash
               ])
           .then((value) =>
@@ -65,7 +52,8 @@ class _LocalHitomiImpl implements Hitomi {
     } else {
       return _helper
           .querySqlByCursor(
-              'select thumb from GalleryFile where hash=?', [image.hash])
+              'select thumb from GalleryFile where gid=? and hash=?',
+              [id, image.hash])
           .first
           .then((value) => value['thumb'] as List<int>)
           .catchError((e) => <int>[], test: (error) => true);
@@ -83,13 +71,13 @@ class _LocalHitomiImpl implements Hitomi {
   Future<Gallery> fetchGallery(id, {usePrefence = true, CancelToken? token}) {
     return _helper
         .queryGalleryById(id)
-        .then((value) => value.first['path'])
+        .then((value) => join(_manager.config.output, value.first['path']))
         .then((value) => readGalleryFromPath(value));
   }
 
   @override
-  void registerGallery(Future<bool> Function(Message msg) Function) {
-    _hitomiImpl.registerGallery(Function);
+  void registerCallBack(Future<bool> Function(Message msg) callback) {
+    _hitomiImpl.registerCallBack(callback);
   }
 
   @override
@@ -110,7 +98,7 @@ class _LocalHitomiImpl implements Hitomi {
         params,
         (previousValue, element) =>
             previousValue..addAll([element.name, element.type]));
-    sql.write(' 1=1 limit 20 offset ${(page - 1) * 20}');
+    sql.write(' 1=1 limit 25 offset ${(page - 1) * 25}');
     _manager.logger.d('sql is ${sql.toString()} parms = ${params}');
     return _helper
         .querySql(sql.toString(), params)
@@ -118,22 +106,27 @@ class _LocalHitomiImpl implements Hitomi {
   }
 
   @override
-  Stream<Gallery> viewByTag(Label tag, {int page = 1, CancelToken? token}) {
+  Future<List<Gallery>> viewByTag(Label tag,
+      {int page = 1, CancelToken? token}) {
     return search([tag], page: page, token: token)
         .then((value) => _helper
             .selectSqlMultiResultAsync('select path from Gallery where id=?',
                 value.map((e) => [e]).toList())
             .then(
                 (value) => value.values.map((e) => e.first['path'] as String)))
-        .asStream()
-        .expand((element) => element)
-        .asyncMap((event) =>
-            readGalleryFromPath(join(_manager.config.output, event)));
+        .then((values) => Future.wait(values
+            .map((e) => readGalleryFromPath(join(_manager.config.output, e)))));
   }
 
   @override
-  String buildImageUrl(Image image, {ThumbnaiSize size = ThumbnaiSize.smaill}) {
-    return _hitomiImpl.buildImageUrl(image, size: size);
+  String buildImageUrl(Image image,
+      {ThumbnaiSize size = ThumbnaiSize.smaill, int id = 0}) {
+    return 'http://${_baseHttp}/${size == ThumbnaiSize.origin ? 'image' : 'thumb'}/${id}/${image.hash}?size=${size.name}&local=1';
+  }
+
+  @override
+  void removeCallBack(Future<bool> Function(Message msg) callBack) {
+    return _hitomiImpl.removeCallBack(callBack);
   }
 }
 
@@ -151,14 +144,17 @@ class _HitomiImpl implements Hitomi {
   static final _titleExp = zhAndJpCodeExp;
   static final _emptyList = const <int>[];
   final _cache = <Label, List<int>>{};
-  final String outPut;
+  late String outPut;
   Timer? _timer;
   Logger? logger;
-  final List<String> languages;
-  final Dio _dio;
-  _HitomiImpl(this.outPut, this.languages, this._dio,
-      {String proxy = "DIRECT", Logger? logger = null}) {
-    this.logger = logger;
+  late List<String> languages;
+  late Dio _dio;
+  _HitomiImpl(TaskManager manager) {
+    this.outPut = manager.config.output;
+    this.languages = manager.config.languages;
+    this.logger = manager.logger;
+    this._dio = manager.dio;
+    checkInit();
   }
 
   Future<Gallery> _fetchGalleryJsonById(dynamic id, CancelToken? token) async {
@@ -176,7 +172,8 @@ class _HitomiImpl implements Hitomi {
 
   Future<bool> _loopCallBack(Message msg) async {
     bool b = true;
-    for (var element in _calls) {
+    final calls = _calls.toList();
+    for (var element in calls) {
       b &= await element(msg).catchError((e) {
         logger?.e('_loopCallBack $msg faild $e');
         return true;
@@ -219,28 +216,37 @@ class _HitomiImpl implements Hitomi {
       if (b) {
         for (var j = 0; j < 3; j++) {
           try {
-            final time = DateTime.now();
-            var data = await fetchImageData(image,
-                refererUrl: referer,
-                onProcess: ((now, total) => _loopCallBack(
+            var time = DateTime.now();
+            final url =
+                buildImageUrl(image, size: ThumbnaiSize.origin, id: gallery.id);
+            await _dio
+                .httpInvoke<ResponseBody>(url,
+                    headers: buildRequestHeader(url, referer),
+                    onProcess: (now, total) {
+                  final realTime = DateTime.now();
+                  if (realTime.difference(time).inSeconds > 1) {
+                    _loopCallBack(
                       DownLoadingMessage(
                           gallery,
                           i,
                           now /
                               1024 /
-                              DateTime.now().difference(time).inMilliseconds *
+                              realTime.difference(time).inMilliseconds *
                               1000,
                           total),
-                    )),
-                token: token,
-                size: ThumbnaiSize.origin);
-            if (data.isNotEmpty) {
-              await out.writeAsBytes(data, flush: true);
-              b = true;
-              break;
-            }
+                    );
+                    time = realTime;
+                  }
+                }, token: token)
+                .then((value) => value.stream.fold(out.openWrite(),
+                    (previous, element) => previous..add(element)))
+                .then((value) async {
+                  await value.flush();
+                  await value.close();
+                });
           } catch (e) {
             logger?.e('down image faild $e');
+            out.deleteSync();
             await _loopCallBack(IlleagalGallery(gallery.id, e.toString(), i));
             b = false;
           }
@@ -261,19 +267,21 @@ class _HitomiImpl implements Hitomi {
   Future<List<int>> fetchImageData(Image image,
       {String refererUrl = '',
       CancelToken? token,
+      int id = 0,
       void onProcess(int now, int total)?,
       ThumbnaiSize size = ThumbnaiSize.smaill}) async {
     await checkInit();
-    final url = buildImageUrl(image, size: size);
+    final url = buildImageUrl(image, size: size, id: id);
     final data = await _dio.httpInvoke<List<int>>(url,
-        headers: _buildRequestHeader(url, refererUrl),
+        headers: buildRequestHeader(url, refererUrl),
         onProcess: onProcess,
         token: token);
     return data;
   }
 
   @override
-  String buildImageUrl(Image image, {ThumbnaiSize size = ThumbnaiSize.smaill}) {
+  String buildImageUrl(Image image,
+      {ThumbnaiSize size = ThumbnaiSize.smaill, int id = 0}) {
     final lastThreeCode = image.hash.substring(image.hash.length - 3);
     String url;
     var sizeStr;
@@ -297,26 +305,6 @@ class _HitomiImpl implements Hitomi {
             "https://${_getUserInfo(image.hash, 'tn')}.hitomi.la/$sizeStr/${lastThreeCode.substring(2)}/${lastThreeCode.substring(0, 2)}/${image.hash}.webp";
     }
     return url;
-  }
-
-  Map<String, dynamic> _buildRequestHeader(String url, String referer,
-      {Tuple2<int, int>? range = null,
-      void append(Map<String, dynamic> header)?}) {
-    Uri uri = Uri.parse(url);
-    final headers = {
-      'referer': referer,
-      'authority': uri.authority,
-      'path': uri.path,
-      'user-agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36 Edg/106.0.1370.47'
-    };
-    if (range != null) {
-      headers.putIfAbsent('range', () => 'bytes=${range.item1}-${range.item2}');
-    }
-    if (append != null) {
-      append(headers);
-    }
-    return headers;
   }
 
   @override
@@ -500,8 +488,8 @@ class _HitomiImpl implements Hitomi {
         'https://ltn.hitomi.la/galleriesindex/galleries.${galleries_index_version}.data';
     return await _dio
         .httpInvoke<List<int>>(url,
-            headers: _buildRequestHeader(url, 'https://hitomi.la/',
-                range: tuple.withItem2(tuple.item1 + tuple.item2 - 1)),
+            headers: buildRequestHeader(url, 'https://hitomi.la/',
+                range: MapEntry(tuple.item1, tuple.item1 + tuple.item2 - 1)),
             token: token)
         .then((value) {
       final view = _DataView(value);
@@ -517,7 +505,7 @@ class _HitomiImpl implements Hitomi {
   Future<List<int>> _fetchTagIdsByNet(String url, CancelToken? token) async {
     return await _dio
         .httpInvoke<List<int>>(url,
-            headers: _buildRequestHeader(url, 'https://hitomi.la/'),
+            headers: buildRequestHeader(url, 'https://hitomi.la/'),
             token: token)
         .then((value) {
       final view = _DataView(value);
@@ -533,14 +521,15 @@ class _HitomiImpl implements Hitomi {
   Future<_Node> _fetchNode(String url, {int start = 0, CancelToken? token}) {
     return _dio
         .httpInvoke<List<int>>(url,
-            headers: _buildRequestHeader(url, 'https://hitomi.la/',
-                range: Tuple2(start, start + 463)),
+            headers: buildRequestHeader(url, 'https://hitomi.la/',
+                range: MapEntry(start, start + 463)),
             token: token)
         .then((value) => _Node.parse(value));
   }
 
   @override
-  Stream<Gallery> viewByTag(Label tag, {int page = 1, CancelToken? token}) {
+  Future<List<Gallery>> viewByTag(Label tag,
+      {int page = 1, CancelToken? token}) {
     var referer = 'https://hitomi.la/${tag.urlEncode()}-all.html';
     if (page > 1) {
       referer += '?page=$page';
@@ -549,14 +538,12 @@ class _HitomiImpl implements Hitomi {
     logger?.d('$dataUrl from $referer');
     return _dio
         .httpInvoke<List<int>>(dataUrl,
-            headers: _buildRequestHeader(dataUrl, referer,
-                range: Tuple2((page - 1) * 100, page * 100 - 1)),
+            headers: buildRequestHeader(dataUrl, referer,
+                range: MapEntry((page - 1) * 100, page * 100 - 1)),
             token: token)
         .then((value) => mapBytesToInts(value, spilt: 4))
-        .asStream()
-        .expand((element) => element)
-        .asyncMap(
-            (value) => fetchGallery(value, usePrefence: false, token: token));
+        .then((value) => Future.wait(value
+            .map((e) => fetchGallery(e, usePrefence: false, token: token))));
   }
 
   Future<List<int>> getCacheIdsFromLang(Label label,
@@ -633,8 +620,13 @@ class _HitomiImpl implements Hitomi {
   }
 
   @override
-  void registerGallery(Future<bool> Function(Message msg) test) {
+  void registerCallBack(Future<bool> Function(Message msg) test) {
     _calls.add(test);
+  }
+
+  @override
+  void removeCallBack(Future<bool> Function(Message msg) callBack) {
+    _calls.remove(callBack);
   }
 }
 

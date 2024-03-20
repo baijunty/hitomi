@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:hitomi/gallery/language.dart';
+
 import '../gallery/artist.dart';
 import '../gallery/character.dart';
 import '../gallery/group.dart';
@@ -12,10 +14,7 @@ abstract mixin class Label {
   String get sqlType => type;
   String get localSqlType => type;
   List<String> get params => [sqlType, name];
-  Map<String, dynamic> toMap() => {
-        'type': type,
-        type: name,
-      };
+  Map<String, dynamic> toMap() => {'type': type, 'name': name, type: name};
 
   String urlEncode() {
     return "${this.type}/${Uri.encodeComponent(name.toLowerCase())}";
@@ -56,6 +55,8 @@ Label fromString(String type, String name) {
       return Group(group: name);
     case 'type':
       return TypeLabel(name);
+    case 'language':
+      return Language(name: name);
     default:
       return QueryText(name);
   }

@@ -12,7 +12,7 @@ part of 'user_config.dart';
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#custom-getters-and-methods');
+    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
 
 UserConfig _$UserConfigFromJson(Map<String, dynamic> json) {
   return _UserConfig.fromJson(json);
@@ -29,6 +29,7 @@ mixin _$UserConfig {
   String get auth => throw _privateConstructorUsedError;
   String get logLevel => throw _privateConstructorUsedError;
   String get logOutput => throw _privateConstructorUsedError;
+  String get remoteHttp => throw _privateConstructorUsedError;
 
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
   @JsonKey(ignore: true)
@@ -51,7 +52,8 @@ abstract class $UserConfigCopyWith<$Res> {
       String dateLimit,
       String auth,
       String logLevel,
-      String logOutput});
+      String logOutput,
+      String remoteHttp});
 }
 
 /// @nodoc
@@ -76,6 +78,7 @@ class _$UserConfigCopyWithImpl<$Res, $Val extends UserConfig>
     Object? auth = null,
     Object? logLevel = null,
     Object? logOutput = null,
+    Object? remoteHttp = null,
   }) {
     return _then(_value.copyWith(
       output: null == output
@@ -114,6 +117,10 @@ class _$UserConfigCopyWithImpl<$Res, $Val extends UserConfig>
           ? _value.logOutput
           : logOutput // ignore: cast_nullable_to_non_nullable
               as String,
+      remoteHttp: null == remoteHttp
+          ? _value.remoteHttp
+          : remoteHttp // ignore: cast_nullable_to_non_nullable
+              as String,
     ) as $Val);
   }
 }
@@ -135,7 +142,8 @@ abstract class _$$UserConfigImplCopyWith<$Res>
       String dateLimit,
       String auth,
       String logLevel,
-      String logOutput});
+      String logOutput,
+      String remoteHttp});
 }
 
 /// @nodoc
@@ -158,6 +166,7 @@ class __$$UserConfigImplCopyWithImpl<$Res>
     Object? auth = null,
     Object? logLevel = null,
     Object? logOutput = null,
+    Object? remoteHttp = null,
   }) {
     return _then(_$UserConfigImpl(
       null == output
@@ -196,6 +205,10 @@ class __$$UserConfigImplCopyWithImpl<$Res>
           ? _value.logOutput
           : logOutput // ignore: cast_nullable_to_non_nullable
               as String,
+      remoteHttp: null == remoteHttp
+          ? _value.remoteHttp
+          : remoteHttp // ignore: cast_nullable_to_non_nullable
+              as String,
     ));
   }
 }
@@ -211,7 +224,8 @@ class _$UserConfigImpl implements _UserConfig {
       this.dateLimit = "1970-01-01",
       this.auth = "12345678",
       this.logLevel = "debug",
-      this.logOutput = ""})
+      this.logOutput = "",
+      this.remoteHttp = "127.0.0.1:7890"})
       : _languages = languages,
         _excludes = excludes;
 
@@ -256,10 +270,13 @@ class _$UserConfigImpl implements _UserConfig {
   @override
   @JsonKey()
   final String logOutput;
+  @override
+  @JsonKey()
+  final String remoteHttp;
 
   @override
   String toString() {
-    return 'UserConfig(output: $output, maxTasks: $maxTasks, languages: $languages, proxy: $proxy, excludes: $excludes, dateLimit: $dateLimit, auth: $auth, logLevel: $logLevel, logOutput: $logOutput)';
+    return 'UserConfig(output: $output, maxTasks: $maxTasks, languages: $languages, proxy: $proxy, excludes: $excludes, dateLimit: $dateLimit, auth: $auth, logLevel: $logLevel, logOutput: $logOutput, remoteHttp: $remoteHttp)';
   }
 
   @override
@@ -280,7 +297,9 @@ class _$UserConfigImpl implements _UserConfig {
             (identical(other.logLevel, logLevel) ||
                 other.logLevel == logLevel) &&
             (identical(other.logOutput, logOutput) ||
-                other.logOutput == logOutput));
+                other.logOutput == logOutput) &&
+            (identical(other.remoteHttp, remoteHttp) ||
+                other.remoteHttp == remoteHttp));
   }
 
   @JsonKey(ignore: true)
@@ -295,7 +314,8 @@ class _$UserConfigImpl implements _UserConfig {
       dateLimit,
       auth,
       logLevel,
-      logOutput);
+      logOutput,
+      remoteHttp);
 
   @JsonKey(ignore: true)
   @override
@@ -320,7 +340,8 @@ abstract class _UserConfig implements UserConfig {
       final String dateLimit,
       final String auth,
       final String logLevel,
-      final String logOutput}) = _$UserConfigImpl;
+      final String logOutput,
+      final String remoteHttp}) = _$UserConfigImpl;
 
   factory _UserConfig.fromJson(Map<String, dynamic> json) =
       _$UserConfigImpl.fromJson;
@@ -343,6 +364,8 @@ abstract class _UserConfig implements UserConfig {
   String get logLevel;
   @override
   String get logOutput;
+  @override
+  String get remoteHttp;
   @override
   @JsonKey(ignore: true)
   _$$UserConfigImplCopyWith<_$UserConfigImpl> get copyWith =>

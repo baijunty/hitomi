@@ -57,8 +57,8 @@
         padding: 10px 20px;
         border-radius: 5px;
         opacity: 1;
-        max-width:${(window.screen.width-1060)/2}px;
-        left:${document.querySelector('.container').offsetLeft+1060}px;
+        max-width:${(window.screen.width - 1060) / 2}px;
+        left:${document.querySelector('.container').offsetLeft + 1060}px;
     }
     .bottom-dialog{
         position: fixed;
@@ -70,6 +70,20 @@
         padding: 10px 20px;
         border-radius: 5px;
         opacity: 1;
+        animation: fade-in 0.3s ease-in-out;
+    }
+    .bottom-dialog.remove {
+        animation: fade-out 0.5s ease-in-out;
+        animation-fill-mode: forwards;
+      }
+    @keyframes fade-in {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes fade-out {
+      from { opacity: 1; }
+      to { opacity: 0; }
     }
     .label {
       width:120px;
@@ -87,6 +101,7 @@
         letter-spacing: 1px;
     }
     .table caption {
+        color:white;
         padding: 10px;
         text-align:center;
         font-weight: bold;
@@ -139,6 +154,9 @@
                 timeout: 30000, // 3秒超时
                 url: url,
                 data: data,
+                headers: {   // If not specifie
+                    "referer": window.document.location.href          // If not specified, browser defaults will be used.
+                },
                 onload: function (res) {
                     if (res.status == 200) {
                         resolve(res.responseText)
@@ -154,7 +172,7 @@
     let manga = document.getElementsByClassName('gallery-content');
     var token = GM_getValue('hitomi_la_remote_token', '')
     var saveExculdes = GM_getValue('hitomi_la_remote_excludes_tags', '')
-    let excludes
+    var excludes = []
     if (saveExculdes.length == 0 && remoteUrl.length) {
         saveExculdes = await fetchRemote({ path: 'excludes', data: JSON.stringify({ auth: token }), get: false })
         excludes = JSON.parse(saveExculdes)
@@ -198,19 +216,19 @@
     }
 
     let reg = new RegExp('\/(?<type>\\w+)\/(?<sex>(male|female))?:?(?<name>.+)-all')
-    function parseTagFromUrl(url){
+    function parseTagFromUrl(url) {
         let groups = reg.exec(url)
         if (groups != null && groups.length) {
             let namedGroup = groups.groups
             var name = namedGroup['name']
-            var type=namedGroup['type']
+            var type = namedGroup['type']
             if (namedGroup['sex'] != null) {
                 type = namedGroup['sex']
             }
-            if(name=='loli'){
-                name='lolicon'
+            if (name == 'loli') {
+                name = 'lolicon'
             }
-            return [type,name]
+            return [type, name]
         }
         return []
     }
@@ -220,12 +238,12 @@
         let transMap = new Map()
         for (const child of tags.children) {
             let a = child.children[0]
-            let url=decodeURIComponent(a.getAttribute('href'))
-            let [type,name]=parseTagFromUrl(url)
-            if(type!=null&&name!=null){
+            let url = decodeURIComponent(a.getAttribute('href'))
+            let [type, name] = parseTagFromUrl(url)
+            if (type != null && name != null) {
                 let map = new Map()
                 map['name'] = name
-                map['type']=type
+                map['type'] = type
                 if (excludes.includes(name)) {
                     a.style = 'background: red;'
                 }
@@ -245,6 +263,13 @@
         if (remoteUrl == null || remoteUrl.length == 0) {
             return
         }
+        let [type, name] = parseTagFromUrl(decodeURIComponent(window.location.href))
+        if (type != null && name != null && !enTags.some((obj) => obj.type == type && obj.name == name)) {
+            let map = new Map()
+            map['name'] = name
+            map['type'] = type
+            enTags.push(map)
+        }
         let data = JSON.stringify({ auth: token, tags: enTags })
         let respData = await fetchRemote({ path: 'translate', data: data, get: false })
         let resp = JSON.parse(respData)
@@ -252,22 +277,22 @@
             for (const a of v) {
                 let [type, name] = parseTagFromUrl(k)
                 if (type != null && name != null) {
-                    let v = resp.find((obj)=>obj.type==type&&obj.name==name)
+                    let v = resp.find((obj) => obj.type == type && obj.name == name)
                     if (v != null) {
                         a.innerText = `${takeShowText(v['translate'])}(${name})`
                         let intro = v['intro']
-                        if (intro != null&&intro.length||v.count!=null) {
+                        if (intro != null && intro.length || v.count != null) {
                             a.addEventListener('mouseover', () => {
                                 let extension = document.querySelector('#extension')
                                 extension.innerHTML = ''
                                 extension.style.cssText = `top:${a.getBoundingClientRect().y + document.documentElement.scrollTop}px`
                                 extension.classList.remove("hide")
-                                if(intro!=null&&intro.length){
+                                if (intro != null && intro.length) {
                                     extension.appendChild(covertHtml(intro))
                                 }
                                 if (v.count != null) {
                                     let p = document.createElement('p')
-                                    p.innerText = `collected (${v.count}),last update at ${v.date}`
+                                    p.innerText = `已下载:(${v.count}),最后更新:${v.date}`
                                     extension.appendChild(p)
                                 }
                                 // extension.appendChild(covertHtml(v['links']))
@@ -280,9 +305,8 @@
                 }
             }
         })
-        let [type, name] = parseTagFromUrl(decodeURIComponent(window.location.href))
         if (type != null && name != null) {
-            let v=resp.find((obj)=>obj.type==type&&obj.name==name)
+            let v = resp.find((obj) => obj.type == type && obj.name == name)
             if (v != null) {
                 let top = document.querySelector('.top-content')
                 let info = document.createElement('div')
@@ -295,49 +319,49 @@
         }
     }
     let urlReg = /!?\[(?<name>.*?)\]\(#*\s*\"?(?<url>\S+?)\"?\)/gm;
-    let imgExtension=['.jpg','.jpeg','.png','.webp','.bmp','.avif','.gif','.bmp']
+    let imgExtension = ['.jpg', '.jpeg', '.png', '.webp', '.bmp', '.avif', '.gif', '.bmp']
     function takeShowText(text) {
         var array
-        var start=0
-        var title=''
+        var start = 0
+        var title = ''
         while ((array = urlReg.exec(text)) != null) {
-            title+=text.slice(start,array.index)
-            start=array.index+array[0].length
+            title += text.slice(start, array.index)
+            start = array.index + array[0].length
         }
-        title+=text.slice(start)
+        title += text.slice(start)
         return title
     }
 
     function covertHtml(text) {
         var array
-        let result=document.createElement('div')
-        result.style.cssText="color:white;max-width:960px;overflow-x:hidden;overflow-y:hidden"
-        var start=0
-        var title=''
+        let result = document.createElement('div')
+        result.style.cssText = "color:white;max-width:960px;overflow-x:hidden;overflow-y:hidden"
+        var start = 0
+        var title = ''
         while ((array = urlReg.exec(text)) != null) {
-            let url=array.groups.url
-            let name=array.groups.name
-            if(imgExtension.some((ext)=>url.endsWith(ext))){
-                let img=document.createElement('img')
-                img.src=url
-                img.style.cssText="width:128px;max-height:256px;margin:8px"
-                img.alt=name
+            let url = array.groups.url
+            let name = array.groups.name
+            if (imgExtension.some((ext) => url.endsWith(ext))) {
+                let img = document.createElement('img')
+                img.src = url
+                img.style.cssText = "width:128px;max-height:256px;margin:8px"
+                img.alt = name
                 result.appendChild(img)
-            } else{
-                let img=document.createElement('a')
-                img.style.cssText="margin:8px"
+            } else {
+                let img = document.createElement('a')
+                img.style.cssText = "margin:8px"
                 img.target = "_blank"
-                img.href=url
-                img.innerText=name
+                img.href = url
+                img.innerText = name
                 result.appendChild(img)
             }
-            title+=text.slice(start,array.index).trim()
-            start=array.index+array[0].length
+            title += text.slice(start, array.index).trim()
+            start = array.index + array[0].length
         }
-        title+=text.slice(start).trim()
-        if(title.length){
-            let p=document.createElement('p')
-            p.innerText=title
+        title += text.slice(start).trim()
+        if (title.length) {
+            let p = document.createElement('p')
+            p.innerText = title
             result.appendChild(p)
         }
         return result
@@ -424,6 +448,23 @@
         appendDwonTask(resp['downTask'], document.getElementById('downTask'))
     }
 
+    async function listThumbImages() {
+        let match = RegExp('(?<id>\\d+).html').exec(window.document.location.href)
+        if (match != null && match.length) {
+            let id = parseInt(match.groups['id'])
+            let respData = await fetchRemote({ path: 'checkId', data: JSON.stringify({ auth: token, id: id }), get: false })
+            let resp = JSON.parse(respData)
+            console.log(resp)
+            let title = document.querySelector('#gallery-brand')
+            if (title != null && resp.value.length) {
+                let btnArtist = document.createElement('a')
+                btnArtist.style.cssText = "color: red;font-size: 18px;font-style: normal;text-shadow: none;"
+                btnArtist.innerHTML = `<a href="/doujinshi/${resp.value[0]}.html" target="_blank"><span> ${resp.value[0]} </span></a>`
+                title.appendChild(btnArtist)
+            }
+        }
+    }
+
     let start = function () {
         let [enTags, transMap] = [[], new Map()]
         if (manga != null && manga.length) {
@@ -476,6 +517,7 @@
             appendTags([enTags, transMap], listTags(tags))
         }
         translateTag(enTags, transMap)
+        listThumbImages()
     }
     function showDialog() {
         document.getElementById('dialog-background').open = true
@@ -542,13 +584,13 @@
     let top = document.querySelector('.top-content')
     top.childNodes.forEach(element => element.remove())
     let extension = document.createElement('div');
-    extension.id="extension"
-    extension.className="right-frame"
-    extension.classList.add("right-frame","hide")
+    extension.id = "extension"
+    extension.className = "right-frame"
+    extension.classList.add("right-frame", "hide")
     document.body.appendChild(extension);
-        let bottomMenu = document.createElement('div')
-        bottomMenu.style.cssText = `position: fixed;bottom: 20px;left: 80%;`
-        bottomMenu.innerHTML=`
+    let bottomMenu = document.createElement('div')
+    bottomMenu.style.cssText = `position: fixed;bottom: 20px;left: 80%;`
+    bottomMenu.innerHTML = `
         <div style="display:grid">
         <button id="scrollTop">
          <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAACXBIWXMAAAsTAAALEwEAmpwYAAABhElEQVR4nN2VvU4CURCFv0CgEX0ACx9A6Kws/eklqNBZGo0Eo43PoPgC9AbfxMpKMGLAwkJ6g4miBeYm5yYT3GXvWnKSSXZn5s7Mnpm5C/OOPFAD2kAP+JD0pKvK51/YBV6ASYIMgEqawFng2gR4AE6BIrAgKUrXMX5NIBOSwAf/Ao4TDrliToCxzlyF0OKDb6T46k2TpBznlDecH5EedZ3txzW+ZjiPoiUPtCT5GLq6irEfleBWxkaEbRm4Mw29B1Yi/M5kv4lK8Czj6pR+HRhGjOdQNouSbG5P/mAkY8HoDk3zxno/AD6l+wEujP+i9KNZCZyTx0TyNlXtGvBq7B5Len8PpWgi7l0PZvUliKK2jG5DPVoJd42frKAmV2XsaOTSIgs8KsZeXDUDObj1T4uGWbRcnFPFTMxWiuDbwLfO7iQ5N02SegJdWVXug1+GVJPRrehHsKvmlbQjBT2fG8598KDr2qMsPpN+OP0QWuKQ08Xlxu5Jy+jEPTudm5bYhs4HfgGN1o3ytrKE/gAAAABJRU5ErkJggg=="/>
@@ -566,22 +608,23 @@
         </button>
         </div>
       `
-        document.body.appendChild(bottomMenu)
-        document.querySelector("#taskIcon").addEventListener('click', async function (e) {
-            let taskBar = document.querySelector("#taskBar")
-            if (taskBar == null) {
-                showTask()
-            } else {
-                document.body.removeChild(taskBar)
-            }
-            e.preventDefault()
-        })
-        document.querySelector("#scrollTop").addEventListener('click', async function (e) {
-            window.scrollTo({top: 0,left: 0,behavior: "smooth"});
-            e.preventDefault()
-        })
-        document.querySelector("#scrollBottom").addEventListener('click', async function (e) {
-            window.scrollTo({top: document.body.scrollHeight,behavior: "smooth"});
-            e.preventDefault()
-        })
+    document.body.appendChild(bottomMenu)
+    document.querySelector("#taskIcon").addEventListener('click', async function (e) {
+        let taskBar = document.querySelector("#taskBar")
+        if (taskBar == null) {
+            showTask()
+        } else {
+            taskBar.classList.add('remove')
+            setTimeout(() => document.body.removeChild(taskBar), 500)
+        }
+        e.preventDefault()
+    })
+    document.querySelector("#scrollTop").addEventListener('click', async function (e) {
+        window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+        e.preventDefault()
+    })
+    document.querySelector("#scrollBottom").addEventListener('click', async function (e) {
+        window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+        e.preventDefault()
+    })
 })();

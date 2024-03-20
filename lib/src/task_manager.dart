@@ -82,7 +82,7 @@ class TaskManager {
             printEmojis: false,
             printTime: false,
             noBoxingByDefault: true));
-    api = Hitomi.fromPrefenerce(this);
+    api = crateHitomi(this, false, config.remoteHttp);
     helper = SqliteHelper(config.output, logger: logger);
     manager = IsolateManager<MapEntry<int, List<int>?>, String>.create(
         _compressRunner,
@@ -319,7 +319,7 @@ class TaskManager {
               .catchError((e) {
             logger.e('add task $e');
             return false;
-          }, test: (error) => true).whenComplete(() => _tasks.remove(cmd));
+          }, test: (error) => true);
         }
       } else if (result.wasParsed('artist')) {
         String? artist = result['artist'];
@@ -332,8 +332,8 @@ class TaskManager {
             ...config.languages.map((e) => Language(name: e)),
             TypeLabel('doujinshi'),
             TypeLabel('manga')
-          ], filter, MapEntry('artist', artist), CancelToken()).whenComplete(
-              () => _tasks.remove(label));
+          ], filter, MapEntry('artist', artist), CancelToken(),
+              onFinish: (success) => _tasks.remove(label));
         }
       } else if (result.wasParsed('group')) {
         String? group = result['group'];
@@ -346,8 +346,8 @@ class TaskManager {
             ...config.languages.map((e) => Language(name: e)),
             TypeLabel('doujinshi'),
             TypeLabel('manga')
-          ], filter, MapEntry('groupes', group), CancelToken()).whenComplete(
-              () => _tasks.remove(label));
+          ], filter, MapEntry('groupes', group), CancelToken(),
+              onFinish: (success) => _tasks.remove(label));
         }
       } else if (result.wasParsed('tags')) {
         List<Label> tags = result["tags"]
@@ -356,13 +356,12 @@ class TaskManager {
             .map((e) => fromString(e[0], e[1]))
             .toList();
         _tasks.addAll(tags);
-        return downLoader
-            .downLoadByTag(
-                tags..addAll(config.languages.map((e) => Language(name: e))),
-                filter,
-                MapEntry(tags.first.type, tags.first.name),
-                CancelToken())
-            .whenComplete(() => _tasks.removeAll(tags));
+        return downLoader.downLoadByTag(
+            tags..addAll(config.languages.map((e) => Language(name: e))),
+            filter,
+            MapEntry(tags.first.type, tags.first.name),
+            CancelToken(),
+            onFinish: (success) => _tasks.removeAll(tags));
       } else if (result.wasParsed('delete')) {
         List<String> delete = result["delete"];
         logger.d('delete ${delete}');

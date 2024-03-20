@@ -96,6 +96,7 @@ class SqliteHelper {
       }
       _db.execute('PRAGMA user_version=$_version;');
     }
+    _db.execute('PRAGMA journal_mode = WAL;');
   }
 
   T databaseOpera<T>(String sql, T operate(CommonPreparedStatement statement),
