@@ -44,9 +44,10 @@ class TaskManager {
   late Logger logger;
   final Dio dio = Dio();
   final _tasks = <Label>{};
+  final reg = RegExp(r'!?\[(?<name>.*?)\]\(#*\s*\"?(?<url>\S+?)\"?\)');
   late IsolateManager<MapEntry<int, List<int>?>, String> manager;
   late bool Function(Gallery) filter = (Gallery gallery) =>
-      downLoader.illeagalTagsCheck(gallery, config.excludes.keys.toList()) &&
+      downLoader.illeagalTagsCheck(gallery, config.excludes) &&
       DateTime.parse(gallery.date).compareTo(limit) > 0 &&
       (gallery.artists?.length ?? 0) <= 2 &&
       gallery.files.length >= 18;
@@ -82,7 +83,7 @@ class TaskManager {
             printEmojis: false,
             printTime: false,
             noBoxingByDefault: true));
-    api = crateHitomi(this, false, config.remoteHttp);
+    api = createHitomi(this, false, config.remoteHttp);
     helper = SqliteHelper(config.output, logger: logger);
     manager = IsolateManager<MapEntry<int, List<int>?>, String>.create(
         _compressRunner,
@@ -112,6 +113,21 @@ class TaskManager {
     downLoader.cancelAll();
   }
 
+  String takeTranslateText(String input) {
+    var matches = reg.allMatches(input);
+    if (matches.isNotEmpty) {
+      int start = 0;
+      var sb = StringBuffer();
+      for (var element in matches) {
+        sb.write(input.substring(start, element.start));
+        start = element.end;
+      }
+      sb.write(input.substring(start));
+      return sb.toString();
+    }
+    return input;
+  }
+
   Future<List<List<dynamic>>> fetchTagsFromNet({CancelToken? token}) async {
     // var rows = _db.select(
     //     'select intro from Tags where type=? by intro desc', ['author']);
@@ -125,7 +141,6 @@ class TaskManager {
     if (data['data'] is List<dynamic>) {
       var rows = data['data'] as List<dynamic>;
       var params = rows
-          .sublist(1)
           .map((e) => e as Map<String, dynamic>)
           .map((e) => MapEntry(
               e['namespace'] as String, e['data'] as Map<String, dynamic>))
@@ -141,7 +156,7 @@ class TaskManager {
               null,
               key,
               name,
-              value['name'],
+              takeTranslateText(value['name']),
               value['intro'],
               value['links'],
               null

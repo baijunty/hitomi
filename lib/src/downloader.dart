@@ -49,40 +49,24 @@ class DownLoader {
             if (msg.target is Gallery) {
               // await translateLabel(msg.gallery.tags ?? []);
               logger?.d('down start $msg');
-              var b =
-                  illeagalTagsCheck(msg.gallery, config.excludes.keys.toList());
-              if (b) {
-                b = await _findUnCompleteGallery(
-                        msg.gallery, msg.file as Directory)
-                    .catchError((e) {
-                  logger?.e(e);
-                  return true;
-                }, test: (error) => true).then((value) {
-                  if (value) {
-                    return helper
-                        .updateTask(msg.gallery.id, msg.gallery.dirName,
-                            msg.file.path, false)
-                        .then((value) =>
-                            helper.insertGallery(msg.gallery, msg.file.path));
-                  }
-                  return false;
-                });
-              }
-              if (!b) {
-                await readGalleryFromPath(msg.file.path)
-                    .then((value) => helper.removeTask(msg.gallery.id,
-                        withGaller: value.id != msg.gallery.id))
-                    .catchError(
-                        (e) =>
-                            helper.removeTask(msg.gallery.id, withGaller: true),
-                        test: (error) => true);
-              }
-              return b;
+              return _findUnCompleteGallery(msg.gallery, msg.file as Directory)
+                  .catchError((e) {
+                logger?.e(e);
+                return true;
+              }, test: (error) => true).then((value) {
+                if (value) {
+                  return helper
+                      .updateTask(msg.gallery.id, msg.gallery.dirName,
+                          msg.file.path, false)
+                      .then((value) =>
+                          helper.insertGallery(msg.gallery, msg.file.path));
+                }
+                return false;
+              });
             } else if (msg.target is Image) {
               return !msg.file.existsSync();
             }
-            return illeagalTagsCheck(
-                msg.gallery, config.excludes.keys.toList());
+            return illeagalTagsCheck(msg.gallery, config.excludes);
           }
         case DownLoadFinished():
           {
@@ -198,19 +182,21 @@ class DownLoader {
       });
   }
 
-  bool illeagalTagsCheck(Gallery gallery, List<String> excludes) {
-    var illeagalTags = gallery.tags
-            ?.where((element) => excludes.contains(element.name))
-            .toList() ??
-        [];
-    if (illeagalTags.isNotEmpty) {
-      logger?.i(
-          '${gallery.id} found ${illeagalTags.map((e) => e.name).toList()} ${gallery.files.length} rate ${pow(10, illeagalTags.length) * 2 / gallery.files.length}');
-    }
-    if (illeagalTags.any((element) => config.excludes[element.name] ?? false)) {
+  bool illeagalTagsCheck(Gallery gallery, List<FilterLabel> excludes) {
+    final labels = gallery.labels();
+    var illeagalTags =
+        excludes.where((element) => labels.contains(element)).toList();
+    if (excludes.any(
+        (element) => illeagalTags.contains(element) && element.weight >= 1.0)) {
+      logger?.w('${gallery.id} found forbidden tag');
       return false;
     }
-    return pow(10, illeagalTags.length) * 2 / gallery.files.length < 0.5;
+    final weight = illeagalTags.fold(0.0, (acc, e) => acc + e.weight);
+    final checkResult = weight <= illeagalTags.length / labels.length &&
+        pow(10, illeagalTags.length) * 2 / gallery.files.length < 0.5;
+    logger?.d(
+        '${gallery.id} weight $weight files ${gallery.files.length} result $checkResult');
+    return checkResult;
   }
 
   Future<bool> _downLoadGallery(IdentifyToken token) async {
@@ -383,7 +369,7 @@ class DownLoader {
       MapEntry<String, String> entry, CancelToken token,
       {void Function(bool success)? onFinish}) async {
     if (exclude.length != config.excludes.length) {
-      exclude.addAll(await helper.mapToLabel(config.excludes.keys.toList()));
+      exclude.addAll(config.excludes);
     }
     final results = await fetchGallerysByTags(tags, where, token, entry)
         .then((value) async {
@@ -448,7 +434,7 @@ class DownLoader {
     logger?.d('fetch tags ${tags}');
     return await api
         .search(tags, exclude: exclude)
-        .then((value) => fetchGalleryFromIds(value, where, token))
+        .then((value) => fetchGalleryFromIds(value.data, where, token))
         .then((value) => filterGalleryByImageHash(value, token, entry))
         .catchError((e) async {
       logger?.e('$tags catch error $e');

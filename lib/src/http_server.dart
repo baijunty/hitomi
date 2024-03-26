@@ -19,7 +19,8 @@ final defaultRespHeader = {
   HttpHeaders.accessControlAllowOriginHeader: '*',
   HttpHeaders.accessControlAllowMethodsHeader: 'GET, POST',
   HttpHeaders.accessControlAllowHeadersHeader: '*',
-  HttpHeaders.accessControlAllowCredentialsHeader: 'true'
+  HttpHeaders.accessControlAllowCredentialsHeader: 'true',
+  HttpHeaders.contentTypeHeader: 'application/json'
 };
 
 class _TaskWarp {
@@ -36,16 +37,18 @@ class _TaskWarp {
     router
       ..get('/', (req) => Response.ok('ok'))
       ..post('/translate', _translate)
+      ..options('/translate', _optionsOk)
       ..post('/addTask', _addTask)
+      ..options('/addTask', _optionsOk)
       ..post('/listTask', _listTask)
+      ..options('/listTask', _optionsOk)
       ..post('/checkId', _checkId)
+      ..options('/checkId', _optionsOk)
+      ..post('/fetchTag/<key>', _fetchTag)
+      ..options('/fetchTag/<key>', _optionsOk)
       ..post('/proxy/<method>', _proxy)
-      ..options(
-          '/proxy/<method>',
-          (req) => Response.ok(null, headers: {
-                ...defaultRespHeader,
-                HttpHeaders.contentTypeHeader: 'application/json'
-              }))
+      ..options('/proxy/<method>',
+          (req) => Response.ok(null, headers: defaultRespHeader))
       ..get('/thumb/<gid>/<hash>', _thumb)
       ..options(
           '/thumb/<gid>/<hash>',
@@ -63,13 +66,12 @@ class _TaskWarp {
       ..post('/excludes', (req) async {
         var succ = await _authToken(req);
         if (succ.item1) {
-          return Response.ok(
-              json.encode(_manager.config.excludes.keys.toList()),
+          return Response.ok(json.encode(_manager.config.excludes),
               headers: defaultRespHeader);
         }
         return Response.unauthorized('unauth');
       });
-    localHitomi = crateHitomi(_manager, true, '127.0.0.1:7890');
+    localHitomi = createHitomi(_manager, true, 'http://127.0.0.1:7890');
     thumbFunctin = (id, hash) => _manager.helper
         .querySqlByCursor(
             'select gf.thumb,gf.name from GalleryFile gf where gf.gid=? and hash=?',
@@ -89,6 +91,13 @@ class _TaskWarp {
           return MapEntry<String, Stream<List<int>>>(
               fileName, File(path).openRead());
         }).firstOrNull;
+  }
+
+  Future<Response> _optionsOk(Request req) async {
+    return Response.ok(null, headers: {
+      ...defaultRespHeader,
+      HttpHeaders.contentTypeHeader: 'application/json'
+    });
   }
 
   List<Label> _mapFromRequest(List<dynamic> params) {
@@ -115,15 +124,16 @@ class _TaskWarp {
           }
         case 'search':
           {
-            List<dynamic> tags = task.item2['tags'];
-            List<dynamic>? exclude = task.item2['excluds'];
+            List<dynamic> tags = task.item2['include'];
+            List<dynamic>? exclude = task.item2['excludes'];
             return (task.item2['local'] == true ? localHitomi : _manager.api)
                 .search(_mapFromRequest(tags),
                     exclude: exclude != null
                         ? _mapFromRequest(exclude)
                         : _manager.downLoader.exclude,
                     page: task.item2['page'] ?? 1)
-                .then((value) => Response.ok(json.encode(value),
+                .then((value) => Response.ok(
+                    json.encode(value.toJson((p1) => p1)),
                     headers: defaultRespHeader));
           }
         case 'viewByTag':
@@ -132,7 +142,8 @@ class _TaskWarp {
             return (task.item2['local'] == true ? localHitomi : _manager.api)
                 .viewByTag(_mapFromRequest(tags).first,
                     page: task.item2['page'] ?? 1)
-                .then((value) => Response.ok(json.encode(value),
+                .then((value) => Response.ok(
+                    json.encode(value.toJson((p1) => p1)),
                     headers: defaultRespHeader));
           }
         case 'fetchImageData':
@@ -203,7 +214,7 @@ class _TaskWarp {
   Future<Response> _thumb(Request req) async {
     var hash = req.params['hash'] ?? '';
     var id = req.params['gid']!;
-    var size = req.params['size'] ?? 'medium';
+    var size = req.url.queryParameters['size'] ?? 'medium';
     if (req.url.queryParameters['local'] == '1') {
       return _loadImageInner(
           id, hash, req.headers['If-None-Match'], thumbFunctin);
@@ -254,11 +265,11 @@ class _TaskWarp {
     final task = await _authToken(req);
     if (task.item1) {
       Set<Label> keys = (task.item2['tags'] as List<dynamic>)
-          .map((e) => e as Map<String, dynamic>)
+          .map((e) =>
+              (e is Map<String, dynamic>) ? e : (json.decode(e.toString())))
           .map((e) => fromString(e['type'], e['name']))
           .where((element) => element.runtimeType != QueryText)
           .toSet();
-      ;
       final r = await _collectionTags(keys.toList());
       return Response.ok(json.encode(r), headers: defaultRespHeader);
     }
@@ -275,7 +286,10 @@ class _TaskWarp {
       await _manager.helper
           .selectSqlMultiResultAsync(
               'select count(1) as count,date as date from Gallery where json_value_contains(${entry.key},?,?)=1',
-              entry.value.map((e) => [e.name, e.type]).toList())
+              entry.value
+                  .where((element) => element.runtimeType != TypeLabel)
+                  .map((e) => [e.name, e.type])
+                  .toList())
           .then((value) {
         return value.entries.fold(_cache, (previousValue, element) {
           final row = element.value.firstOrNull;
@@ -355,6 +369,19 @@ class _TaskWarp {
           .then((value) => {'id': id, 'value': value})
           .then((value) =>
               Response.ok(json.encode(value), headers: defaultRespHeader));
+    }
+    return Response.unauthorized('unauth');
+  }
+
+  Future<Response> _fetchTag(Request req) async {
+    var key = Uri.decodeComponent(req.params['key'] ?? '');
+    if (key.isEmpty) {
+      return Response.badRequest();
+    }
+    final task = await _authToken(req);
+    if (task.item1) {
+      return localHitomi.fetchSuggestions(key).then((value) =>
+          Response.ok(json.encode(value), headers: defaultRespHeader));
     }
     return Response.unauthorized('unauth');
   }

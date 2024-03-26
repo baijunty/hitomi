@@ -16,15 +16,23 @@ class SqliteHelper {
   static final _version = 7;
   Logger? _logger = null;
   late CommonDatabase _db;
+  CommonDatabase? __db;
+  String dbName;
   SqliteHelper(
     this._dirPath, {
-    String dbName = 'user.db',
+    this.dbName = 'user.db',
     Logger? logger = null,
   }) {
     this._logger = logger;
-    openSqliteDb(_dirPath, dbName)
-        .then((value) => _db = value)
-        .then((value) => init());
+  }
+
+  Future<void> checkInit() async {
+    if (__db == null) {
+      await openSqliteDb(_dirPath, dbName).then((value) {
+        __db = value;
+        _db = value;
+      }).then((value) => init());
+    }
   }
 
   bool jsonKeyContains(List<Object?> arguments) {
@@ -35,14 +43,14 @@ class SqliteHelper {
           return data.keys.contains(arguments[1]);
         }
       } catch (e) {
-        _logger?.e('illgal json $e');
+        _logger?.e('jsonKeyContains illgal json $e with ${arguments[0]}');
       }
     }
     return false;
   }
 
   bool jsonValueContains(List<Object?> arguments) {
-    if (arguments.length > 1) {
+    if (arguments.length > 1 && (arguments[0]?.toString() ?? '').isNotEmpty) {
       try {
         var data = json.decode(arguments[0].toString());
         if (data is Map<String, dynamic>) {
@@ -57,7 +65,7 @@ class SqliteHelper {
           return data.contains(arguments[1].toString());
         }
       } catch (e) {
-        _logger?.e('illgal json $e');
+        _logger?.e('jsonValueContains illgal json $e with ${arguments[0]}');
       }
     }
     return false;
@@ -72,6 +80,7 @@ class SqliteHelper {
   }
 
   void init() async {
+    __db = _db;
     createTables(_db);
     final stmt = _db.prepare('PRAGMA user_version;');
     _db.createFunction(
@@ -99,10 +108,12 @@ class SqliteHelper {
     _db.execute('PRAGMA journal_mode = WAL;');
   }
 
-  T databaseOpera<T>(String sql, T operate(CommonPreparedStatement statement),
-      {bool releaseOnce = true}) {
+  Future<T> databaseOpera<T>(
+      String sql, T operate(CommonPreparedStatement statement),
+      {bool releaseOnce = true}) async {
     CommonPreparedStatement? stam;
     try {
+      await checkInit();
       stam = _db.prepare(sql);
       return operate(stam);
     } catch (e) {
@@ -225,20 +236,11 @@ class SqliteHelper {
         params);
   }
 
-  Future<List<Label>> fetchLabelsFromSql(List<String> names) async {
-    var sets = await selectSqlMultiResultAsync(
-        'select * from Tags where name=? or translate=?',
-        names.map((name) => [name.toLowerCase(), name.toLowerCase()]).toList());
-    return names.map((e) {
-      var set = sets.entries
-          .firstWhereOrNull((element) => element.key.first == e.toLowerCase())
-          ?.value
-          .first;
-      if (set?.isNotEmpty == true) {
-        return fromString(set!['type'], set['name']);
-      }
-      return QueryText(e);
-    }).toList();
+  Future<List<Map<String, dynamic>>> fetchLabelsFromSql(String name) async {
+    var sets = await querySql(
+        'select type,name,translate,intro,links from Tags where name like ? or translate like ?',
+        [name.toLowerCase(), name.toLowerCase()]);
+    return sets.toList();
   }
 
   Future<ResultSet> querySql(String sql,
@@ -246,10 +248,14 @@ class SqliteHelper {
     return databaseOpera(sql, (stmt) => stmt.select(params));
   }
 
-  Stream<Row> querySqlByCursor(String sql, [List<dynamic> params = const []]) {
-    return databaseOpera(
+  Stream<Row> querySqlByCursor(String sql,
+      [List<dynamic> params = const []]) async* {
+    var stream = await databaseOpera(
         sql, (stmt) => stmt.selectCursor(params).asStream(stmt, _logger),
         releaseOnce: false);
+    await for (var element in stream) {
+      yield element;
+    }
   }
 
   Future<List<Label>> mapToLabel(List<String> names) async {

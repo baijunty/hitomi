@@ -7,15 +7,20 @@ import 'package:hitomi/gallery/gallery.dart';
 import 'package:hitomi/gallery/label.dart';
 import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/gallery_util.dart';
-import 'package:hitomi/src/web.dart';
+import 'package:hitomi/src/multi_paltform.dart';
 import 'package:test/test.dart';
 
 var config = UserConfig('d:manga',
-    proxy: '127.0.0.1:8389', languages: ['japanese', 'chinese'], maxTasks: 5);
+    proxy: '127.0.0.1:8389',
+    languages: ['japanese', 'chinese'],
+    maxTasks: 5,
+    remoteHttp: 'http://127.0.0.1:7890');
 var task = TaskManager(config);
 void main() async {
   test('chapter', () async {
-    await testLocalDb(false);
+    var content = 'bytes 0-99/3476580';
+    final _totalExp = RegExp(r'\d+-\d+\/(?<totalCount>\d+)');
+    print(_totalExp.firstMatch(content)?.namedGroup('totalCount'));
   }, timeout: Timeout(Duration(minutes: 2)));
 }
 
@@ -35,7 +40,7 @@ Future readIdFromFile() async {
 }
 
 Future<void> testLocalDb(bool local) async {
-  final api = WebHitomi(task.dio, local, config.auth, '');
+  final api = createHitomi(task, local, config.remoteHttp);
   await api.search([QueryText('青春'), Artist(artist: 'nagase tooru')]).then(
       (value) => print(value));
   await api.viewByTag(QueryText(''), page: 1).then((value) => print(value));

@@ -5,9 +5,9 @@ import 'package:dio/dio.dart';
 import 'package:hitomi/gallery/gallery.dart';
 import 'package:hitomi/gallery/image.dart';
 import 'package:hitomi/gallery/label.dart';
+import 'package:hitomi/src/response.dart';
 import 'package:sqlite3/common.dart' show CommonDatabase;
 import 'package:sqlite3/wasm.dart' show IndexedDbFileSystem, WasmSqlite3;
-
 import '../lib.dart';
 
 Future<CommonDatabase> openSqliteDb(String dirPath, String name) async {
@@ -24,9 +24,8 @@ HttpClientAdapter crateHttpClientAdapter(String proxy,
   return BrowserHttpClientAdapter();
 }
 
-Hitomi crateHitomi(TaskManager _manager, bool localDb, String baseHttp) {
-  return WebHitomi(
-      _manager.dio, localDb, _manager.config.auth, 'http://${baseHttp}');
+Hitomi createHitomi(TaskManager _manager, bool localDb, String baseHttp) {
+  return WebHitomi(_manager.dio, localDb, _manager.config.auth, baseHttp);
 }
 
 class WebHitomi implements Hitomi {
@@ -39,7 +38,10 @@ class WebHitomi implements Hitomi {
   @override
   Future<bool> downloadImages(Gallery gallery,
       {bool usePrefence = true, CancelToken? token}) async {
-    return false;
+    return dio
+        .post<String>('$bashHttp/addTask',
+            data: json.encode({'auth': auth, 'task': gallery.id.toString()}))
+        .then((value) => json.decode(value.data!)['success']);
   }
 
   @override
@@ -72,7 +74,9 @@ class WebHitomi implements Hitomi {
               'id': id,
               'local': localDb
             }))
-        .then((value) => json.decode(value.data!) as List<int>);
+        .then((value) => (json.decode(value.data!) as List<dynamic>)
+            .map((e) => e as int)
+            .toList());
   }
 
   @override
@@ -82,28 +86,31 @@ class WebHitomi implements Hitomi {
   void removeCallBack(Future<bool> Function(Message msg) callBack) {}
 
   @override
-  Future<List<int>> search(List<Label> include,
+  Future<DataResponse<List<int>>> search(List<Label> include,
       {List<Label> exclude = const [], int page = 1, CancelToken? token}) {
     return dio
         .post<String>('$bashHttp/proxy/search',
             data: json.encode({
-              'tags': include,
-              'excluds': exclude,
+              'include': include,
+              'excludes': exclude,
               'page': page,
               'auth': auth,
               'local': localDb
             }))
-        .then((value) => json.decode(value.data!) as List<int>);
+        .then((value) => DataResponse.fromStr(value.data!,
+            (list) => (list as List<dynamic>).map((e) => e as int).toList()));
   }
 
   @override
   String buildImageUrl(Image image,
-      {ThumbnaiSize size = ThumbnaiSize.smaill, int id = 0}) {
+      {ThumbnaiSize size = ThumbnaiSize.smaill,
+      int id = 0,
+      bool proxy = false}) {
     return '$bashHttp/${size == ThumbnaiSize.origin ? 'image' : 'thumb'}/${id}/${image.hash}?size=${size.name}&local=${localDb ? 1 : 0}';
   }
 
   @override
-  Future<List<Gallery>> viewByTag(Label tag,
+  Future<DataResponse<List<Gallery>>> viewByTag(Label tag,
       {int page = 1, CancelToken? token}) async {
     return dio
         .post<String>('$bashHttp/proxy/viewByTag',
@@ -113,10 +120,33 @@ class WebHitomi implements Hitomi {
               'auth': auth,
               'local': localDb
             }))
+        .then((value) => DataResponse<List<Gallery>>.fromStr(
+            value.data!,
+            (list) => (list as List<dynamic>)
+                .map((e) => Gallery.fromJson(e))
+                .toList()));
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> translate(List<Label> labels) {
+    return dio
+        .post<String>('${bashHttp}/translate',
+            data: json.encode({'auth': auth, 'tags': labels}))
+        .then((value) => json.decode(value.data!) as List<dynamic>)
+        .then((value) => value.map((e) => e as Map<String, dynamic>).toList());
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> fetchSuggestions(String key) {
+    return dio
+        .post<String>('$bashHttp/fetchTag/$key',
+            data: json.encode({'auth': auth, 'local': localDb}))
         .then((value) {
       return json.decode(value.data!) as List<dynamic>;
-    }).then((value) {
-      return value.map((element) => Gallery.fromJson(element)).toList();
-    });
+    }).then((value) => value
+            .map((e) => (e is Map<String, dynamic>)
+                ? e
+                : json.decode(e.toString()) as Map<String, dynamic>)
+            .toList());
   }
 }

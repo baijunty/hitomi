@@ -11,6 +11,6 @@ HttpClientAdapter crateHttpClientAdapter(String proxy,
   throw UnsupportedError('Sqlite3 is unsupported on this platform.');
 }
 
-Hitomi crateHitomi(TaskManager _manager, bool localDb, String baseHttp) {
+Hitomi createHitomi(TaskManager _manager, bool localDb, String baseHttp) {
   throw UnsupportedError('Sqlite3 is unsupported on this platform.');
 }

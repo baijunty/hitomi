@@ -74,12 +74,6 @@ extension StreamConvert<E> on Iterable<E> {
   Stream<E> asStream() => Stream.fromIterable(this);
 }
 
-extension NullFillterIterable<E, R> on Iterable<E?> {
-  Iterable<R> mapNonNull(R? test(E? event)) =>
-      this.map((e) => test(e)).where((element) => element != null)
-          as Iterable<R>;
-}
-
 extension NullMapStream<E, R> on Stream<E> {
   Stream<R> mapNonNull(R? test(E event)) =>
       this.map((e) => test(e)).where((element) => element != null) as Stream<R>;
@@ -97,7 +91,8 @@ extension HttpInvoke<T> on Dio {
       void onProcess(int now, int total)?,
       String method = "get",
       Object? data = null,
-      Logger? logger}) async {
+      Logger? logger,
+      void Function(Headers)? responseHead = null}) async {
     final ua = {
       'user-agent':
           'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36 Edg/106.0.1370.47'
@@ -127,8 +122,10 @@ extension HttpInvoke<T> on Dio {
                 data: data,
                 cancelToken: token,
                 onReceiveProgress: onProcess))
-        .then((value) => value.data!)
-        .catchError((e) {
+        .then((value) {
+      responseHead?.call(value.headers);
+      return value.data!;
+    }).catchError((e) {
       logger?.e("$url throw $e");
       throw e;
     }, test: (e) => true);

@@ -15,10 +15,10 @@ _$UserConfigImpl _$$UserConfigImplFromJson(Map<String, dynamic> json) =>
               .toList() ??
           const ["japanese", "chinese"],
       proxy: json['proxy'] as String? ?? "",
-      excludes: (json['excludes'] as Map<String, dynamic>?)?.map(
-            (k, e) => MapEntry(k, e as bool),
-          ) ??
-          const {},
+      excludes: (json['excludes'] as List<dynamic>?)
+              ?.map((e) => FilterLabel.fromJson(e as String))
+              .toList() ??
+          const [],
       dateLimit: json['dateLimit'] as String? ?? "1970-01-01",
       auth: json['auth'] as String? ?? "12345678",
       logLevel: json['logLevel'] as String? ?? "debug",

@@ -83,4 +83,42 @@ class TypeLabel extends Label {
   String get type => 'type';
   @override
   String get name => typeName;
+
+  @override
+  Map<String, dynamic> toMap() {
+    return {type: type, 'name': typeName};
+  }
+}
+
+class FilterLabel with Label {
+  final String _type;
+  final String _name;
+  final double weight;
+
+  FilterLabel(
+      {required String type, required String name, required this.weight})
+      : _type = type,
+        _name = name;
+  Map<String, dynamic> toMap() => {'type': type, 'name': name, 'weigt': weight};
+
+  factory FilterLabel.fromMap(Map<String, dynamic> data) => FilterLabel(
+        type: data['type'] as String,
+        name: data['name'] as String,
+        weight: data['weight'] as double,
+      );
+
+  factory FilterLabel.fromJson(String data) {
+    return FilterLabel.fromMap(json.decode(data) as Map<String, dynamic>);
+  }
+
+  @override
+  String urlEncode() {
+    return fromString(type, name).urlEncode();
+  }
+
+  @override
+  String get name => _name;
+
+  @override
+  String get type => _type;
 }

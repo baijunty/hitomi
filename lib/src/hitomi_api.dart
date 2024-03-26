@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import '../gallery/gallery.dart';
 import '../gallery/image.dart';
 import '../gallery/label.dart';
+import 'response.dart';
 
 abstract class Hitomi {
   void registerCallBack(Future<bool> callBack(Message msg));
@@ -13,17 +14,19 @@ abstract class Hitomi {
       {bool usePrefence = true, CancelToken? token});
   Future<Gallery> fetchGallery(dynamic id,
       {usePrefence = true, CancelToken? token});
-  Future<List<int>> search(List<Label> include,
+  Future<DataResponse<List<int>>> search(List<Label> include,
       {List<Label> exclude, int page = 1, CancelToken? token});
+  Future<List<Map<String, dynamic>>> fetchSuggestions(String key);
 
+  Future<List<Map<String, dynamic>>> translate(List<Label> labels);
   String buildImageUrl(Image image,
-      {ThumbnaiSize size = ThumbnaiSize.smaill, int id = 0});
+      {ThumbnaiSize size = ThumbnaiSize.smaill, int id = 0,bool proxy=false});
   Future<List<int>> fetchImageData(Image image,
       {String refererUrl,
       CancelToken? token,
       int id = 0,
       ThumbnaiSize size = ThumbnaiSize.smaill});
-  Future<List<Gallery>> viewByTag(Label tag,
+  Future<DataResponse<List<Gallery>>> viewByTag(Label tag,
       {int page = 1, CancelToken? token});
 }
 

@@ -277,7 +277,7 @@ class HitomiDir {
   Future<bool> fixGallery() async {
     if (gallery != null) {
       if (!_downLoader.illeagalTagsCheck(
-              gallery!, _downLoader.config.excludes.keys.toList()) ||
+              gallery!, _downLoader.config.excludes) ||
           (gallery!.files.length) < 18) {
         return deleteGallery();
       }

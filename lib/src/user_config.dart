@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:hitomi/gallery/label.dart';
 part 'user_config.freezed.dart';
 part 'user_config.g.dart';
 
@@ -12,7 +13,7 @@ class UserConfig with _$UserConfig {
     @Default(5) int maxTasks,
     @Default(["japanese", "chinese"]) List<String> languages,
     @Default("") String proxy,
-    @Default({}) Map<String, bool> excludes,
+    @Default([]) List<FilterLabel> excludes,
     @Default("1970-01-01") String dateLimit,
     @Default("12345678") String auth,
     @Default("debug") String logLevel,

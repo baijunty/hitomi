@@ -24,7 +24,7 @@ mixin _$UserConfig {
   int get maxTasks => throw _privateConstructorUsedError;
   List<String> get languages => throw _privateConstructorUsedError;
   String get proxy => throw _privateConstructorUsedError;
-  Map<String, bool> get excludes => throw _privateConstructorUsedError;
+  List<FilterLabel> get excludes => throw _privateConstructorUsedError;
   String get dateLimit => throw _privateConstructorUsedError;
   String get auth => throw _privateConstructorUsedError;
   String get logLevel => throw _privateConstructorUsedError;
@@ -48,7 +48,7 @@ abstract class $UserConfigCopyWith<$Res> {
       int maxTasks,
       List<String> languages,
       String proxy,
-      Map<String, bool> excludes,
+      List<FilterLabel> excludes,
       String dateLimit,
       String auth,
       String logLevel,
@@ -100,7 +100,7 @@ class _$UserConfigCopyWithImpl<$Res, $Val extends UserConfig>
       excludes: null == excludes
           ? _value.excludes
           : excludes // ignore: cast_nullable_to_non_nullable
-              as Map<String, bool>,
+              as List<FilterLabel>,
       dateLimit: null == dateLimit
           ? _value.dateLimit
           : dateLimit // ignore: cast_nullable_to_non_nullable
@@ -138,7 +138,7 @@ abstract class _$$UserConfigImplCopyWith<$Res>
       int maxTasks,
       List<String> languages,
       String proxy,
-      Map<String, bool> excludes,
+      List<FilterLabel> excludes,
       String dateLimit,
       String auth,
       String logLevel,
@@ -188,7 +188,7 @@ class __$$UserConfigImplCopyWithImpl<$Res>
       excludes: null == excludes
           ? _value._excludes
           : excludes // ignore: cast_nullable_to_non_nullable
-              as Map<String, bool>,
+              as List<FilterLabel>,
       dateLimit: null == dateLimit
           ? _value.dateLimit
           : dateLimit // ignore: cast_nullable_to_non_nullable
@@ -220,7 +220,7 @@ class _$UserConfigImpl implements _UserConfig {
       {this.maxTasks = 5,
       final List<String> languages = const ["japanese", "chinese"],
       this.proxy = "",
-      final Map<String, bool> excludes = const {},
+      final List<FilterLabel> excludes = const [],
       this.dateLimit = "1970-01-01",
       this.auth = "12345678",
       this.logLevel = "debug",
@@ -249,13 +249,13 @@ class _$UserConfigImpl implements _UserConfig {
   @override
   @JsonKey()
   final String proxy;
-  final Map<String, bool> _excludes;
+  final List<FilterLabel> _excludes;
   @override
   @JsonKey()
-  Map<String, bool> get excludes {
-    if (_excludes is EqualUnmodifiableMapView) return _excludes;
+  List<FilterLabel> get excludes {
+    if (_excludes is EqualUnmodifiableListView) return _excludes;
     // ignore: implicit_dynamic_type
-    return EqualUnmodifiableMapView(_excludes);
+    return EqualUnmodifiableListView(_excludes);
   }
 
   @override
@@ -336,7 +336,7 @@ abstract class _UserConfig implements UserConfig {
       {final int maxTasks,
       final List<String> languages,
       final String proxy,
-      final Map<String, bool> excludes,
+      final List<FilterLabel> excludes,
       final String dateLimit,
       final String auth,
       final String logLevel,
@@ -355,7 +355,7 @@ abstract class _UserConfig implements UserConfig {
   @override
   String get proxy;
   @override
-  Map<String, bool> get excludes;
+  List<FilterLabel> get excludes;
   @override
   String get dateLimit;
   @override
