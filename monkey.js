@@ -397,10 +397,10 @@
         }
     }
 
-    function appendDwonTask(downTask, ol) {
+    function appendDwonTask(downTask, ol,labelName) {
         ol.innerHTML = ""
         if (downTask) {
-            document.querySelector("#downTaskLabel").innerText = `任务列表(${downTask.length})`
+            document.querySelector(`#${labelName}`).innerText = `任务列表(${downTask.length})`
             downTask.forEach((task) => {
                 let item = document.createElement('li')
                 item.className = "item"
@@ -431,12 +431,17 @@
               </td>
             </tr>
             <tr>
-              <td class="label" id="downTaskLabel">任务列表</td>
+              <td class="label" id="queryTaskLabel">任务列表</td>
               <td>
-                <ul id="downTask" class="tags"></ul>
+                <ul id="queryTask" class="tags"></ul>
               </td>
             </tr>
-            <tr></tr>
+            <tr>
+            <td class="label" id="runningTaskLabel">下载列表</td>
+            <td>
+              <ul id="runningTask" class="tags"></ul>
+            </td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -445,7 +450,8 @@
         let respData = await fetchRemote({ path: 'listTask', data: JSON.stringify({ auth: token }), get: false })
         let resp = JSON.parse(respData)
         appendQueryTask(resp['queryTask'], document.getElementById('queryTask'))
-        appendDwonTask(resp['downTask'], document.getElementById('downTask'))
+        appendDwonTask(resp['pendingTask'], document.getElementById('pendingTask'),'queryTaskLabel')
+        appendDwonTask(resp['runningTask'], document.getElementById('runningTask'),'runningTaskLabel')
     }
 
     async function listThumbImages() {
@@ -456,10 +462,14 @@
             let resp = JSON.parse(respData)
             console.log(resp)
             let title = document.querySelector('#gallery-brand')
-            if (title != null && resp.value.length) {
+            if (title != null) {
                 let btnArtist = document.createElement('a')
                 btnArtist.style.cssText = "color: red;font-size: 18px;font-style: normal;text-shadow: none;"
-                btnArtist.innerHTML = `<a href="/doujinshi/${resp.value[0]}.html" target="_blank"><span> ${resp.value[0]} </span></a>`
+                if(resp.length){
+                    btnArtist.innerHTML = `<a href="/doujinshi/${resp.value[0]}.html" target="_blank"><span> ${resp.value[0]} </span></a>`
+                } else{
+                    btnArtist.innerText="无"
+                }
                 title.appendChild(btnArtist)
             }
         }

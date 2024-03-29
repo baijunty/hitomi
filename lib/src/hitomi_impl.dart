@@ -74,7 +74,10 @@ class _LocalHitomiImpl implements Hitomi {
     return _helper
         .queryGalleryById(id)
         .then((value) => join(_manager.config.output, value.first['path']))
-        .then((value) => readGalleryFromPath(value));
+        .then((value) => readGalleryFromPath(value))
+        .catchError(
+            (e) => _hitomiImpl.fetchGallery(id, usePrefence: usePrefence),
+            test: (error) => true);
   }
 
   @override
@@ -126,7 +129,7 @@ class _LocalHitomiImpl implements Hitomi {
         (previousValue, element) =>
             previousValue..addAll([element.name, element.type]));
     sql.write(' 1=1 limit 25 offset ${(page - 1) * 25}');
-    _manager.logger.d('sql is ${sql} parms = ${params.length}');
+    _manager.logger.d('sql is ${sql} parms = ${params}');
     int count = 0;
     return _helper.querySql(sql.toString(), params).then((value) {
       count = value.firstOrNull?['total_count'] ?? 0;
@@ -162,6 +165,15 @@ class _LocalHitomiImpl implements Hitomi {
   @override
   Future<List<Map<String, dynamic>>> fetchSuggestions(String key) {
     return _manager.helper.fetchLabelsFromSql('%$key%');
+  }
+
+  @override
+  Future<DataResponse<List<Gallery>>> findSimilarGalleryBySearch(
+      Gallery gallery,
+      {CancelToken? token}) {
+    return findDuplicateGalleryIds(gallery, _manager.helper, _hitomiImpl)
+        .then((value) => Future.wait(value.map((e) => fetchGallery(e))))
+        .then((value) => DataResponse(value, totalCount: value.length));
   }
 }
 
@@ -321,7 +333,7 @@ class _HitomiImpl implements Hitomi {
       int id = 0,
       bool proxy = false}) {
     if (proxy) {
-      return '${baseHttp}/${size == ThumbnaiSize.origin ? 'image' : 'thumb'}/${id}/${image.hash}?size=${size.name}&local=1';
+      return '${baseHttp}/${size == ThumbnaiSize.origin ? 'image' : 'thumb'}/${id}/${image.hash}?size=${size.name}&local=0';
     }
     final lastThreeCode = image.hash.substring(image.hash.length - 3);
     String url;
@@ -377,7 +389,10 @@ class _HitomiImpl implements Hitomi {
         }
       }
     } else if (!languages.any((element) => element == gallery.language)) {
-      final found = await _findSimilarGalleryBySearch(gallery, token: token);
+      final found = await findSimilarGalleryBySearch(gallery, token: token)
+          .then((value) => value.data
+              .sorted((a, b) => a.files.length - b.files.length)
+              .firstOrNull);
       if (found != null) {
         logger?.d('search similar from ${gallery} found  ${found}');
         return found;
@@ -387,7 +402,9 @@ class _HitomiImpl implements Hitomi {
     return gallery;
   }
 
-  Future<Gallery?> _findSimilarGalleryBySearch(Gallery gallery,
+  @override
+  Future<DataResponse<List<Gallery>>> findSimilarGalleryBySearch(
+      Gallery gallery,
       {CancelToken? token}) async {
     List<Label> keys = gallery.title
         .toLowerCase()
@@ -395,7 +412,7 @@ class _HitomiImpl implements Hitomi {
         .where((element) => zhAndJpCodeExp.hasMatch(element))
         .where((element) => element.isNotEmpty)
         .map((e) => QueryText(e))
-        .take(6)
+        .take(3)
         .fold(<Label>[], (previousValue, element) {
       previousValue.add(element);
       return previousValue;
@@ -408,18 +425,22 @@ class _HitomiImpl implements Hitomi {
     if ((gallery.artists?.length ?? 0) > 0) {
       keys.addAll(gallery.artists!);
     }
+    if ((gallery.groups?.length ?? 0) > 0) {
+      keys.addAll(gallery.groups!);
+    }
     logger
         ?.d('search ${gallery.id} ${gallery.dirName} target language by $keys');
-    var data = await fetchGalleryHashFromNet(gallery, this, token, true)
+    var data = await fetchGalleryHashFromNet(gallery, this, token, false)
         .then((value) => value.value);
     return search(keys, token: token)
         .asStream()
         .expand((element) => element.data)
         .asyncMap((event) => _fetchGalleryJsonById(event, token))
-        .asyncMap((event) => fetchGalleryHashFromNet(event, this, token, true))
+        .asyncMap((event) => fetchGalleryHashFromNet(event, this, token, false))
         .where((event) => searchSimiler(data, event.value) > 0.75)
         .map((event) => event.key)
-        .firstOrNull;
+        .fold(<Gallery>[], (previous, element) => previous..add(element)).then(
+            (value) => DataResponse(value, totalCount: value.length));
   }
 
   @override

@@ -88,7 +88,7 @@ Future<MapEntry<Gallery, List<int>>> fetchGalleryHash(
 Future<MapEntry<Gallery, List<int>>> fetchGalleryHashFromNet(
     Gallery gallery, Hitomi api,
     [CancelToken? token, bool fullHash = false]) async {
-  return (fullHash
+  return (fullHash || gallery.files.length <= 18
           ? gallery.files
           : [
               ...gallery.files.sublist(0, 6),

@@ -7,6 +7,7 @@ import 'package:sqlite3/common.dart' show CommonDatabase;
 import 'package:sqlite3/sqlite3.dart' show sqlite3;
 
 import '../lib.dart';
+import 'hitomi_impl.dart';
 
 Future<CommonDatabase> openSqliteDb(String dirPath, String name) async {
   final filename = path.join(dirPath, name);

@@ -17,10 +17,14 @@ abstract class Hitomi {
   Future<DataResponse<List<int>>> search(List<Label> include,
       {List<Label> exclude, int page = 1, CancelToken? token});
   Future<List<Map<String, dynamic>>> fetchSuggestions(String key);
-
+  Future<DataResponse<List<Gallery>>> findSimilarGalleryBySearch(
+      Gallery gallery,
+      {CancelToken? token});
   Future<List<Map<String, dynamic>>> translate(List<Label> labels);
   String buildImageUrl(Image image,
-      {ThumbnaiSize size = ThumbnaiSize.smaill, int id = 0,bool proxy=false});
+      {ThumbnaiSize size = ThumbnaiSize.smaill,
+      int id = 0,
+      bool proxy = false});
   Future<List<int>> fetchImageData(Image image,
       {String refererUrl,
       CancelToken? token,
@@ -70,6 +74,13 @@ class DownLoadingMessage extends Message<int> {
   String toString() {
     return 'DownLoadMessage{$id,$current $speed,$length }';
   }
+
+  Map<String, dynamic> get toMap => {
+        'gallery': gallery,
+        'current': this.current,
+        'speed': speed,
+        'length': length
+      };
 }
 
 class DownLoadFinished<T> extends Message<int> {

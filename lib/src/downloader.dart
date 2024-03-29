@@ -24,11 +24,18 @@ class DownLoader {
   final UserConfig config;
   final Hitomi api;
   final Set<IdentifyToken> _pendingTask = <IdentifyToken>{};
-  final List<IdentifyToken> _runningTask = <IdentifyToken>[];
+  final Map<IdentifyToken, DownLoadingMessage> _runningTask = {};
   final exclude = <Label>[];
   final SqliteHelper helper;
   late IsolateManager<MapEntry<int, List<int>?>, String> manager;
-  List<IdentifyToken> get tasks => [..._pendingTask, ..._runningTask];
+  List<IdentifyToken> get pendingTask => [..._pendingTask];
+  List<Map<String, dynamic>> get runningTask => _runningTask.entries
+      .map((entry) => {
+            'href': entry.key.gallery.galleryurl,
+            'name': entry.key.gallery.dirName,
+            ...entry.value.toMap
+          })
+      .toList();
   Logger? logger;
   final Dio dio;
   DownLoader(
@@ -39,7 +46,7 @@ class DownLoader {
       required this.logger,
       required this.dio}) {
     final Future<bool> Function(Message msg) handle = (msg) async {
-      var useHandle = await _runningTask
+      var useHandle = await _runningTask.keys
           .firstWhereOrNull((e) => msg.id == e.gallery.id)
           ?.handle
           ?.call(msg);
@@ -48,7 +55,6 @@ class DownLoader {
           {
             if (msg.target is Gallery) {
               // await translateLabel(msg.gallery.tags ?? []);
-              logger?.d('down start $msg');
               return _findUnCompleteGallery(msg.gallery, msg.file as Directory)
                   .catchError((e) {
                 logger?.e(e);
@@ -91,6 +97,12 @@ class DownLoader {
               return await helper.removeTask(msg.id);
             }
           }
+        case DownLoadingMessage():
+          {
+            var key = _runningTask.keys
+                .firstWhere((element) => element.gallery.id == msg.id);
+            _runningTask[key] = msg;
+          }
         default:
           break;
       }
@@ -113,7 +125,7 @@ class DownLoader {
             ?.value
             .firstOrNull;
         if (v != null) {
-          previousValue[element] = v.map((key, value) => MapEntry(key, value));
+          previousValue[element] = {...v, ...element.toMap()};
         }
         return previousValue;
       });
@@ -126,7 +138,7 @@ class DownLoader {
                   'https://translate.googleapis.com/translate_a/t?client=dict-chrome-ex&sl=auto&tl=zh&q=${event.name}')
               .then((value) {
             final v = value[0][0] as String;
-            _cache[event] = {'translate': v};
+            _cache[event] = {'translate': v, ...event.toMap()};
             logger?.d('${event.name} translate to $v');
             return v;
           })));
@@ -221,36 +233,36 @@ class DownLoader {
   }
 
   void cancelByTag(Label label) {
-    final tokens = _runningTask
+    final tokens = _runningTask.keys
         .where((element) => element.gallery.labels().contains(label))
         .toList();
     tokens.forEach((element) {
       element.cancel('cancel');
     });
     logger!.d('cacel task $label');
-    _runningTask.removeWhere((element) => tokens.contains(element));
+    _runningTask.removeWhere((element, v) => tokens.contains(element));
     _pendingTask
         .removeWhere((element) => element.gallery.labels().contains(label));
     _notifyTaskChange();
   }
 
   IdentifyToken? operator [](dynamic key) {
-    return _runningTask
+    return _runningTask.keys
             .firstWhereOrNull((element) => element.gallery.id == key) ??
         _pendingTask.firstWhereOrNull((element) => element.gallery.id == key);
   }
 
   void cancelAll() {
-    _runningTask.forEach((element) {
+    _runningTask.forEach((element, value) {
       element.cancel();
     });
-    _pendingTask.addAll(_runningTask);
+    _pendingTask.addAll(_runningTask.keys);
     _runningTask.clear();
   }
 
   void removeTask(dynamic id) {
     _pendingTask.removeWhere((g) => g.gallery.id == id);
-    _runningTask
+    _runningTask.keys
         .firstWhereOrNull((element) => element.gallery.id == id)
         ?.cancel('cancel');
   }
@@ -260,7 +272,8 @@ class DownLoader {
       var token = _pendingTask.first;
       _pendingTask.remove(token);
       logger?.d('run task ${token.gallery.id} length ${_runningTask.length}');
-      _runningTask.add(token);
+      _runningTask[token] =
+          DownLoadingMessage(token.gallery, 0, 0, token.gallery.files.length);
       _downLoadGallery(token);
     }
     logger?.i(

@@ -8,7 +8,6 @@ import 'package:sqlite3/common.dart';
 
 import 'gallery/gallery.dart';
 
-export 'src/hitomi_impl.dart';
 export 'src/user_config.dart';
 export 'src/http_server.dart';
 export 'src/task_manager.dart';

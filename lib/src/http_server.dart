@@ -3,9 +3,11 @@ import 'dart:io';
 import 'package:async/async.dart';
 import 'package:collection/collection.dart';
 import 'package:dcache/dcache.dart';
+import 'package:hitomi/gallery/gallery.dart';
 import 'package:hitomi/gallery/image.dart';
 import 'package:hitomi/gallery/label.dart';
 import 'package:hitomi/lib.dart';
+import 'package:hitomi/src/multi_paltform.dart';
 import 'package:path/path.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart';
@@ -13,7 +15,6 @@ import 'package:shelf_router/shelf_router.dart';
 import 'package:tuple/tuple.dart';
 import 'package:dio/dio.dart' show ResponseBody;
 import 'gallery_util.dart';
-import 'multi_paltform.dart';
 
 final defaultRespHeader = {
   HttpHeaders.accessControlAllowOriginHeader: '*',
@@ -117,7 +118,9 @@ class _TaskWarp {
         case 'fetchGallery':
           {
             var id = task.item2['id'];
-            return (task.item2['local'] == true ? localHitomi : _manager.api)
+            return (task.item2['local'] == true
+                    ? localHitomi
+                    : _manager.getApi())
                 .fetchGallery(id, usePrefence: task.item2['usePrefence'])
                 .then((value) => Response.ok(json.encode(value),
                     headers: defaultRespHeader));
@@ -126,7 +129,9 @@ class _TaskWarp {
           {
             List<dynamic> tags = task.item2['include'];
             List<dynamic>? exclude = task.item2['excludes'];
-            return (task.item2['local'] == true ? localHitomi : _manager.api)
+            return (task.item2['local'] == true
+                    ? localHitomi
+                    : _manager.getApi())
                 .search(_mapFromRequest(tags),
                     exclude: exclude != null
                         ? _mapFromRequest(exclude)
@@ -139,9 +144,22 @@ class _TaskWarp {
         case 'viewByTag':
           {
             List<dynamic> tags = task.item2['tags'];
-            return (task.item2['local'] == true ? localHitomi : _manager.api)
+            return (task.item2['local'] == true
+                    ? localHitomi
+                    : _manager.getApi())
                 .viewByTag(_mapFromRequest(tags).first,
                     page: task.item2['page'] ?? 1)
+                .then((value) => Response.ok(
+                    json.encode(value.toJson((p1) => p1)),
+                    headers: defaultRespHeader));
+          }
+        case 'findSimilar':
+          {
+            String string = task.item2['gallery'];
+            return (task.item2['local'] == true
+                    ? localHitomi
+                    : _manager.getApi())
+                .findSimilarGalleryBySearch(Gallery.fromJson(string))
                 .then((value) => Response.ok(
                     json.encode(value.toJson((p1) => p1)),
                     headers: defaultRespHeader));
@@ -158,7 +176,8 @@ class _TaskWarp {
                       ? thumbFunctin
                       : originFunctin);
             } else {
-              return _manager.api
+              return _manager
+                  .getApi()
                   .fetchImageData(image,
                       refererUrl: task.item2['referer'] ?? '',
                       size: ThumbnaiSize.values.firstWhere(
@@ -219,7 +238,7 @@ class _TaskWarp {
       return _loadImageInner(
           id, hash, req.headers['If-None-Match'], thumbFunctin);
     }
-    var url = _manager.api.buildImageUrl(
+    var url = _manager.getApi().buildImageUrl(
         Image(
             hash: hash, hasavif: 0, width: 0, height: 0, haswebp: 0, name: ''),
         size:
@@ -244,7 +263,7 @@ class _TaskWarp {
       return _loadImageInner(req.params['gid']!, hash,
           req.headers['If-None-Match'], originFunctin);
     }
-    var url = _manager.api.buildImageUrl(
+    var url = _manager.getApi().buildImageUrl(
         Image(
             hash: hash, hasavif: 0, width: 0, height: 0, haswebp: 0, name: ''),
         size: ThumbnaiSize.origin);
@@ -314,8 +333,6 @@ class _TaskWarp {
                 value['count'] = cache.key;
                 value['date'] = cache.value;
               }
-              value['type'] = key.type;
-              value['name'] = key.name;
               return value;
             }).toList());
     return r;
@@ -325,7 +342,8 @@ class _TaskWarp {
     final task = await _authToken(req);
     if (task.item1) {
       _manager.parseCommandAndRun(task.item2['task']);
-      return Response.ok("{success:true}", headers: defaultRespHeader);
+      return Response.ok(json.encode({'success': true}),
+          headers: defaultRespHeader);
     }
     return Response.unauthorized('unauth');
   }
@@ -355,7 +373,8 @@ class _TaskWarp {
             }),
             headers: defaultRespHeader);
       }
-      return _manager.api
+      return _manager
+          .getApi()
           .fetchGallery(id, usePrefence: false)
           .then((value) => value
                   .createDir(_manager.config.output, createDir: false)
@@ -364,7 +383,8 @@ class _TaskWarp {
                       .createDir(_manager.config.output, createDir: false)
                       .path)
                   .then((value) => [value.id])
-              : findDuplicateGalleryIds(value, _manager.helper, _manager.api,
+              : findDuplicateGalleryIds(
+                  value, _manager.helper, _manager.getApi(),
                   logger: _manager.logger))
           .then((value) => {'id': id, 'value': value})
           .then((value) =>
@@ -387,7 +407,7 @@ class _TaskWarp {
   }
 }
 
-void run_server(TaskManager manager) async {
+Future<HttpServer> run_server(TaskManager manager) async {
   // Use any available host or container IP (usually `0.0.0.0`).
   // Configure a pipeline that logs requests.
   final handler = Pipeline()
@@ -403,4 +423,5 @@ void run_server(TaskManager manager) async {
   servers.defaultResponseHeaders.clear();
   manager.logger
       .i('Server run on http://${servers.address.address}:${servers.port}');
+  return servers;
 }

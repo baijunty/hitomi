@@ -149,4 +149,21 @@ class WebHitomi implements Hitomi {
                 : json.decode(e.toString()) as Map<String, dynamic>)
             .toList());
   }
+
+  @override
+  Future<DataResponse<List<Gallery>>> findSimilarGalleryBySearch(Gallery gallery,
+      {CancelToken? token}) {
+      return dio
+        .post<String>('$bashHttp/proxy/findSimilar',
+            data: json.encode({
+              'gallery':gallery,
+              'auth': auth,
+              'local': localDb
+            }))
+        .then((value) => DataResponse<List<Gallery>>.fromStr(
+            value.data!,
+            (list) => (list as List<dynamic>)
+                .map((e) => Gallery.fromJson(e))
+                .toList()));
+  }
 }

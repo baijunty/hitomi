@@ -18,9 +18,12 @@ var config = UserConfig('d:manga',
 var task = TaskManager(config);
 void main() async {
   test('chapter', () async {
-    var content = 'bytes 0-99/3476580';
-    final _totalExp = RegExp(r'\d+-\d+\/(?<totalCount>\d+)');
-    print(_totalExp.firstMatch(content)?.namedGroup('totalCount'));
+    await task.helper
+        .querySql(
+            'select COUNT(*) OVER() AS total_count,id from Gallery where  json_value_contains(tag,?,?)=1 and  json_value_contains(tag,?,?)=1 and  1=1 limit 25 offset 25',
+            ['maid', 'female', 'sex toys', 'female'])
+        .then((value) => value.length)
+        .then((value) => print(value));
   }, timeout: Timeout(Duration(minutes: 2)));
 }
 
@@ -48,12 +51,13 @@ Future<void> testLocalDb(bool local) async {
 
 Future<void> testThumbHash(List<int> ids) async {
   await Future.wait(
-          ids.map((e) => task.api.fetchGallery(e, usePrefence: false)))
+          ids.map((e) => task.getApi().fetchGallery(e, usePrefence: false)))
       .asStream()
       .expand((element) {
         return element;
       })
-      .asyncMap((gallery) => fetchGalleryHash(gallery, task.helper, task.api))
+      .asyncMap(
+          (gallery) => fetchGalleryHash(gallery, task.helper, task.getApi()))
       .map((event) => MapEntry(event.key.id, event.value))
       .fold(<int, List<int>>{}, (previousValue, element) {
         task.logger.i(
@@ -116,12 +120,12 @@ Future<Gallery> getGalleryInfoFromFile(String name) async {
   if (file.existsSync()) {
     return Gallery.fromJson(file.readAsStringSync());
   }
-  return fromPrefenerce(task, false, '').fetchGallery(name, usePrefence: false);
+  return createHitomi(task, false, '').fetchGallery(name, usePrefence: false);
 }
 
 Future<void> testImageDownload() async {
   var token = CancelToken();
-  var api = fromPrefenerce(task, false, '');
+  var api = createHitomi(task, false, '');
   var gallery = await api.fetchGallery('1467596');
   Directory('${config.output}/${gallery.dirName}').deleteSync(recursive: true);
   api.downloadImages(gallery, token: token);

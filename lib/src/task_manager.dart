@@ -39,13 +39,19 @@ class TaskManager {
   late ArgParser _parser;
   late SqliteHelper helper;
   late DownLoader downLoader;
-  late Hitomi api;
+  late Hitomi _api;
+  late Hitomi _localApi;
   late DateTime limit = DateTime.parse(config.dateLimit);
   late Logger logger;
   final Dio dio = Dio();
   final _tasks = <Label>{};
   final reg = RegExp(r'!?\[(?<name>.*?)\]\(#*\s*\"?(?<url>\S+?)\"?\)');
   late IsolateManager<MapEntry<int, List<int>?>, String> manager;
+
+  Hitomi getApi({bool local = false}) {
+    return local ? _localApi : _api;
+  }
+
   late bool Function(Gallery) filter = (Gallery gallery) =>
       downLoader.illeagalTagsCheck(gallery, config.excludes) &&
       DateTime.parse(gallery.date).compareTo(limit) > 0 &&
@@ -83,19 +89,20 @@ class TaskManager {
             printEmojis: false,
             printTime: false,
             noBoxingByDefault: true));
-    api = createHitomi(this, false, config.remoteHttp);
-    helper = SqliteHelper(config.output, logger: logger);
     manager = IsolateManager<MapEntry<int, List<int>?>, String>.create(
         _compressRunner,
         concurrent: config.maxTasks);
+    helper = SqliteHelper(config.output, logger: logger);
+    dio.httpClientAdapter = crateHttpClientAdapter(config.proxy);
+    _api = createHitomi(this, false, config.remoteHttp);
+    _localApi = createHitomi(this, true, config.remoteHttp);
     downLoader = DownLoader(
         config: config,
-        api: api,
+        api: _api,
         helper: helper,
         manager: this.manager,
         logger: logger,
         dio: dio);
-    dio.httpClientAdapter = crateHttpClientAdapter(config.proxy);
     _parser = ArgParser()
       ..addFlag('fix')
       ..addFlag('fixDb')
@@ -277,7 +284,7 @@ class TaskManager {
     return await Stream.fromIterable(tasks)
         .asyncMap((event) async {
           try {
-            var r = await api.fetchGallery(event['id']);
+            var r = await _api.fetchGallery(event['id']);
             if (r.id.toString() != event['id'].toString()) {
               logger.d(' $event update to ${r.id}');
               await helper.removeTask(event['id'], withGaller: true);
@@ -294,7 +301,7 @@ class TaskManager {
           var b = filter(value);
           // logger.d('filter $value $b');
           if (b) {
-            b = await findDuplicateGalleryIds(value, helper, api,
+            b = await findDuplicateGalleryIds(value, helper, _api,
                     logger: logger)
                 .then((value) => value.isEmpty);
             // logger.d('findDuplicateGalleryIds $value $b');
@@ -327,7 +334,7 @@ class TaskManager {
         String id = cmd;
         hasError = !numberExp.hasMatch(id);
         if (!hasError) {
-          await api
+          await _api
               .fetchGallery(id)
               .then((value) => downLoader.addTask(value))
               .then((value) => true)
@@ -380,7 +387,7 @@ class TaskManager {
       } else if (result.wasParsed('delete')) {
         List<String> delete = result["delete"];
         logger.d('delete ${delete}');
-        deleteByLabel(delete
+        return deleteByLabel(delete
             .map((e) => e.contains(":")
                 ? fromString(e.substring(0, e.indexOf(':')),
                     e.substring(e.indexOf(':') + 1))
@@ -403,16 +410,18 @@ class TaskManager {
       } else if (result['continue']) {
         return await runRemainTask().then((value) => value > 0);
       } else if (result['list']) {
-        _tasks.remove(cmd);
         return <String, dynamic>{
           "queryTask": _tasks
-              .map(
-                  (e) => {'href': '/${e.urlEncode()}-all.html', 'name': e.name})
+              .map((e) => {'href': '/${e.urlEncode()}-all.html', ...e.toMap()})
               .toList(),
-          "downTask": downLoader.tasks
-              .map((t) =>
-                  {'href': t.gallery.galleryurl, 'name': t.gallery.dirName})
-              .toList()
+          "pendingTask": downLoader.pendingTask
+              .map((t) => {
+                    'href': t.gallery.galleryurl!,
+                    'name': t.gallery.dirName,
+                    'gallery': t.gallery
+                  })
+              .toList(),
+          "runningTask": downLoader.runningTask
         };
       }
       if (hasError) {
