@@ -24,7 +24,8 @@ class DownLoader {
   final UserConfig config;
   final Hitomi api;
   final Set<IdentifyToken> _pendingTask = <IdentifyToken>{};
-  final Map<IdentifyToken, DownLoadingMessage> _runningTask = {};
+  final Map<IdentifyToken, DownLoadingMessage> _runningTask =
+      <IdentifyToken, DownLoadingMessage>{};
   final exclude = <Label>[];
   final SqliteHelper helper;
   late IsolateManager<MapEntry<int, List<int>?>, String> manager;
@@ -260,11 +261,17 @@ class DownLoader {
     _runningTask.clear();
   }
 
-  void removeTask(dynamic id) {
+  Future<bool> removeTask(dynamic id) async {
     _pendingTask.removeWhere((g) => g.gallery.id == id);
-    _runningTask.keys
-        .firstWhereOrNull((element) => element.gallery.id == id)
-        ?.cancel('cancel');
+    var exists = _runningTask.keys
+        .firstWhereOrNull((element) => element.gallery.id == id);
+    if (exists != null) {
+      exists.cancel('cancel');
+      while (_runningTask.containsKey(exists)) {
+        await Future.delayed(const Duration(milliseconds: 200));
+      }
+    }
+    return exists != null;
   }
 
   void _notifyTaskChange() async {

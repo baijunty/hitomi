@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'package:async/async.dart';
 import 'package:dio/dio.dart';
 import 'package:hitomi/gallery/image.dart';
 import 'package:hitomi/gallery/label.dart';
@@ -262,36 +261,31 @@ class _HitomiImpl implements Hitomi {
       final out = File(join(dir.path, image.name));
       var b = await _loopCallBack(TaskStartMessage(gallery, out, image));
       if (b) {
+        var time = DateTime.now().millisecondsSinceEpoch;
         for (var j = 0; j < 3; j++) {
           try {
-            var time = DateTime.now();
             final url =
                 buildImageUrl(image, size: ThumbnaiSize.origin, id: gallery.id);
+            var writer = out.openWrite();
             await _dio
                 .httpInvoke<ResponseBody>(url,
                     headers: buildRequestHeader(url, referer),
-                    onProcess: (now, total) {
-                  final realTime = DateTime.now();
-                  if (realTime.difference(time).inSeconds > 1) {
-                    _loopCallBack(
-                      DownLoadingMessage(
-                          gallery,
-                          i,
-                          now /
-                              1024 /
-                              realTime.difference(time).inMilliseconds *
-                              1000,
-                          total),
+                    onProcess: (now, total) async {
+                  final realTime = DateTime.now().millisecondsSinceEpoch;
+                  if ((realTime - time) / 1000 > 1) {
+                    await _loopCallBack(
+                      DownLoadingMessage(gallery, i,
+                          now / 1024 / (realTime - time) * 1000, total),
                     );
                     time = realTime;
                   }
                 }, token: token)
-                .then((value) => value.stream.fold(out.openWrite(),
-                    (previous, element) => previous..add(element)))
+                .then((value) => value.stream.fold(
+                    writer, (previous, element) => previous..add(element)))
                 .then((value) async {
                   await value.flush();
-                  await value.close();
-                });
+                })
+                .whenComplete(() => writer.close());
           } catch (e) {
             logger?.e('down image faild $e');
             out.deleteSync();

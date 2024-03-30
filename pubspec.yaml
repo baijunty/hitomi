@@ -19,14 +19,14 @@ dependencies:
   tuple: ^2.0.1
   collection: ^1.17.1
   sqlite3: ^2.4.0
-  dio: ^5.4.1
-  shelf: ^1.1.0
+  dio: ^5.4.2+1
+  shelf: ^1.1.4
   shelf_router: ^1.0.0
   shelf_static: ^1.0.0
   shelf_packages_handler:  ^3.0.2
-  uuid: ^4.3.1
+  uuid: ^4.3.2
   dcache: ^0.4.0
-  logger: ^2.1.0
+  logger: ^2.2.0
   isolate_manager: ^4.1.5+1
   http: ^1.2.1
 
