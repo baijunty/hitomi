@@ -50,14 +50,14 @@ Future<void> testLocalDb(bool local) async {
 }
 
 Future<void> testThumbHash(List<int> ids) async {
-  await Future.wait(
-          ids.map((e) => task.getApi().fetchGallery(e, usePrefence: false)))
+  await Future.wait(ids
+          .map((e) => task.getApiDirect().fetchGallery(e, usePrefence: false)))
       .asStream()
       .expand((element) {
         return element;
       })
-      .asyncMap(
-          (gallery) => fetchGalleryHash(gallery, task.helper, task.getApi()))
+      .asyncMap((gallery) =>
+          fetchGalleryHash(gallery, task.helper, task.getApiDirect()))
       .map((event) => MapEntry(event.key.id, event.value))
       .fold(<int, List<int>>{}, (previousValue, element) {
         task.logger.i(

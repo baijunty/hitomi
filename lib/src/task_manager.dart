@@ -18,6 +18,7 @@ import 'package:sqlite3/common.dart';
 import '../gallery/language.dart';
 import 'dhash.dart';
 import 'dir_scanner.dart';
+import 'hitomi_impl.dart';
 import 'multi_paltform.dart';
 
 @pragma('vm:entry-point')
@@ -46,8 +47,12 @@ class TaskManager {
   final reg = RegExp(r'!?\[(?<name>.*?)\]\(#*\s*\"?(?<url>\S+?)\"?\)');
   late IsolateManager<MapEntry<int, List<int>?>, String> manager;
 
-  Hitomi getApi({bool local = false}) {
+  Hitomi getApiDirect({bool local = false}) {
     return local ? _localApi : _api;
+  }
+
+  Hitomi getApiFromProxy(bool local, String auth, String proxyAddr) {
+    return WebHitomi(dio, local, auth, proxyAddr);
   }
 
   TaskManager(this.config) {

@@ -76,7 +76,6 @@ class Gallery with Label {
 
   List<Label> labels() {
     return <Label>[]
-      ..add(TypeLabel(type))
       ..addAll(artists ?? [])
       ..addAll(tags ?? [])
       ..addAll(characters ?? [])

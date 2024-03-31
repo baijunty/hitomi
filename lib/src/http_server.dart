@@ -120,7 +120,7 @@ class _TaskWarp {
             var id = task.item2['id'];
             return (task.item2['local'] == true
                     ? localHitomi
-                    : _manager.getApi())
+                    : _manager.getApiDirect())
                 .fetchGallery(id, usePrefence: task.item2['usePrefence'])
                 .then((value) => Response.ok(json.encode(value),
                     headers: defaultRespHeader));
@@ -131,7 +131,7 @@ class _TaskWarp {
             List<dynamic>? exclude = task.item2['excludes'];
             return (task.item2['local'] == true
                     ? localHitomi
-                    : _manager.getApi())
+                    : _manager.getApiDirect())
                 .search(_mapFromRequest(tags),
                     exclude: exclude != null
                         ? _mapFromRequest(exclude)
@@ -146,7 +146,7 @@ class _TaskWarp {
             List<dynamic> tags = task.item2['tags'];
             return (task.item2['local'] == true
                     ? localHitomi
-                    : _manager.getApi())
+                    : _manager.getApiDirect())
                 .viewByTag(_mapFromRequest(tags).first,
                     page: task.item2['page'] ?? 1)
                 .then((value) => Response.ok(
@@ -158,7 +158,7 @@ class _TaskWarp {
             String string = task.item2['gallery'];
             return (task.item2['local'] == true
                     ? localHitomi
-                    : _manager.getApi())
+                    : _manager.getApiDirect())
                 .findSimilarGalleryBySearch(Gallery.fromJson(string))
                 .then((value) => Response.ok(
                     json.encode(value.toJson((p1) => p1)),
@@ -177,7 +177,7 @@ class _TaskWarp {
                       : originFunctin);
             } else {
               return _manager
-                  .getApi()
+                  .getApiDirect()
                   .fetchImageData(image,
                       refererUrl: task.item2['referer'] ?? '',
                       size: ThumbnaiSize.values.firstWhere(
@@ -238,7 +238,7 @@ class _TaskWarp {
       return _loadImageInner(
           id, hash, req.headers['If-None-Match'], thumbFunctin);
     }
-    var url = _manager.getApi().buildImageUrl(
+    var url = _manager.getApiDirect().buildImageUrl(
         Image(
             hash: hash, hasavif: 0, width: 0, height: 0, haswebp: 0, name: ''),
         size:
@@ -263,7 +263,7 @@ class _TaskWarp {
       return _loadImageInner(req.params['gid']!, hash,
           req.headers['If-None-Match'], originFunctin);
     }
-    var url = _manager.getApi().buildImageUrl(
+    var url = _manager.getApiDirect().buildImageUrl(
         Image(
             hash: hash, hasavif: 0, width: 0, height: 0, haswebp: 0, name: ''),
         size: ThumbnaiSize.origin);
@@ -374,7 +374,7 @@ class _TaskWarp {
             headers: defaultRespHeader);
       }
       return _manager
-          .getApi()
+          .getApiDirect()
           .fetchGallery(id, usePrefence: false)
           .then((value) => value
                   .createDir(_manager.config.output, createDir: false)
@@ -384,7 +384,7 @@ class _TaskWarp {
                       .path)
                   .then((value) => [value.id])
               : findDuplicateGalleryIds(
-                  value, _manager.helper, _manager.getApi(),
+                  value, _manager.helper, _manager.getApiDirect(),
                   logger: _manager.logger))
           .then((value) => {'id': id, 'value': value})
           .then((value) =>
