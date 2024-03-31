@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
 import 'package:hitomi/gallery/artist.dart';
+import 'package:hitomi/gallery/image.dart';
 import 'package:hitomi/gallery/label.dart';
 import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/dhash.dart';
@@ -216,11 +217,21 @@ class HitomiDir {
           .where((element) => !element.existsSync())
           .toList();
       if (fileLost.isNotEmpty && fixFromNet) {
-        var token = CancelToken();
-        var result =
-            await _downLoader.api.downloadImages(gallery!, token: token);
-        _downLoader.logger
-            ?.d('${gallery!.id} lost ${fileLost} redownload $result');
+        var completer = Completer();
+        await _downLoader.addTask(gallery!, handle: (msg) async {
+          if (msg is DownLoadFinished) {
+            if (msg.target is List) {
+              _downLoader.logger?.d('redown ${msg.success}');
+              completer.complete(msg.success);
+            } else if (msg.target is Gallery) {
+              _downLoader.logger?.d('redown faild');
+              completer.complete(false);
+            }
+          }
+          return true;
+        });
+        await completer.future.then((value) => _downLoader.logger
+            ?.d('${gallery!.id} lost ${fileLost} redownload $value'));
       }
       await dir
           .list()
@@ -276,9 +287,7 @@ class HitomiDir {
 
   Future<bool> fixGallery() async {
     if (gallery != null) {
-      if (!_downLoader.illeagalTagsCheck(
-              gallery!, _downLoader.config.excludes) ||
-          (gallery!.files.length) < 18) {
+      if (!_downLoader.filter(gallery!)) {
         return deleteGallery();
       }
       return _fixIllegalFiles()

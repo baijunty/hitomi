@@ -1,5 +1,5 @@
 {
-    "output": "d:manga",
+    "output": "/home/bai/ssd/manga",
     "maxTasks": 5,
     "languages": [
         "japanese",
@@ -28,7 +28,7 @@
         "{\"type\":\"female\",\"name\":\"human on furry\",\"weight\":0.25}",
         "{\"type\":\"tag\",\"name\":\"no penetration\",\"weight\":0.25}"
     ],
-    "dateLimit": "1970-01-01",
+    "dateLimit": "2013-01-01",
     "auth": "12345678",
     "logLevel": "debug",
     "logOutput": "",

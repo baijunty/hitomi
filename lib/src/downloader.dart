@@ -29,6 +29,11 @@ class DownLoader {
   final exclude = <Label>[];
   final SqliteHelper helper;
   late IsolateManager<MapEntry<int, List<int>?>, String> manager;
+
+  late DateTime limit;
+
+  late bool Function(Gallery) filter;
+
   List<IdentifyToken> get pendingTask => [..._pendingTask];
   List<Map<String, dynamic>> get runningTask => _runningTask.entries
       .map((entry) => {
@@ -46,6 +51,12 @@ class DownLoader {
       required this.manager,
       required this.logger,
       required this.dio}) {
+    limit = DateTime.parse(config.dateLimit);
+    filter = (Gallery gallery) =>
+        illeagalTagsCheck(gallery, config.excludes) &&
+        DateTime.parse(gallery.date).compareTo(limit) > 0 &&
+        (gallery.artists?.length ?? 0) <= 2 &&
+        gallery.files.length >= 18;
     final Future<bool> Function(Message msg) handle = (msg) async {
       var useHandle = await _runningTask.keys
           .firstWhereOrNull((e) => msg.id == e.gallery.id)
@@ -101,8 +112,10 @@ class DownLoader {
         case DownLoadingMessage():
           {
             var key = _runningTask.keys
-                .firstWhere((element) => element.gallery.id == msg.id);
-            _runningTask[key] = msg;
+                .firstWhereOrNull((element) => element.gallery.id == msg.id);
+            if ((key != null)) {
+              _runningTask[key] = msg;
+            }
           }
         default:
           break;
@@ -223,9 +236,11 @@ class DownLoader {
     return b;
   }
 
-  Future<IdentifyToken> addTask(Gallery gallery) async {
+  Future<IdentifyToken> addTask(Gallery gallery,
+      {Future<bool> Function(Message msg)? handle}) async {
     logger!.d('add task ${gallery.id}');
     var token = IdentifyToken(gallery);
+    token.handle = handle;
     _pendingTask.add(token);
     final path = join(config.output, gallery.dirName);
     await helper.updateTask(gallery.id, gallery.dirName, path, false);
@@ -385,11 +400,15 @@ class DownLoader {
         }, test: (error) => true);
   }
 
-  Future<bool> downLoadByTag(List<Label> tags, bool where(Gallery gallery),
-      MapEntry<String, String> entry, CancelToken token,
-      {void Function(bool success)? onFinish}) async {
+  Future<bool> downLoadByTag(
+      List<Label> tags, MapEntry<String, String> entry, CancelToken token,
+      {void Function(bool success)? onFinish,
+      bool Function(Gallery gallery)? where}) async {
     if (exclude.length != config.excludes.length) {
       exclude.addAll(config.excludes);
+    }
+    if (where == null) {
+      where = filter;
     }
     final results = await fetchGallerysByTags(tags, where, token, entry)
         .then((value) async {

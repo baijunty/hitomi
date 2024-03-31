@@ -14,7 +14,7 @@ class UserConfig with _$UserConfig {
     @Default(["japanese", "chinese"]) List<String> languages,
     @Default("") String proxy,
     @Default([]) List<FilterLabel> excludes,
-    @Default("1970-01-01") String dateLimit,
+    @Default("2013-01-01") String dateLimit,
     @Default("12345678") String auth,
     @Default("debug") String logLevel,
     @Default("") String logOutput,

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:args/args.dart';
+import 'package:async/async.dart';
 import 'package:dio/dio.dart';
 import 'package:hitomi/gallery/artist.dart';
 import 'package:hitomi/gallery/group.dart';
@@ -14,8 +15,6 @@ import 'package:isolate_manager/isolate_manager.dart';
 import 'package:logger/logger.dart';
 import 'package:path/path.dart';
 import 'package:sqlite3/common.dart';
-
-import '../gallery/gallery.dart';
 import '../gallery/language.dart';
 import 'dhash.dart';
 import 'dir_scanner.dart';
@@ -41,7 +40,6 @@ class TaskManager {
   late DownLoader downLoader;
   late Hitomi _api;
   late Hitomi _localApi;
-  late DateTime limit = DateTime.parse(config.dateLimit);
   late Logger logger;
   final Dio dio = Dio();
   final _tasks = <Label>{};
@@ -52,11 +50,6 @@ class TaskManager {
     return local ? _localApi : _api;
   }
 
-  late bool Function(Gallery) filter = (Gallery gallery) =>
-      downLoader.illeagalTagsCheck(gallery, config.excludes) &&
-      DateTime.parse(gallery.date).compareTo(limit) > 0 &&
-      (gallery.artists?.length ?? 0) <= 2 &&
-      gallery.files.length >= 18;
   TaskManager(this.config) {
     Level level;
     switch (config.logLevel) {
@@ -260,19 +253,22 @@ class TaskManager {
         .then((value) => value.values.toList())
         .asStream()
         .expand((element) => element)
-        .asyncMap((event) {
-          if (event.length > 1) {
-            event
-                .sublist(1)
-                .where((element) => element.dir.existsSync())
-                .forEach((e) {
-              logger.d('delete duplication ${e.gallery?.id} with ${e.dir}');
-              e.dir.deleteSync(recursive: true);
-            });
-          }
-          return event.first.fixGallery();
+        .slices(5)
+        .asyncMap((list) {
+          return Future.wait(list.map((event) {
+            if (event.length > 1) {
+              event
+                  .sublist(1)
+                  .where((element) => element.dir.existsSync())
+                  .forEach((e) {
+                logger.d('delete duplication ${e.gallery?.id} with ${e.dir}');
+                e.dir.deleteSync(recursive: true);
+              });
+            }
+            return event.first.fixGallery();
+          })).then((value) => value.length);
         })
-        .length;
+        .fold(0, (previous, element) => previous + element);
     logger.d("scan finishd ${count}");
     return count;
   }
@@ -298,14 +294,9 @@ class TaskManager {
         })
         .filterNonNull()
         .asyncMap((value) async {
-          var b = filter(value);
-          // logger.d('filter $value $b');
-          if (b) {
-            b = await findDuplicateGalleryIds(value, helper, _api,
-                    logger: logger)
-                .then((value) => value.isEmpty);
-            // logger.d('findDuplicateGalleryIds $value $b');
-          }
+          var b =
+              await findDuplicateGalleryIds(value, helper, _api, logger: logger)
+                  .then((value) => value.isEmpty);
           if (!b) {
             logger.d('delete task $value');
             value.createDir(config.output).delete(recursive: true);
@@ -354,7 +345,7 @@ class TaskManager {
             ...config.languages.map((e) => Language(name: e)),
             TypeLabel('doujinshi'),
             TypeLabel('manga')
-          ], filter, MapEntry('artist', artist), CancelToken(),
+          ], MapEntry('artist', artist), CancelToken(),
               onFinish: (success) => _tasks.remove(label));
         }
       } else if (result.wasParsed('group')) {
@@ -368,7 +359,7 @@ class TaskManager {
             ...config.languages.map((e) => Language(name: e)),
             TypeLabel('doujinshi'),
             TypeLabel('manga')
-          ], filter, MapEntry('groupes', group), CancelToken(),
+          ], MapEntry('groupes', group), CancelToken(),
               onFinish: (success) => _tasks.remove(label));
         }
       } else if (result.wasParsed('tags')) {
@@ -380,7 +371,6 @@ class TaskManager {
         _tasks.addAll(tags);
         return downLoader.downLoadByTag(
             tags..addAll(config.languages.map((e) => Language(name: e))),
-            filter,
             MapEntry(tags.first.type, tags.first.name),
             CancelToken(),
             onFinish: (success) => _tasks.removeAll(tags));

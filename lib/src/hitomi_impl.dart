@@ -288,12 +288,12 @@ class _HitomiImpl implements Hitomi {
                 .whenComplete(() => writer.close());
           } catch (e) {
             logger?.e('down image faild $e');
-            out.deleteSync();
             await _loopCallBack(IlleagalGallery(gallery.id, e.toString(), i));
             b = false;
           }
         }
         if (!b) {
+          out.deleteSync();
           missImages.add(image);
         }
         await _loopCallBack(DownLoadFinished(image, gallery, out, b));
