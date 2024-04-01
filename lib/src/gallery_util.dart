@@ -16,16 +16,23 @@ import 'dhash.dart';
 List<int> searchSimilerGaller(
     MapEntry<int, List<int>> gallery, Map<int, List<int>> all,
     {Logger? logger, double threshold = 0.75}) {
-  final r = all.entries
-      .where((element) =>
-          element.key != gallery.key &&
-          searchSimiler(gallery.value, element.value) > threshold)
-      .map((e) => e.key)
-      .toList();
-  if (r.isNotEmpty) {
-    logger?.d('${gallery.key} found duplication with $r');
+  try {
+    final r = all.entries
+        .where((element) =>
+            element.key != gallery.key &&
+            searchSimiler(gallery.value, element.value) > threshold)
+        .map((e) => e.key)
+        .toList();
+    if (r.isNotEmpty) {
+      logger?.d('${gallery.key} found duplication with $r');
+    }
+    return r;
+  } catch (e, stack) {
+    logger?.e(e);
+    logger?.e(stack);
+    print(stack);
+    return [];
   }
-  return r;
 }
 
 double searchSimiler(List<int> hashes, List<int> other) {
@@ -60,29 +67,50 @@ Gallery compareGallerWithOther(
 
 Future<MapEntry<Gallery, List<int>>> fetchGalleryHash(
     Gallery gallery, SqliteHelper helper, Hitomi api,
-    [CancelToken? token, bool fullHash = false, String? outDir]) async {
+    [CancelToken? token,
+    bool fullHash = false,
+    String? outDir,
+    Logger? logger]) async {
   return helper
       .queryImageHashsById(gallery.id)
       .then((value) => value.fold(<int>[],
           (previousValue, element) => previousValue..add(element['fileHash'])))
       .then((value) => MapEntry<Gallery, List<int>>(gallery, value))
       .then((value) async {
-    if (value.value.length < 18 &&
-        outDir != null &&
-        gallery.createDir(outDir, createDir: false).existsSync()) {
-      final dirPath = gallery.createDir(outDir, createDir: false).path;
-      final fs = gallery.files
-          .map((element) => File(join(dirPath, element.name)))
-          .where((element) => element.existsSync())
-          .map((e) => e.readAsBytes());
-      return Future.wait(fs.map((e) => e.then((value) => imageHash(value))))
-          .then((value) => MapEntry(gallery, value));
-    } else {
-      return value;
-    }
-  }).then((value) async => value.value.length < 18
+        logger?.d('${value} db hash  ${value.value.length}');
+        if (value.value.length < 18 &&
+            outDir != null &&
+            gallery.createDir(outDir, createDir: false).existsSync()) {
+          final dirPath = gallery.createDir(outDir, createDir: false).path;
+          final fs = gallery.files
+              .map((element) => File(join(dirPath, element.name)))
+              .where((element) => element.existsSync())
+              .map((e) => e
+                      .readAsBytes()
+                      .then((value) => imageHash(value))
+                      .catchError((err) {
+                    logger?.e('${e.path} read bytes and hashimage $err');
+                    return api
+                        .fetchImageData(
+                            gallery.files.firstWhere(
+                                (element) => e.path.endsWith(element.name)),
+                            refererUrl: 'https://hitomi.la')
+                        .then((value) => e.writeAsBytes(value, flush: true))
+                        .then((value) => value.readAsBytes())
+                        .then((value) => imageHash(value));
+                  }, test: (err) => true));
+          return Future.wait(fs).then((value) => MapEntry(gallery, value));
+        } else {
+          return value;
+        }
+      })
+      .then((value) async => value.value.length < 18
           ? await fetchGalleryHashFromNet(gallery, api, token, fullHash)
-          : value);
+          : value)
+      .catchError((err) {
+        logger?.e('fetchGalleryHash $err');
+        return MapEntry(gallery, <int>[]);
+      }, test: (error) => true);
 }
 
 Future<MapEntry<Gallery, List<int>>> fetchGalleryHashFromNet(

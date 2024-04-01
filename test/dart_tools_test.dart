@@ -4,13 +4,14 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:hitomi/gallery/artist.dart';
 import 'package:hitomi/gallery/gallery.dart';
+import 'package:hitomi/gallery/image.dart';
 import 'package:hitomi/gallery/label.dart';
 import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/gallery_util.dart';
 import 'package:hitomi/src/multi_paltform.dart';
 import 'package:test/test.dart';
 
-var config = UserConfig('d:manga',
+var config = UserConfig('/home/bai/ssd/manga/',
     proxy: '127.0.0.1:8389',
     languages: ['japanese', 'chinese'],
     maxTasks: 5,
@@ -18,12 +19,18 @@ var config = UserConfig('d:manga',
 var task = TaskManager(config);
 void main() async {
   test('chapter', () async {
-    await task.helper
-        .querySql(
-            'select COUNT(*) OVER() AS total_count,id from Gallery where  json_value_contains(tag,?,?)=1 and  json_value_contains(tag,?,?)=1 and  1=1 limit 25 offset 25',
-            ['maid', 'female', 'sex toys', 'female'])
-        .then((value) => value.length)
-        .then((value) => print(value));
+    var net = await task
+        .getApiDirect()
+        .fetchGallery(2789247, usePrefence: false)
+        .then((value) {
+      print(value.files[25]);
+      return task.getApiDirect().fetchImageData(value.files[25],
+          size: ThumbnaiSize.origin, refererUrl: 'https://hitomi.la');
+    });
+    var local =
+        await File('/home/bai/ssd/manga/(kakino nashiko)これがわたしたちのエデン/26.jpg')
+            .readAsBytes();
+    print('${net.length} diff ${local.length}');
   }, timeout: Timeout(Duration(minutes: 2)));
 }
 

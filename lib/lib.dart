@@ -43,7 +43,6 @@ extension CursorCover on IteratingCursor {
 
     void stop() {
       statement.dispose();
-      logger?.d('close database $statement');
     }
 
     void start() {

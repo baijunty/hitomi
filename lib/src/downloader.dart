@@ -363,8 +363,12 @@ class DownLoader {
     list.sort((e1, e2) => e2.files.length - e1.files.length);
     return list
         .asStream()
-        .asyncMap((event) =>
-            fetchGalleryHash(event, helper, api, token, true, config.output))
+        .asyncMap((event) => fetchGalleryHash(
+                    event, helper, api, token, true, config.output, logger)
+                .catchError((err) {
+              logger?.e('fetchGalleryHash $err');
+              return MapEntry(event, <int>[]);
+            }, test: (error) => true))
         .where((event) => searchSimilerGaller(
                 MapEntry(event.key.id, event.value), allHash, logger: logger)
             .isEmpty)
@@ -399,7 +403,6 @@ class DownLoader {
             .map((event) => list.firstWhere((element) => element.id == event))
             .toList())
         .catchError((err) {
-          logger?.e(err);
           return <Gallery>[];
         }, test: (error) => true);
   }
