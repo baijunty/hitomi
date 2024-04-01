@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
@@ -177,11 +178,13 @@ class DownLoader {
           .then((value) {
         if (value.isNotEmpty) {
           logger?.i('found duplicate with $value');
-          return Future.wait(value.map((e) => helper.queryGalleryById(e).then((value) =>
-                  readGalleryFromPath(join(config.output, value.first['path']))
-                      .then((value) => value.createDir(config.output, createDir: false)))))
-              .then((value) => value.every((element) =>
-                  !element.existsSync() || element.listSync().length < 18));
+          return Future.wait(value.map((e) => helper.queryGalleryById(e).then(
+              (value) => readGalleryFromPath(join(config.output, value.first['path']))
+                  .catchError((e) => api.fetchGallery(value.first['id'], usePrefence: false),
+                      test: (error) => true)
+                  .then((value) => value.createDir(config.output, createDir: false))))).then(
+              (value) => value.every(
+                  (element) => !element.existsSync() || element.listSync().length < 18));
         }
         // if (value.isEmpty) {
         //   return findDuplicateGalleryIds(gallery, helper, api,
@@ -220,8 +223,6 @@ class DownLoader {
     final weight = illeagalTags.fold(0.0, (acc, e) => acc + e.weight);
     final checkResult = weight <= illeagalTags.length / labels.length &&
         pow(10, illeagalTags.length) * 2 / gallery.files.length < 0.5;
-    logger?.d(
-        '${gallery.id} weight $weight files ${gallery.files.length} result $checkResult');
     return checkResult;
   }
 
@@ -318,8 +319,11 @@ class DownLoader {
                   var gallery = path != null
                       ? await readGalleryFromPath(join(config.output, path))
                           .catchError((e) async {
-                          logger?.e('read json $e');
-                          return fromNet;
+                          var g = await fromNet;
+                          logger?.e('read json $e from net $g');
+                          File(join(config.output, path, 'meta.json'))
+                              .writeAsStringSync(json.encode(g), flush: true);
+                          return g;
                         }, test: (error) => true)
                       : await fromNet;
                   if (gallery.id == event.key[0]) {
@@ -368,7 +372,6 @@ class DownLoader {
           var duplicate = searchSimilerGaller(
               MapEntry(element.key.id, element.value), previous,
               logger: logger);
-          logger?.d('${entry} scan ${element.key.id} count ${previous.length}');
           if (duplicate.isEmpty) {
             previous[element.key.id] = element.value;
           } else {
@@ -385,6 +388,7 @@ class DownLoader {
             logger?.d(
                 '${element.key} found ${duplicate} use ${useGallery} count ${previous.length}');
           }
+          logger?.d('${entry} scan ${element.key.id} count ${previous.length}');
           return previous;
         })
         .then((downHash) {

@@ -49,6 +49,16 @@ void main(List<String> args) async {
     print(
         '\x1b[47;31madd command ${element.trim()} return ${await pool.parseCommandAndRun(element.trim())} \x1b[0m');
   });
+  var lines = await File('fuck.log').readAsLines();
+  lines.forEach((element) async {
+    if (numberExp.hasMatch(element)) {
+      var r = (await pool.parseCommandAndRun(element.trim()));
+      print('add $element $r');
+    } else {
+      var r = (await pool.parseCommandAndRun("-a '$element'"));
+      print('add $element $r');
+    }
+  });
   // var already = File('already.txt');
   // var writer = already.openWrite(mode: FileMode.append);
   // var len = await already

@@ -142,9 +142,11 @@ class _LocalHitomiImpl implements Hitomi {
     return search([tag], page: page, token: token).then((value) => _helper
         .selectSqlMultiResultAsync('select path from Gallery where id=?',
             value.data.map((e) => [e]).toList())
-        .then((value) => value.values.map((e) => e.first['path'] as String))
-        .then((value) => Future.wait(value
-            .map((e) => readGalleryFromPath(join(_manager.config.output, e)))))
+        .then((value) => value.values.map((e) => e.first))
+        .then((value) => Future.wait(value.map((e) =>
+            readGalleryFromPath(join(_manager.config.output, e['path']))
+                .catchError((err) =>
+                    _hitomiImpl.fetchGallery(e['id'], usePrefence: false)))))
         .then((data) => DataResponse(data, totalCount: value.totalCount)));
   }
 
@@ -248,7 +250,8 @@ class _HitomiImpl implements Hitomi {
     }
     logger?.i('down $id to ${dir.path} ${dir.existsSync()}');
     try {
-      File(join(dir.path, 'meta.json')).writeAsStringSync(json.encode(gallery));
+      File(join(dir.path, 'meta.json'))
+          .writeAsStringSync(json.encode(gallery), flush: true);
     } catch (e, stack) {
       logger?.e('write json $e when $stack');
       await _loopCallBack(DownLoadFinished(gallery, gallery, dir, false));
@@ -321,6 +324,7 @@ class _HitomiImpl implements Hitomi {
     return data;
   }
 
+                              
   @override
   String buildImageUrl(Image image,
       {ThumbnaiSize size = ThumbnaiSize.smaill,
