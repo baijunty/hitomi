@@ -77,7 +77,6 @@ Future<MapEntry<Gallery, List<int>>> fetchGalleryHash(
           (previousValue, element) => previousValue..add(element['fileHash'])))
       .then((value) => MapEntry<Gallery, List<int>>(gallery, value))
       .then((value) async {
-        logger?.d('${value} db hash  ${value.value.length}');
         if (value.value.length < 18 &&
             outDir != null &&
             gallery.createDir(outDir, createDir: false).existsSync()) {

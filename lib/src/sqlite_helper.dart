@@ -170,6 +170,35 @@ class SqliteHelper {
       path TEXT not null,
       completed bool default 0
       )''');
+    db.execute('''create table if not exists UserLog(
+      id integer PRIMARY KEY,
+      mark integer,
+      content Text,
+      extension BLOB
+      )''');
+  }
+
+  Future<bool> insertUserLog(int id, int mark,
+      {String? content, List<int> extension = const []}) async {
+    return excuteSqlAsync(
+        'replace into UserLog(id,mark,content,extension) values (?,?,?,?)',
+        [id, mark, content, extension]);
+  }
+
+  Future<T?> readlData<T>(
+      String tableNmae, String name, Map<String, dynamic> params) async {
+    var where = params.entries.fold(
+        StringBuffer(), (acc, element) => acc..write('${element.key}=? and'));
+    return querySql('select $name from $tableNmae where $where 1=1',
+            params.values.toList())
+        .then((value) => value.firstOrNull?['$name'] as T?);
+  }
+
+  Future<bool> delete(String tableNmae, Map<String, dynamic> params) async {
+    var where = params.entries.fold(
+        StringBuffer(), (acc, element) => acc..write('${element.key}=? and'));
+    return excuteSqlAsync(
+        'delete from $tableNmae where $where 1=1', params.values.toList());
   }
 
   void dataBaseUpgrade(CommonDatabase db, int oldVersion) {

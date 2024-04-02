@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:hitomi/gallery/artist.dart';
 import 'package:hitomi/gallery/gallery.dart';
-import 'package:hitomi/gallery/image.dart';
 import 'package:hitomi/gallery/label.dart';
 import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/gallery_util.dart';
@@ -19,18 +18,13 @@ var config = UserConfig('/home/bai/ssd/manga/',
 var task = TaskManager(config);
 void main() async {
   test('chapter', () async {
-    var net = await task
-        .getApiDirect()
-        .fetchGallery(2789247, usePrefence: false)
-        .then((value) {
-      print(value.files[25]);
-      return task.getApiDirect().fetchImageData(value.files[25],
-          size: ThumbnaiSize.origin, refererUrl: 'https://hitomi.la');
-    });
-    var local =
-        await File('/home/bai/ssd/manga/(kakino nashiko)これがわたしたちのエデン/26.jpg')
-            .readAsBytes();
-    print('${net.length} diff ${local.length}');
+    await task.helper
+        .insertUserLog(1, 12345, content: 'test', extension: [123]);
+    var mark = await task.helper.readlData('UserLog', 'mark', {'id': 1});
+    print(mark);
+    await task.helper.delete('UserLog', {'id': 1});
+    mark = await task.helper.readlData('UserLog', 'mark', {'id': 1});
+    print(mark);
   }, timeout: Timeout(Duration(minutes: 2)));
 }
 
