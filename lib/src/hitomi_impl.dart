@@ -138,16 +138,37 @@ class _LocalHitomiImpl implements Hitomi {
 
   @override
   Future<DataResponse<List<Gallery>>> viewByTag(Label tag,
-      {int page = 1, CancelToken? token}) {
-    return search([tag], page: page, token: token).then((value) => _helper
-        .selectSqlMultiResultAsync('select path from Gallery where id=?',
-            value.data.map((e) => [e]).toList())
-        .then((value) => value.values.map((e) => e.first))
-        .then((value) => Future.wait(value.map((e) =>
-            readGalleryFromPath(join(_manager.config.output, e['path']))
+      {int page = 1, CancelToken? token, SortEnum? sort}) {
+    var sql = '';
+    var params = <dynamic>[];
+    if (tag is QueryText) {
+      sql =
+          'select COUNT(*) OVER() AS total_count,id,path from Gallery where title like ? ';
+      params.add('%${tag.name}%');
+    } else {
+      sql =
+          'select COUNT(*) OVER() AS total_count,id,path from Gallery where json_value_contains(${tag.localSqlType},?,?)=1 ';
+      params.addAll([tag.name, tag.type]);
+    }
+    if (sort == SortEnum.DateDesc) {
+      sql = '${sql} order by date desc';
+    }
+    sql = '$sql limit 25 offset ${(page - 1) * 25}';
+    var count = 0;
+    _manager.logger.d('$sql with $params');
+    return _helper
+        .querySqlByCursor(sql, params)
+        .fold(<int, String>{}, (previous, element) {
+          if (count <= 0) {
+            count = element['total_count'];
+          }
+          return previous..[element['id']] = element['path'];
+        })
+        .then((value) => Future.wait(value.entries.map((e) =>
+            readGalleryFromPath(join(_manager.config.output, e.value))
                 .catchError((err) =>
-                    _hitomiImpl.fetchGallery(e['id'], usePrefence: false)))))
-        .then((data) => DataResponse(data, totalCount: value.totalCount)));
+                    _hitomiImpl.fetchGallery(e.key, usePrefence: false)))))
+        .then((data) => DataResponse(data, totalCount: count));
   }
 
   @override
@@ -324,7 +345,6 @@ class _HitomiImpl implements Hitomi {
     return data;
   }
 
-                              
   @override
   String buildImageUrl(Image image,
       {ThumbnaiSize size = ThumbnaiSize.smaill,
@@ -649,12 +669,14 @@ class _HitomiImpl implements Hitomi {
 
   @override
   Future<DataResponse<List<Gallery>>> viewByTag(Label tag,
-      {int page = 1, CancelToken? token}) {
-    var referer = 'https://hitomi.la/${tag.urlEncode()}-all.html';
+      {int page = 1, CancelToken? token, SortEnum? sort}) {
+    var referer =
+        'https://hitomi.la/${tag.urlEncode(sort: sort)}${tag is Language ? '' : '-all'}.html';
     if (page > 1) {
       referer += '?page=$page';
     }
-    final dataUrl = 'https://ltn.hitomi.la/${tag.urlEncode()}-all.nozomi';
+    final dataUrl =
+        'https://ltn.hitomi.la/${tag.urlEncode(sort: sort)}${tag is Language ? '' : '-all'}.nozomi';
     logger?.d('$dataUrl from $referer');
     int totalCount = 0;
     return _dio
@@ -902,14 +924,15 @@ class WebHitomi implements Hitomi {
 
   @override
   Future<DataResponse<List<Gallery>>> viewByTag(Label tag,
-      {int page = 1, CancelToken? token}) async {
+      {int page = 1, CancelToken? token, SortEnum? sort}) async {
     return dio
         .post<String>('$bashHttp/proxy/viewByTag',
             data: json.encode({
               'tags': [tag],
               'page': page,
               'auth': auth,
-              'local': localDb
+              'local': localDb,
+              'sort': sort?.name
             }))
         .then((value) => DataResponse<List<Gallery>>.fromStr(
             value.data!,

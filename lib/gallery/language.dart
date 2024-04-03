@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:hitomi/gallery/label.dart';
 
+import '../lib.dart';
+
 class Language with Label {
   static final chinese = Language(name: 'chinese');
   static final japanese = Language(name: 'japanese');
@@ -70,7 +72,7 @@ class Language with Label {
   String get type => 'language';
 
   @override
-  String urlEncode() {
-    return 'index-$name';
+  String urlEncode({SortEnum? sort}) {
+    return '${sort==null?'index':'popular/${sort.name}'}-$name';
   }
 }

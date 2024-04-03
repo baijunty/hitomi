@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:hitomi/gallery/label.dart';
 
+import '../lib.dart';
+
 class Tag with Label {
   final dynamic male;
   final String tag;
@@ -71,8 +73,8 @@ class Tag with Label {
   String get localSqlType => 'tag';
 
   @override
-  String urlEncode() {
+  String urlEncode({SortEnum? sort}) {
     String? sexTag = (male ?? female)?.toString();
-    return 'tag/${sexTag == null ? '' : '${'1' == (male?.toString()) ? 'male' : 'female'}:'}${Uri.encodeComponent(name.toLowerCase())}';
+    return 'tag/${sort == null ? '' : 'popular/${sort.name}/'}${sexTag == null ? '' : '${'1' == (male?.toString()) ? 'male' : 'female'}:'}${Uri.encodeComponent(name.toLowerCase())}';
   }
 }

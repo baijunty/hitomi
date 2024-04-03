@@ -144,11 +144,14 @@ class _TaskWarp {
         case 'viewByTag':
           {
             List<dynamic> tags = task.item2['tags'];
+            var querySort = task.item2['sort'];
+            SortEnum? sort = SortEnum.values
+                .firstWhereOrNull((element) => element.name == querySort);
             return (task.item2['local'] == true
                     ? localHitomi
                     : _manager.getApiDirect())
                 .viewByTag(_mapFromRequest(tags).first,
-                    page: task.item2['page'] ?? 1)
+                    page: task.item2['page'] ?? 1, sort: sort)
                 .then((value) => Response.ok(
                     json.encode(value.toJson((p1) => p1)),
                     headers: defaultRespHeader));

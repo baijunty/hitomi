@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:hitomi/gallery/language.dart';
+import 'package:hitomi/lib.dart';
 
 import '../gallery/artist.dart';
 import '../gallery/character.dart';
@@ -16,7 +17,7 @@ abstract mixin class Label {
   List<String> get params => [sqlType, name];
   Map<String, dynamic> toMap() => {'type': type, 'name': name, type: name};
 
-  String urlEncode() {
+  String urlEncode({SortEnum? sort}) {
     return "${this.type}/${Uri.encodeComponent(name.toLowerCase())}";
   }
 
@@ -71,7 +72,7 @@ class QueryText extends Label {
   String get name => text;
 
   @override
-  String urlEncode() {
+  String urlEncode({SortEnum? sort}) {
     return 'index';
   }
 }
@@ -112,8 +113,8 @@ class FilterLabel with Label {
   }
 
   @override
-  String urlEncode() {
-    return fromString(type, name).urlEncode();
+  String urlEncode({SortEnum? sort}) {
+    return fromString(type, name).urlEncode(sort: sort);
   }
 
   @override

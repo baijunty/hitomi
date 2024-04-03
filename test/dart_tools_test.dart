@@ -5,6 +5,8 @@ import 'package:dio/dio.dart';
 import 'package:hitomi/gallery/artist.dart';
 import 'package:hitomi/gallery/gallery.dart';
 import 'package:hitomi/gallery/label.dart';
+import 'package:hitomi/gallery/language.dart';
+import 'package:hitomi/gallery/tag.dart';
 import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/gallery_util.dart';
 import 'package:hitomi/src/multi_paltform.dart';
@@ -18,13 +20,28 @@ var config = UserConfig('/home/bai/ssd/manga/',
 var task = TaskManager(config);
 void main() async {
   test('chapter', () async {
-    await task.helper
-        .insertUserLog(1, 12345, content: 'test', extension: [123]);
-    var mark = await task.helper.readlData('UserLog', 'mark', {'id': 1});
-    print(mark);
-    await task.helper.delete('UserLog', {'id': 1});
-    mark = await task.helper.readlData('UserLog', 'mark', {'id': 1});
-    print(mark);
+    await task
+        .getApiDirect()
+        .viewByTag(Language.japanese, sort: SortEnum.month, page: 1)
+        .then((value) {
+      print(value.data.take(2));
+      print(value.totalCount);
+    });
+    await task
+        .getApiDirect(local: true)
+        .viewByTag(Tag(tag: 'glasses', female: 1),
+            sort: SortEnum.DateDesc, page: 1)
+        .then((value) {
+      print(value.data.take(2));
+      print(value.totalCount);
+    });
+    await task
+        .getApiFromProxy(false, '12345678', 'http://127.0.0.1:7890')
+        .viewByTag(Language.japanese, sort: SortEnum.month, page: 1)
+        .then((value) {
+      print(value.data.take(2));
+      print(value.totalCount);
+    });
   }, timeout: Timeout(Duration(minutes: 2)));
 }
 
