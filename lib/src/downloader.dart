@@ -247,7 +247,7 @@ class DownLoader {
     final path = join(config.output, gallery.dirName);
     await helper.updateTask(gallery.id, gallery.dirName, path, false);
     if (immediately) {
-      notifyTaskChange();
+      notifyTaskChange(id: gallery.id);
     }
     return token;
   }
@@ -298,17 +298,24 @@ class DownLoader {
     });
   }
 
-  void notifyTaskChange() async {
+  Future<bool> notifyTaskChange({int? id}) async {
     if (_runningTask.length < config.maxTasks && _pendingTask.isNotEmpty) {
-      var token = _pendingTask.first;
+      IdentifyToken? token;
+      if (id != null) {
+        token = _pendingTask
+            .firstWhereOrNull((element) => element.gallery.id == id);
+      }
+      token = token ?? _pendingTask.first;
       _pendingTask.remove(token);
       _runningTask[token] =
           DownLoadingMessage(token.gallery, 0, 0, token.gallery.files.length);
       logger?.d('run task ${token.gallery.id} length ${_runningTask.length}');
       _downLoadGallery(token);
+      return true;
     }
     logger?.i(
         'left task ${_pendingTask.length} running task ${_runningTask.length}');
+    return false;
   }
 
   Future<List<Gallery>> fetchGalleryFromIds(
