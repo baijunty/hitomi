@@ -233,70 +233,78 @@ class DownLoader {
       return false;
     }, test: (e) => true);
     _runningTask.remove(token);
-    _notifyTaskChange();
+    notifyTaskChange();
     return b;
   }
 
   Future<IdentifyToken> addTask(Gallery gallery,
-      {Future<bool> Function(Message msg)? handle}) async {
+      {Future<bool> Function(Message msg)? handle,
+      bool immediately = true}) async {
     logger!.d('add task ${gallery.id}');
     var token = IdentifyToken(gallery);
     token.handle = handle;
     _pendingTask.add(token);
     final path = join(config.output, gallery.dirName);
     await helper.updateTask(gallery.id, gallery.dirName, path, false);
-    _notifyTaskChange();
+    if (immediately) {
+      notifyTaskChange();
+    }
     return token;
   }
 
-  void cancelByTag(Label label) {
-    final tokens = _runningTask.keys
-        .where((element) => element.gallery.labels().contains(label))
-        .toList();
-    tokens.forEach((element) {
-      element.cancel('cancel');
-    });
-    logger!.d('cacel task $label');
-    _runningTask.removeWhere((element, v) => tokens.contains(element));
-    _pendingTask
-        .removeWhere((element) => element.gallery.labels().contains(label));
-    _notifyTaskChange();
-  }
-
-  IdentifyToken? operator [](dynamic key) {
-    return _runningTask.keys
-            .firstWhereOrNull((element) => element.gallery.id == key) ??
-        _pendingTask.firstWhereOrNull((element) => element.gallery.id == key);
-  }
-
-  void cancelAll() {
-    _runningTask.forEach((element, value) {
-      element.cancel();
-    });
-    _pendingTask.addAll(_runningTask.keys);
-    _runningTask.clear();
-  }
-
-  Future<bool> removeTask(dynamic id) async {
-    _pendingTask.removeWhere((g) => g.gallery.id == id);
-    var exists = _runningTask.keys
+  Future<bool> cancelById(int id) async {
+    var target = _runningTask.keys
         .firstWhereOrNull((element) => element.gallery.id == id);
-    if (exists != null) {
-      exists.cancel('cancel');
-      while (_runningTask.containsKey(exists)) {
+    if (target != null) {
+      target.cancel('cancel');
+      logger!.d('cacel task $id');
+      while (_runningTask.containsKey(target)) {
         await Future.delayed(const Duration(milliseconds: 200));
       }
+      addTask(target.gallery, immediately: false);
     }
-    return exists != null;
+    return target != null;
   }
 
-  void _notifyTaskChange() async {
-    while (_runningTask.length < config.maxTasks && _pendingTask.isNotEmpty) {
+  Future<bool> deleteTaskById(int id) async {
+    var target = _runningTask.keys
+        .firstWhereOrNull((element) => element.gallery.id == id);
+    if (target != null) {
+      target.cancel('cancel $id before delete');
+      while (_runningTask.containsKey(target)) {
+        await Future.delayed(const Duration(milliseconds: 200));
+      }
+    } else {
+      target =
+          _pendingTask.firstWhereOrNull((element) => element.gallery.id == id);
+      if (target != null) {
+        _pendingTask.removeWhere((element) => element.gallery.id == id);
+      }
+    }
+    if (target != null) {
+      return HitomiDir(
+              target.gallery.createDir(config.output, createDir: false),
+              this,
+              target.gallery,
+              manager)
+          .deleteGallery();
+    }
+    return target != null;
+  }
+
+  void cancelAll() async {
+    _runningTask.forEach((element, value) async {
+      await cancelById(element.gallery.id);
+    });
+  }
+
+  void notifyTaskChange() async {
+    if (_runningTask.length < config.maxTasks && _pendingTask.isNotEmpty) {
       var token = _pendingTask.first;
       _pendingTask.remove(token);
-      logger?.d('run task ${token.gallery.id} length ${_runningTask.length}');
       _runningTask[token] =
           DownLoadingMessage(token.gallery, 0, 0, token.gallery.files.length);
+      logger?.d('run task ${token.gallery.id} length ${_runningTask.length}');
       _downLoadGallery(token);
     }
     logger?.i(

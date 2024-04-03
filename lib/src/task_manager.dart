@@ -13,8 +13,6 @@ import 'package:hitomi/src/gallery_util.dart';
 import 'package:hitomi/src/sqlite_helper.dart';
 import 'package:isolate_manager/isolate_manager.dart';
 import 'package:logger/logger.dart';
-import 'package:path/path.dart';
-import 'package:sqlite3/common.dart';
 import '../gallery/language.dart';
 import 'dhash.dart';
 import 'dir_scanner.dart';
@@ -203,40 +201,6 @@ class TaskManager {
     return args;
   }
 
-  Future<int> deleteByLabel(List<Label> labels) async {
-    return labels.asStream().asyncMap((element) async {
-      late ResultSet galleryQuery;
-      switch (element) {
-        case QueryText():
-          {
-            downLoader[element.name]?.cancel();
-            downLoader.removeTask(element.name);
-            galleryQuery = await helper.queryGalleryById(element.name);
-          }
-        default:
-          {
-            downLoader.cancelByTag(element);
-            galleryQuery =
-                await helper.queryGalleryByLabel(element.localSqlType, element);
-          }
-      }
-      await galleryQuery
-          .asStream()
-          .asyncMap((event) =>
-              readGalleryFromPath(join(config.output, event['path'])))
-          .map((event) => HitomiDir(
-              event.createDir(config.output), downLoader, event, manager))
-          .asyncMap((element) {
-            element.deleteGallery();
-          })
-          .length
-          .catchError((e) {
-            logger.e('del form key ${element.name} faild $e');
-            return 0;
-          }, test: (error) => true);
-    }).length;
-  }
-
   Future<int> fixGallerys() async {
     final count = await DirScanner(config, helper, downLoader, manager)
         .listDirs()
@@ -382,12 +346,12 @@ class TaskManager {
       } else if (result.wasParsed('delete')) {
         List<String> delete = result["delete"];
         logger.d('delete ${delete}');
-        return deleteByLabel(delete
-            .map((e) => e.contains(":")
-                ? fromString(e.substring(0, e.indexOf(':')),
-                    e.substring(e.indexOf(':') + 1))
-                : QueryText(e))
-            .toList());
+        return delete
+            .where((element) => numberExp.hasMatch(element))
+            .map((e) => int.parse(e))
+            .asStream()
+            .asyncMap((event) => downLoader.deleteTaskById(event))
+            .length;
       } else if (result['fixDb']) {
         final count = await DirScanner(config, helper, downLoader, manager)
             .fixMissDbRow();
