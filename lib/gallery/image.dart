@@ -10,15 +10,15 @@ class Image {
   final int haswebp;
   final String name;
   final int height;
-
-  const Image({
-    required this.hash,
-    required this.hasavif,
-    required this.width,
-    required this.haswebp,
-    required this.name,
-    required this.height,
-  });
+  final int? fileHash;
+  const Image(
+      {required this.hash,
+      required this.hasavif,
+      required this.width,
+      required this.haswebp,
+      required this.name,
+      required this.height,
+      this.fileHash});
 
   factory Image.fromMap(Map<String, dynamic> data) => Image(
         hash: data['hash'] as String,

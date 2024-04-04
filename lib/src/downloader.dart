@@ -4,7 +4,6 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:collection/collection.dart';
-import 'package:dcache/dcache.dart';
 import 'package:dio/dio.dart';
 import 'package:hitomi/lib.dart';
 import 'package:isolate_manager/isolate_manager.dart';
@@ -20,14 +19,11 @@ import 'gallery_util.dart';
 import 'sqlite_helper.dart';
 
 class DownLoader {
-  final _cache =
-      SimpleCache<Label, Map<String, dynamic>>(storage: InMemoryStorage(1024));
   final UserConfig config;
   final Hitomi api;
   final Set<IdentifyToken> _pendingTask = <IdentifyToken>{};
   final Map<IdentifyToken, DownLoadingMessage> _runningTask =
       <IdentifyToken, DownLoadingMessage>{};
-  final exclude = <Label>[];
   final SqliteHelper helper;
   late IsolateManager<MapEntry<int, List<int>?>, String> manager;
 
@@ -126,45 +122,6 @@ class DownLoader {
     api.registerCallBack(handle);
   }
 
-  Future<Map<Label, Map<String, dynamic>>> translateLabel(
-      List<Label> keys) async {
-    var missed =
-        keys.groupListsBy((element) => _cache[element] != null)[false] ?? [];
-    if (missed.isNotEmpty) {
-      var result = await helper.selectSqlMultiResultAsync(
-          'select translate,intro,links from Tags where type=? and name=?',
-          missed.map((e) => e.params).toList());
-      missed.fold(_cache, (previousValue, element) {
-        final v = result.entries
-            .firstWhereOrNull((e) => e.key.equals(element.params))
-            ?.value
-            .firstOrNull;
-        if (v != null) {
-          previousValue[element] = {...v, ...element.toMap()};
-        }
-        return previousValue;
-      });
-    }
-    missed =
-        keys.groupListsBy((element) => _cache[element] != null)[false] ?? [];
-    if (missed.isNotEmpty) {
-      await Future.wait(missed.toSet().map((event) => dio
-              .httpInvoke<List<dynamic>>(
-                  'https://translate.googleapis.com/translate_a/t?client=dict-chrome-ex&sl=auto&tl=zh&q=${event.name}')
-              .then((value) {
-            final v = value[0][0] as String;
-            _cache[event] = {'translate': v, ...event.toMap()};
-            logger?.d('${event.name} translate to $v');
-            return v;
-          })));
-    }
-    final r = keys.fold(
-        <Label, Map<String, dynamic>>{},
-        (previousValue, element) =>
-            previousValue..[element] = _cache[element]!);
-    return r;
-  }
-
   Future<bool> _findUnCompleteGallery(Gallery gallery, Directory newDir) async {
     if (newDir.listSync().isNotEmpty) {
       return readGalleryFromPath(newDir.path).then((value) {
@@ -257,7 +214,7 @@ class DownLoader {
         .firstWhereOrNull((element) => element.gallery.id == id);
     if (target != null) {
       target.cancel('cancel');
-      logger!.d('cacel task $id');
+      logger!.d('cancel task $id');
       while (_runningTask.containsKey(target)) {
         await Future.delayed(const Duration(milliseconds: 200));
       }
@@ -266,29 +223,26 @@ class DownLoader {
     return target != null;
   }
 
-  Future<bool> deleteTaskById(int id) async {
-    var target = _runningTask.keys
-        .firstWhereOrNull((element) => element.gallery.id == id);
+  Future<bool> deleteById(int id) async {
+    await cancelById(id);
+    var target = _pendingTask
+        .firstWhereOrNull((element) => element.gallery.id == id)
+        ?.gallery;
     if (target != null) {
-      target.cancel('cancel $id before delete');
-      while (_runningTask.containsKey(target)) {
-        await Future.delayed(const Duration(milliseconds: 200));
-      }
-    } else {
-      target =
-          _pendingTask.firstWhereOrNull((element) => element.gallery.id == id);
-      if (target != null) {
-        _pendingTask.removeWhere((element) => element.gallery.id == id);
+      _pendingTask.removeWhere((element) => element.gallery.id == id);
+    }
+    if (target == null) {
+      var path = await helper.readlData<String>('Gallery', 'path', {'id': id});
+      if (path != null) {
+        target = await readGalleryFromPath(join(config.output, path));
       }
     }
     if (target != null) {
-      return HitomiDir(
-              target.gallery.createDir(config.output, createDir: false),
-              this,
-              target.gallery,
-              manager)
+      await HitomiDir(target.createDir(config.output, createDir: false), this,
+              target, manager)
           .deleteGallery();
     }
+    await helper.removeTask(id, withGaller: true);
     return target != null;
   }
 
@@ -318,7 +272,7 @@ class DownLoader {
     return false;
   }
 
-  Future<List<Gallery>> fetchGalleryFromIds(
+  Future<List<Gallery>> _fetchGalleryFromIds(
       List<int> ids, bool where(Gallery gallery), CancelToken token) async {
     if (ids.isNotEmpty) {
       logger?.d('fetch gallery from ids ${ids.length}');
@@ -369,7 +323,7 @@ class DownLoader {
     return [];
   }
 
-  Future<List<Gallery>> filterGalleryByImageHash(List<Gallery> list,
+  Future<List<Gallery>> _filterGalleryByImageHash(List<Gallery> list,
       CancelToken token, MapEntry<String, String>? entry) async {
     Map<int, List<int>> allHash = entry != null
         ? await helper.queryImageHashsByLabel(entry.key, entry.value)
@@ -426,9 +380,6 @@ class DownLoader {
       List<Label> tags, MapEntry<String, String> entry, CancelToken token,
       {void Function(bool success)? onFinish,
       bool Function(Gallery gallery)? where}) async {
-    if (exclude.length != config.excludes.length) {
-      exclude.addAll(config.excludes);
-    }
     if (where == null) {
       where = filter;
     }
@@ -494,9 +445,9 @@ class DownLoader {
       MapEntry<String, String>? entry) async {
     logger?.d('fetch tags ${tags}');
     return await api
-        .search(tags, exclude: exclude)
-        .then((value) => fetchGalleryFromIds(value.data, where, token))
-        .then((value) => filterGalleryByImageHash(value, token, entry))
+        .search(tags, exclude: config.excludes)
+        .then((value) => _fetchGalleryFromIds(value.data, where, token))
+        .then((value) => _filterGalleryByImageHash(value, token, entry))
         .catchError((e) async {
       logger?.e('$tags catch error $e');
       return fetchGallerysByTags(tags, where, token, entry);
@@ -513,4 +464,10 @@ class IdentifyToken extends CancelToken {
   final Gallery gallery;
   Future<bool> Function(Message msg)? handle = null;
   IdentifyToken(this.gallery);
+  @override
+  bool operator ==(Object other) {
+    if (identical(other, this)) return true;
+    if (other is! IdentifyToken) return false;
+    return gallery.id == other.gallery.id;
+  }
 }

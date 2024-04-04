@@ -5,6 +5,7 @@ import 'dart:math';
 import 'package:collection/collection.dart';
 import 'package:hitomi/gallery/label.dart';
 import 'package:path/path.dart';
+import 'package:sqlite3/common.dart';
 
 import 'artist.dart';
 import 'character.dart';
@@ -43,6 +44,7 @@ class Gallery with Label {
   final String? galleryurl;
   final String? languageUrl;
   final String date;
+  final int? downDate;
   final List<int>? related;
   final String? video;
   final List<Parody>? parodys;
@@ -51,28 +53,28 @@ class Gallery with Label {
   final int id;
   final List<Group>? groups;
 
-  Gallery({
-    this.artists,
-    this.tags,
-    this.sceneIndexes,
-    this.japaneseTitle,
-    this.languages,
-    required this.type,
-    this.languageLocalname,
-    required this.title,
-    this.language,
-    this.characters,
-    this.galleryurl,
-    this.languageUrl,
-    required this.date,
-    this.related,
-    this.video,
-    this.parodys,
-    this.videofilename,
-    required this.files,
-    required this.id,
-    this.groups,
-  });
+  Gallery(
+      {this.artists,
+      this.tags,
+      this.sceneIndexes,
+      this.japaneseTitle,
+      this.languages,
+      required this.type,
+      this.languageLocalname,
+      required this.title,
+      this.language,
+      this.characters,
+      this.galleryurl,
+      this.languageUrl,
+      required this.date,
+      this.related,
+      this.video,
+      this.parodys,
+      this.videofilename,
+      required this.files,
+      required this.id,
+      this.groups,
+      this.downDate});
 
   List<Label> labels() {
     return <Label>[]
@@ -86,6 +88,53 @@ class Gallery with Label {
   @override
   String toString() {
     return 'Gallery(type: $type, title: ${dirName}, language: $language, date: $date, id: $id length:${files.length})';
+  }
+
+  factory Gallery.fromRow(Row row) {
+    var gallery = Gallery(
+      type: row['type'],
+      title: row['title'],
+      date: row['createDate'],
+      files: [],
+      id: row['id'],
+      language: row['language'],
+      artists: row['artist'] == null
+          ? null
+          : (json.decode(row['artist']) as List<dynamic>)
+              .map((e) => e as String)
+              .map((e) => Artist(artist: e))
+              .toList(),
+      groups: row['groupes'] == null
+          ? null
+          : (json.decode(row['groupes']) as List<dynamic>)
+              .map((e) => e as String)
+              .map((e) => Group(group: e))
+              .toList(),
+      parodys: row['series'] == null
+          ? null
+          : (json.decode(row['series']) as List<dynamic>)
+              .map((e) => e as String)
+              .map((e) => Parody(parody: e))
+              .toList(),
+      characters: row['character'] == null
+          ? null
+          : (json.decode(row['character']) as List<dynamic>)
+              .map((e) => e as String)
+              .map((e) => Character(character: e))
+              .toList(),
+      tags: row['tag'] == null
+          ? null
+          : (json.decode(row['tag']) as Map<String, List<dynamic>>)
+              .map((key, value) => MapEntry(key, value.map((e) => e as String)))
+              .entries
+              .fold(
+                  <Tag>[],
+                  (previousValue, element) => previousValue!
+                    ..addAll(element.value
+                        .map((e) => fromString(element.key, e) as Tag))),
+      downDate: row['date'],
+    );
+    return gallery;
   }
 
   factory Gallery.fromMap(Map<String, dynamic> data) => Gallery(

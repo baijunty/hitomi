@@ -410,6 +410,7 @@ class SqliteHelper {
     if (withGaller) {
       deleteGallery(id);
     }
+    _logger?.w('delelte task with $id');
     return excuteSqlAsync('delete from Tasks where id =?', [id]);
   }
 

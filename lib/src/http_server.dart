@@ -135,7 +135,7 @@ class _TaskWarp {
                 .search(_mapFromRequest(tags),
                     exclude: exclude != null
                         ? _mapFromRequest(exclude)
-                        : _manager.downLoader.exclude,
+                        : _manager.config.excludes,
                     page: task.item2['page'] ?? 1)
                 .then((value) => Response.ok(
                     json.encode(value.toJson((p1) => p1)),
@@ -326,7 +326,7 @@ class _TaskWarp {
         });
       });
     });
-    final r = await _manager.downLoader
+    final r = await _manager
         .translateLabel(keys)
         .then((value) => value.entries.map((entry) {
               var key = entry.key;

@@ -15,8 +15,6 @@ import 'package:collection/collection.dart';
 import '../gallery/gallery.dart';
 import 'package:crypto/crypto.dart';
 
-import 'response.dart';
-
 Hitomi fromPrefenerce(TaskManager _manager, bool localDb, String baseHttp) {
   return localDb
       ? _LocalHitomiImpl(_manager, _HitomiImpl(_manager, baseHttp), baseHttp)
@@ -48,7 +46,8 @@ class _LocalHitomiImpl implements Hitomi {
               ])
           .then((value) =>
               join(_manager.config.output, value.first['path'], image.name))
-          .then((value) => File(value).readAsBytes() as List<int>)
+          .then((value) => File(value).readAsBytes())
+          .then((value) => value as List<int>)
           .catchError((e) => <int>[], test: (error) => true);
     } else {
       return _helper
@@ -72,16 +71,33 @@ class _LocalHitomiImpl implements Hitomi {
   Future<Gallery> fetchGallery(id, {usePrefence = true, CancelToken? token}) {
     return _helper
         .queryGalleryById(id)
-        .then((value) => join(_manager.config.output, value.first['path']))
-        .then((value) => readGalleryFromPath(value))
-        .catchError(
-            (e) => _hitomiImpl.fetchGallery(id, usePrefence: usePrefence),
+        .then((value) => Gallery.fromRow(value.first))
+        .then((value) {
+      return _helper
+          .querySql(
+              'select hash,width,name,height,fileHash from GalleryFile where gid=? order by name',
+              [
+                value.id
+              ])
+          .then((value) => value.fold(
+              <Image>[],
+              (previousValue, element) => previousValue
+                ..add(Image(
+                    hash: element['hash'],
+                    hasavif: 0,
+                    width: element['width'],
+                    haswebp: 0,
+                    name: element['name'],
+                    height: element['height'],
+                    fileHash: element['fileHash']))))
+          .then((fs) => value..files.addAll(fs));
+    }).catchError((e) => _hitomiImpl.fetchGallery(id, usePrefence: usePrefence),
             test: (error) => true);
   }
 
   @override
   Future<List<Map<String, dynamic>>> translate(List<Label> labels) {
-    return _manager.downLoader
+    return _manager
         .translateLabel(labels)
         .then((value) => value.values.toList());
   }
@@ -147,7 +163,7 @@ class _LocalHitomiImpl implements Hitomi {
       params.add('%${tag.name}%');
     } else {
       sql =
-          'select COUNT(*) OVER() AS total_count,id,path from Gallery where json_value_contains(${tag.localSqlType},?,?)=1 ';
+          'select COUNT(*) OVER() AS total_count,id,path,date from Gallery where json_value_contains(${tag.localSqlType},?,?)=1 ';
       params.addAll([tag.name, tag.type]);
     }
     if (sort == SortEnum.DateDesc) {
@@ -158,16 +174,35 @@ class _LocalHitomiImpl implements Hitomi {
     _manager.logger.d('$sql with $params');
     return _helper
         .querySqlByCursor(sql, params)
-        .fold(<int, String>{}, (previous, element) {
+        .fold(<Gallery>[], (previous, element) {
           if (count <= 0) {
             count = element['total_count'];
           }
-          return previous..[element['id']] = element['path'];
+          return previous..add(Gallery.fromRow(element));
         })
-        .then((value) => Future.wait(value.entries.map((e) =>
-            readGalleryFromPath(join(_manager.config.output, e.value))
-                .catchError((err) =>
-                    _hitomiImpl.fetchGallery(e.key, usePrefence: false)))))
+        .then((galleries) => _helper
+                .selectSqlMultiResultAsync(
+                    'select hash,width,name,height,fileHash from GalleryFile where gid=? order by name',
+                    galleries.map((e) => [e.id]).toList())
+                .then((value) {
+              for (var gallery in galleries) {
+                var v = value.entries
+                    .firstWhere((element) => element.key[0] == gallery.id);
+                var images = v.value.fold(
+                    <Image>[],
+                    (previousValue, element) => previousValue
+                      ..add(Image(
+                          hash: element['hash'],
+                          hasavif: 0,
+                          width: element['width'],
+                          haswebp: 0,
+                          name: element['name'],
+                          height: element['height'],
+                          fileHash: element['fileHash'])));
+                gallery.files.addAll(images);
+              }
+              return galleries;
+            }))
         .then((data) => DataResponse(data, totalCount: count));
   }
 
@@ -401,8 +436,7 @@ class _HitomiImpl implements Hitomi {
       if (id != language.galleryid) {
         logger?.t('use language ${language}');
         var l = await _fetchGalleryJsonById(language.galleryid, token);
-        if (manager.downLoader
-            .illeagalTagsCheck(gallery, manager.config.excludes)) {
+        if (l.files.length > 18) {
           return l;
         }
       }
@@ -463,7 +497,7 @@ class _HitomiImpl implements Hitomi {
 
   @override
   Future<List<Map<String, dynamic>>> translate(List<Label> labels) {
-    return manager.downLoader
+    return manager
         .translateLabel(labels)
         .then((value) => value.values.toList());
   }
@@ -546,7 +580,7 @@ class _HitomiImpl implements Hitomi {
             key,
             token)
         .then((value) => _fetchTagData(value, token))
-        .then((value) => manager.downLoader.translateLabel(value))
+        .then((value) => manager.translateLabel(value))
         .then((value) => value.values.toList());
   }
 

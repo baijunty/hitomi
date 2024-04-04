@@ -3,13 +3,15 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:args/args.dart';
 import 'package:async/async.dart';
+import 'package:collection/collection.dart';
+import 'package:dcache/dcache.dart';
 import 'package:dio/dio.dart';
 import 'package:hitomi/gallery/artist.dart';
+import 'package:hitomi/gallery/gallery.dart';
 import 'package:hitomi/gallery/group.dart';
 import 'package:hitomi/gallery/label.dart';
 import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/downloader.dart';
-import 'package:hitomi/src/gallery_util.dart';
 import 'package:hitomi/src/sqlite_helper.dart';
 import 'package:isolate_manager/isolate_manager.dart';
 import 'package:logger/logger.dart';
@@ -36,13 +38,15 @@ class TaskManager {
   final UserConfig config;
   late ArgParser _parser;
   late SqliteHelper helper;
-  late DownLoader downLoader;
+  late DownLoader _downLoader;
   late Hitomi _api;
   late Hitomi _localApi;
   late Logger logger;
   final Dio dio = Dio();
   final _tasks = <Label>{};
-  final reg = RegExp(r'!?\[(?<name>.*?)\]\(#*\s*\"?(?<url>\S+?)\"?\)');
+  final _cache =
+      SimpleCache<Label, Map<String, dynamic>>(storage: InMemoryStorage(1024));
+  final _reg = RegExp(r'!?\[(?<name>.*?)\]\(#*\s*\"?(?<url>\S+?)\"?\)');
   late IsolateManager<MapEntry<int, List<int>?>, String> manager;
 
   Hitomi getApiDirect({bool local = false}) {
@@ -92,7 +96,7 @@ class TaskManager {
     dio.httpClientAdapter = crateHttpClientAdapter(config.proxy);
     _api = createHitomi(this, false, config.remoteHttp);
     _localApi = createHitomi(this, true, config.remoteHttp);
-    downLoader = DownLoader(
+    _downLoader = DownLoader(
         config: config,
         api: _api,
         helper: helper,
@@ -105,19 +109,16 @@ class TaskManager {
       ..addFlag('fixDup')
       ..addFlag('update', abbr: 'u')
       ..addFlag('continue', abbr: 'c')
+      ..addOption('pause', abbr: 'p')
+      ..addOption('delete', abbr: 'd')
       ..addOption('artist', abbr: 'a')
       ..addOption('group', abbr: 'g')
       ..addFlag('list', abbr: 'l')
-      ..addMultiOption('delete', abbr: 'd')
       ..addMultiOption('tags', abbr: 't');
   }
 
-  void cancel() {
-    downLoader.cancelAll();
-  }
-
-  String takeTranslateText(String input) {
-    var matches = reg.allMatches(input);
+  String _takeTranslateText(String input) {
+    var matches = _reg.allMatches(input);
     if (matches.isNotEmpty) {
       int start = 0;
       var sb = StringBuffer();
@@ -131,7 +132,7 @@ class TaskManager {
     return input;
   }
 
-  Future<List<List<dynamic>>> fetchTagsFromNet({CancelToken? token}) async {
+  Future<List<List<dynamic>>> _fetchTagsFromNet({CancelToken? token}) async {
     // var rows = _db.select(
     //     'select intro from Tags where type=? by intro desc', ['author']);
     // Map<String, dynamic> author =
@@ -159,7 +160,7 @@ class TaskManager {
               null,
               key,
               name,
-              takeTranslateText(value['name']),
+              _takeTranslateText(value['name']),
               value['intro'],
               value['links'],
               null
@@ -170,6 +171,33 @@ class TaskManager {
       return params;
     }
     return [];
+  }
+
+  Future<Map<Label, Map<String, dynamic>>> translateLabel(
+      List<Label> keys) async {
+    var missed =
+        keys.groupListsBy((element) => _cache[element] != null)[false] ?? [];
+    if (missed.isNotEmpty) {
+      var result = await helper.selectSqlMultiResultAsync(
+          'select translate,intro,links from Tags where type=? and name=?',
+          missed.map((e) => e.params).toList());
+      missed.fold(_cache, (previousValue, element) {
+        final v = result.entries
+            .firstWhereOrNull((e) => e.key.equals(element.params))
+            ?.value
+            .firstOrNull;
+        if (v != null) {
+          previousValue[element] = {...v, ...element.toMap()};
+        }
+        return previousValue;
+      });
+    }
+    final r = keys.fold(
+        <Label, Map<String, dynamic>>{},
+        (previousValue, element) => previousValue
+          ..[element] = _cache[element] ??
+              {'translate': element.name, ...element.toMap()});
+    return r;
   }
 
   List<String> _parseArgs(String cmd) {
@@ -201,8 +229,8 @@ class TaskManager {
     return args;
   }
 
-  Future<int> fixGallerys() async {
-    final count = await DirScanner(config, helper, downLoader, manager)
+  Future<int> _fixGallerys() async {
+    final count = await DirScanner(config, helper, _downLoader, manager)
         .listDirs()
         .filterNonNull()
         .where((event) {
@@ -242,43 +270,22 @@ class TaskManager {
     return count;
   }
 
-  Future<int> runRemainTask() async {
-    var tasks =
-        await helper.querySql('select id from Tasks where completed = ?', [0]);
-    logger.d("left task ${tasks.length}");
-    return await Stream.fromIterable(tasks)
-        .asyncMap((event) async {
-          try {
-            var r = await _api.fetchGallery(event['id']);
-            if (r.id.toString() != event['id'].toString()) {
-              logger.d(' $event update to ${r.id}');
-              await helper.removeTask(event['id'], withGaller: true);
-            }
-            return r;
-          } catch (e) {
-            logger.d('fetchGallery error $e');
-            await helper.removeTask(event['id'], withGaller: true);
-          }
-          return null;
-        })
-        .filterNonNull()
-        .asyncMap((value) async {
-          var b =
-              await findDuplicateGalleryIds(value, helper, _api, logger: logger)
-                  .then((value) => value.isEmpty);
-          if (!b) {
-            logger.d('delete task $value');
-            value.createDir(config.output).delete(recursive: true);
-            await helper.removeTask(value.id, withGaller: true);
-          } else {
-            return value;
-          }
-        })
-        .filterNonNull()
-        .asyncMap((element) {
-          downLoader.addTask(element);
-        })
-        .length;
+  Stream<Gallery> remainTask() {
+    return helper.querySqlByCursor('select id from Tasks where completed = ?',
+        [0]).asyncMap((event) async {
+      try {
+        var r = await _api.fetchGallery(event['id']);
+        if (r.id.toString() != event['id'].toString()) {
+          logger.d(' $event update to ${r.id}');
+          await helper.removeTask(event['id'], withGaller: true);
+        }
+        return r;
+      } catch (e) {
+        logger.d('fetchGallery error $e');
+        await helper.removeTask(event['id'], withGaller: true);
+      }
+      return null;
+    }).filterNonNull();
   }
 
   Future<dynamic> parseCommandAndRun(String cmd) async {
@@ -294,9 +301,9 @@ class TaskManager {
         String id = cmd;
         hasError = !numberExp.hasMatch(id);
         if (!hasError) {
-          await _api
+          _api
               .fetchGallery(id)
-              .then((value) => downLoader.addTask(value))
+              .then((value) => _downLoader.addTask(value))
               .then((value) => true)
               .catchError((e) {
             logger.e('add task $e');
@@ -309,7 +316,7 @@ class TaskManager {
         if (!hasError && _tasks.every((value) => value.name != artist)) {
           final label = Artist(artist: artist);
           _tasks.add(label);
-          return await downLoader.downLoadByTag(<Label>[
+          return _downLoader.downLoadByTag(<Label>[
             label,
             ...config.languages.map((e) => Language(name: e)),
             TypeLabel('doujinshi'),
@@ -323,7 +330,7 @@ class TaskManager {
         if (!hasError && _tasks.every((value) => value.name != group)) {
           final label = Group(group: group);
           _tasks.add(label);
-          return await downLoader.downLoadByTag(<Label>[
+          return _downLoader.downLoadByTag(<Label>[
             label,
             ...config.languages.map((e) => Language(name: e)),
             TypeLabel('doujinshi'),
@@ -338,49 +345,56 @@ class TaskManager {
             .map((e) => fromString(e[0], e[1]))
             .toList();
         _tasks.addAll(tags);
-        return downLoader.downLoadByTag(
+        return _downLoader.downLoadByTag(
             tags..addAll(config.languages.map((e) => Language(name: e))),
             MapEntry(tags.first.type, tags.first.name),
             CancelToken(),
             onFinish: (success) => _tasks.removeAll(tags));
       } else if (result.wasParsed('delete')) {
-        List<String> delete = result["delete"];
-        logger.d('delete ${delete}');
-        return delete
-            .where((element) => numberExp.hasMatch(element))
-            .map((e) => int.parse(e))
-            .asStream()
-            .asyncMap((event) => downLoader.deleteTaskById(event))
-            .length;
+        String deleteId = result["delete"];
+        logger.d('delete ${deleteId}');
+        if (numberExp.hasMatch(deleteId)) {
+          return _downLoader.deleteById(int.parse(deleteId));
+        }
+        return false;
+      } else if (result.wasParsed('pause')) {
+        String id = result["pause"];
+        logger.d('pause ${id}');
+        if (numberExp.hasMatch(id)) {
+          return _downLoader.cancelById(int.parse(id));
+        }
+        return false;
       } else if (result['fixDb']) {
-        final count = await DirScanner(config, helper, downLoader, manager)
+        final count = await DirScanner(config, helper, _downLoader, manager)
             .fixMissDbRow();
         logger.d("database fix ${count}");
       } else if (result['fixDup']) {
-        final count = await DirScanner(config, helper, downLoader, manager)
+        final count = await DirScanner(config, helper, _downLoader, manager)
             .removeDupGallery();
         logger.d("database fix ${count}");
         return count;
       } else if (result['fix']) {
-        return await fixGallerys().then((value) => value > 0);
+        return _fixGallerys().then((value) => value > 0);
       } else if (result['update']) {
-        return await fetchTagsFromNet()
+        return _fetchTagsFromNet()
             .then((value) => helper.updateTagTable(value));
       } else if (result['continue']) {
-        return await runRemainTask().then((value) => value > 0);
+        return remainTask()
+            .asyncMap((event) => _downLoader.addTask(event))
+            .length;
       } else if (result['list']) {
         return <String, dynamic>{
           "queryTask": _tasks
               .map((e) => {'href': '/${e.urlEncode()}-all.html', ...e.toMap()})
               .toList(),
-          "pendingTask": downLoader.pendingTask
+          "pendingTask": _downLoader.pendingTask
               .map((t) => {
                     'href': t.gallery.galleryurl!,
                     'name': t.gallery.dirName,
                     'gallery': t.gallery
                   })
               .toList(),
-          "runningTask": downLoader.runningTask
+          "runningTask": _downLoader.runningTask
         };
       }
       if (hasError) {
