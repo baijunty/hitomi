@@ -159,11 +159,11 @@ class _LocalHitomiImpl implements Hitomi {
     var params = <dynamic>[];
     if (tag is QueryText) {
       sql =
-          'select COUNT(*) OVER() AS total_count,id,path from Gallery where title like ? ';
+          'select COUNT(*) OVER() AS total_count,g.* from Gallery g where g.title like ? ';
       params.add('%${tag.name}%');
     } else {
       sql =
-          'select COUNT(*) OVER() AS total_count,id,path,date from Gallery where json_value_contains(${tag.localSqlType},?,?)=1 ';
+          'select COUNT(*) OVER() AS total_count,g.* from Gallery g where json_value_contains(${tag.localSqlType},?,?)=1 ';
       params.addAll([tag.name, tag.type]);
     }
     if (sort == SortEnum.DateDesc) {

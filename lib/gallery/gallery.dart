@@ -124,8 +124,9 @@ class Gallery with Label {
               .toList(),
       tags: row['tag'] == null
           ? null
-          : (json.decode(row['tag']) as Map<String, List<dynamic>>)
-              .map((key, value) => MapEntry(key, value.map((e) => e as String)))
+          : (json.decode(row['tag']) as Map<String, dynamic>)
+              .map((key, value) => MapEntry(
+                  key, (value as List<dynamic>).map((e) => e as String)))
               .entries
               .fold(
                   <Tag>[],
