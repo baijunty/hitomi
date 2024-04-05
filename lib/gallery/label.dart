@@ -18,7 +18,7 @@ abstract mixin class Label {
   Map<String, dynamic> toMap() => {'type': type, 'name': name, type: name};
 
   String urlEncode({SortEnum? sort}) {
-    return "${this.type}/${Uri.encodeComponent(name.toLowerCase())}";
+    return "${this.type}/${sort == null ? '' : 'popular/${sort.name}/'}${Uri.encodeComponent(name.toLowerCase())}";
   }
 
   @override
@@ -73,7 +73,7 @@ class QueryText extends Label {
 
   @override
   String urlEncode({SortEnum? sort}) {
-    return 'index';
+    return '${sort == null ? 'index' : 'popular/${sort.name}'}';
   }
 }
 
