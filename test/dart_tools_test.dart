@@ -10,8 +10,10 @@ import 'package:hitomi/gallery/tag.dart';
 import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/gallery_util.dart';
 import 'package:hitomi/src/multi_paltform.dart';
+import 'package:sqlite3/common.dart';
 import 'package:test/test.dart';
 
+int count = 10000;
 var config = UserConfig('/home/bai/ssd/manga/',
     proxy: '127.0.0.1:8389',
     languages: ['japanese', 'chinese'],
@@ -20,29 +22,44 @@ var config = UserConfig('/home/bai/ssd/manga/',
 var task = TaskManager(config);
 void main() async {
   test('chapter', () async {
-    await task
-        .getApiDirect()
-        .viewByTag(Language.japanese, sort: SortEnum.month, page: 1)
-        .then((value) {
-      print(value.data.take(2));
-      print(value.totalCount);
-    });
-    await task
-        .getApiDirect(local: true)
-        .viewByTag(Tag(tag: 'glasses', female: 1),
-            sort: SortEnum.DateDesc, page: 1)
-        .then((value) {
-      print(value.data.take(2));
-      print(value.totalCount);
-    });
-    await task
-        .getApiFromProxy(false, '12345678', 'http://127.0.0.1:7890')
-        .viewByTag(Language.japanese, sort: SortEnum.month, page: 1)
-        .then((value) {
-      print(value.data.take(2));
-      print(value.totalCount);
-    });
-  }, timeout: Timeout(Duration(minutes: 2)));
+    var page = 0;
+    var r = true;
+    do {
+      r = await copyFromBack(page);
+      page++;
+    } while (r);
+  }, timeout: Timeout(Duration(minutes: 120)));
+}
+
+Future<bool> copyFromBack(int page) async {
+  print('copy row $page total ${(page + 1) * count}');
+  CommonPreparedStatement? stat;
+  return await task.helper.databaseOpera(
+      'select gft.gid,gft.hash,gft.name,gft.width,gft.height,gft.fileHash,gft.thumb from GalleryFileTemp gft limit $count offset ${page * count}',
+      (stmt) {
+    stat = stmt;
+    return stmt.selectCursor([]);
+  }, releaseOnce: false).then((value) async {
+    while (value.moveNext()) {
+      var element = value.current;
+      await task.helper.excuteSqlAsync(
+          'replace into GalleryFile(gid,hash,name,width,height,fileHash,thumb) values(?,?,?,?,?,?,?)',
+          [
+            element['gid'],
+            element['hash'],
+            element['name'],
+            element['width'],
+            element['height'],
+            element['fileHash'],
+            element['thumb']
+          ]);
+    }
+    print('insert complete');
+    return true;
+  }).catchError((e) {
+    print(e);
+    return false;
+  }, test: (error) => true).whenComplete(() => stat?.dispose());
 }
 
 Future readIdFromFile() async {

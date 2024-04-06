@@ -23,13 +23,6 @@ Future<Uint8List?> resizeThumbImage(Uint8List data, int width,
     ..copyResize(width: width, interpolation: Interpolation.average)
     ..encodeJpg(quality: quality);
   return cmd.getImage().then((value) => cmd.outputBytes);
-  // final out = File(outPath);
-  // if (out.existsSync()) {
-  //   return out.readAsBytes().then((value) {
-  //     // out.deleteSync();
-  //     return value;
-  //   });
-  // }
 }
 
 int compareHashDistance(int hash1, int hash2) {

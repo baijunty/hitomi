@@ -263,7 +263,8 @@ class DownLoader {
       _pendingTask.remove(token);
       _runningTask[token] =
           DownLoadingMessage(token.gallery, 0, 0, token.gallery.files.length);
-      logger?.d('run task ${token.gallery.id} length ${_runningTask.length}');
+      logger?.d(
+          'run task ${token.gallery.id} left length ${_pendingTask.length} running ${_runningTask.length}');
       _downLoadGallery(token);
       return true;
     }

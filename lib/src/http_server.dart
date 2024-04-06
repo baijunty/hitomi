@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:async/async.dart';
 import 'package:collection/collection.dart';
 import 'package:dcache/dcache.dart';
 import 'package:hitomi/gallery/gallery.dart';
@@ -74,24 +73,27 @@ class _TaskWarp {
       });
     localHitomi = createHitomi(_manager, true, 'http://127.0.0.1:7890');
     thumbFunctin = (id, hash) => _manager.helper
-        .querySqlByCursor(
+        .querySql(
             'select gf.thumb,gf.name from GalleryFile gf where gf.gid=? and hash=?',
             [
               id,
               hash
             ])
-        .asyncMap((event) =>
-            MapEntry<String, List<int>>(event['name'], event['thumb']))
-        .firstOrNull;
+        .then((value) => value.first)
+        .then((event) =>
+            MapEntry<String, List<int>>(event['name'], event['thumb']));
 
-    originFunctin = (id, hash) => _manager.helper.querySqlByCursor(
+    originFunctin = (id, hash) => _manager.helper
+        .querySqlByCursor(
             'select gf.name,g.path from Gallery g left join GalleryFile gf on g.id=gf.gid where g.id=? and gf.hash=?',
-            [id, hash]).asyncMap((event) async {
+            [id, hash])
+        .then((value) => value.first)
+        .then((event) async {
           String fileName = event['name'];
           String path = join(_manager.config.output, event['path'], fileName);
           return MapEntry<String, Stream<List<int>>>(
               fileName, File(path).openRead());
-        }).firstOrNull;
+        });
   }
 
   Future<Response> _optionsOk(Request req) async {
@@ -219,7 +221,8 @@ class _TaskWarp {
     if (before != null && before == hash) {
       return Response.notModified();
     }
-    var data = await fetch(id, hash);
+    var data =
+        await fetch(id, hash).catchError((e) => null, test: ((error) => true));
     if (data != null) {
       var fileName = data.key;
       return Response.ok(data.value, headers: {

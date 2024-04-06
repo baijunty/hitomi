@@ -64,41 +64,42 @@ class DirScanner {
   }
 
   Future<Map<bool, int>> fixMissDbRow() {
-    return _helper
-        .querySqlByCursor('select path,id from Gallery')
-        .asyncMap((event) {
-      var id = event['id'];
-      var dir = Directory(path.join(_downLoader.config.output, event['path']));
-      return readGalleryFromPath(dir.path).then((value) async {
-        await HitomiDir(dir, _downLoader, value, manager).fixGallery();
-        if (value.id.toString() != id.toString()) {
-          _downLoader.logger?.i('db id $id found id ${value.id}');
-          return await _helper.deleteGallery(id);
-        }
-        return true;
-      }).catchError(
-          (e) => _downLoader.api
-              .fetchGallery(id, usePrefence: false)
-              .then((value) => _downLoader.addTask(value))
-              .then((value) => _helper.deleteGallery(id))
-              .catchError((e) => false, test: (error) => true),
-          test: (error) => true);
-    }).fold(
-            <bool, int>{},
-            (previous, element) =>
-                previous..[element] = (previous[element] ?? 0) + 1);
+    return _helper.querySqlByCursor('select path,id from Gallery').then(
+        (value) => value.asyncMap((event) {
+              var id = event['id'];
+              var dir = Directory(
+                  path.join(_downLoader.config.output, event['path']));
+              return readGalleryFromPath(dir.path).then((value) async {
+                await HitomiDir(dir, _downLoader, value, manager).fixGallery();
+                if (value.id.toString() != id.toString()) {
+                  _downLoader.logger?.i('db id $id found id ${value.id}');
+                  return await _helper.deleteGallery(id);
+                }
+                return true;
+              }).catchError(
+                  (e) => _downLoader.api
+                      .fetchGallery(id, usePrefence: false)
+                      .then((value) => _downLoader.addTask(value))
+                      .then((value) => _helper.deleteGallery(id))
+                      .catchError((e) => false, test: (error) => true),
+                  test: (error) => true);
+            }).fold(
+                <bool, int>{},
+                (previous, element) =>
+                    previous..[element] = (previous[element] ?? 0) + 1));
   }
 
   Future<int> removeDupGallery() async {
     return _helper
         .querySqlByCursor(
             'select distinct(ja.value) as author from Gallery g,json_each(g.artist) ja where json_valid(g.artist)=1')
-        .asyncMap((event) => _findDupByLaber('artist', event['author']))
-        .where((event) => event.isNotEmpty)
-        .asyncMap((event) => _collectionFromMap(event))
-        .expand((element) => element.entries)
-        .asyncMap((event) => event.key.compareWithOther(event.value))
-        .length;
+        .then((value) => value
+            .asyncMap((event) => _findDupByLaber('artist', event['author']))
+            .where((event) => event.isNotEmpty)
+            .asyncMap((event) => _collectionFromMap(event))
+            .expand((element) => element.entries)
+            .asyncMap((event) => event.key.compareWithOther(event.value))
+            .length);
   }
 
   Future<Map<int, List<int>>> _findDupByLaber(String type, String name) async {

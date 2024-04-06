@@ -270,22 +270,26 @@ class TaskManager {
     return count;
   }
 
-  Stream<Gallery> remainTask() {
-    return helper.querySqlByCursor('select id from Tasks where completed = ?',
-        [0]).asyncMap((event) async {
-      try {
-        var r = await _api.fetchGallery(event['id']);
-        if (r.id.toString() != event['id'].toString()) {
-          logger.d(' $event update to ${r.id}');
-          await helper.removeTask(event['id'], withGaller: true);
-        }
-        return r;
-      } catch (e) {
-        logger.d('fetchGallery error $e');
-        await helper.removeTask(event['id'], withGaller: true);
-      }
-      return null;
-    }).filterNonNull();
+  Future<List<Gallery>> remainTask() {
+    return helper
+        .querySqlByCursor('select id from Tasks where completed = ?', [0]).then(
+            (value) => value
+                .asyncMap((event) async {
+                  try {
+                    var r = await _api.fetchGallery(event['id']);
+                    if (r.id.toString() != event['id'].toString()) {
+                      logger.d(' $event update to ${r.id}');
+                      await helper.removeTask(event['id'], withGaller: true);
+                    }
+                    return r;
+                  } catch (e) {
+                    logger.d('fetchGallery error $e');
+                    await helper.removeTask(event['id'], withGaller: true);
+                  }
+                  return null;
+                })
+                .filterNonNull()
+                .toList());
   }
 
   Future<dynamic> parseCommandAndRun(String cmd) async {
@@ -380,6 +384,8 @@ class TaskManager {
             .then((value) => helper.updateTagTable(value));
       } else if (result['continue']) {
         return remainTask()
+            .asStream()
+            .expand((element) => element)
             .asyncMap((event) => _downLoader.addTask(event))
             .length;
       } else if (result['list']) {

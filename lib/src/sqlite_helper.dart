@@ -116,9 +116,9 @@ class SqliteHelper {
       await checkInit();
       stam = _db.prepare(sql);
       return operate(stam);
-    } catch (e) {
-      _logger?.e('excel sql faild ${e}');
-      throw e;
+    } catch (e, stack) {
+      _logger?.e('excel sql faild ${stack}');
+      return Future.error('$sql error', stack);
     } finally {
       if (releaseOnce) {
         stam?.dispose();
@@ -251,9 +251,14 @@ class SqliteHelper {
     var r = databaseOpera(sql, (stmt) {
       return params.fold(<List<dynamic>, ResultSet>{},
           (previousValue, element) {
-        ResultSet r = stmt.select(element);
-        previousValue[element] = r;
-        return previousValue;
+        try {
+          ResultSet r = stmt.select(element);
+          previousValue[element] = r;
+          return previousValue;
+        } catch (e) {
+          _logger?.e('$sql error parmas $element $e');
+          throw e;
+        }
       });
     });
     return r;
@@ -277,14 +282,11 @@ class SqliteHelper {
     return databaseOpera(sql, (stmt) => stmt.select(params));
   }
 
-  Stream<Row> querySqlByCursor(String sql,
-      [List<dynamic> params = const []]) async* {
-    var stream = await databaseOpera(
-        sql, (stmt) => stmt.selectCursor(params).asStream(stmt, _logger),
+  Future<Stream<Row>> querySqlByCursor(String sql,
+      [List<dynamic> params = const []]) async {
+    return databaseOpera(
+        sql, (stmt) => stmt.selectCursor(params).asStream(stmt),
         releaseOnce: false);
-    await for (var element in stream) {
-      yield element;
-    }
   }
 
   Future<List<Label>> mapToLabel(List<String> names) async {
@@ -303,13 +305,13 @@ class SqliteHelper {
   }
 
   Future<bool> excuteSqlAsync(String sql, List<dynamic> params) async {
-    databaseOpera(sql, (stmt) => stmt.execute(params));
+    await databaseOpera(sql, (stmt) => stmt.execute(params));
     return true;
   }
 
   Future<bool> excuteSqlMultiParams(
       String sql, List<List<dynamic>> params) async {
-    databaseOpera(
+    await databaseOpera(
         sql,
         (stmt) => params.forEach((element) {
               stmt.execute(element);
@@ -373,11 +375,13 @@ class SqliteHelper {
   Future<Map<int, List<int>>> queryImageHashsByLabel(String type, String name) {
     return querySqlByCursor(
         'select gf.gid,gf.fileHash,gf.name,g.path,g.length from Gallery g,json_each(g.${type}) ja left join GalleryFile gf on g.id=gf.gid where (json_valid(g.${type})=1 and ja.value = ? and gf.gid is not null) order by gf.gid,gf.name',
-        [name]).fold(<int, List<int>>{}, (previous, element) {
-      previous[element['gid']] =
-          ((previous[element['gid']] ?? [])..add(element['fileHash']));
-      return previous;
-    });
+        [
+          name
+        ]).then((value) => value.fold(<int, List<int>>{}, (previous, element) {
+          previous[element['gid']] =
+              ((previous[element['gid']] ?? [])..add(element['fileHash']));
+          return previous;
+        }));
   }
 
   Future<bool> insertGalleryFile(
@@ -408,7 +412,7 @@ class SqliteHelper {
 
   Future<bool> removeTask(dynamic id, {bool withGaller = false}) async {
     if (withGaller) {
-      deleteGallery(id);
+      await deleteGallery(id);
     }
     _logger?.w('delelte task with $id');
     return excuteSqlAsync('delete from Tasks where id =?', [id]);

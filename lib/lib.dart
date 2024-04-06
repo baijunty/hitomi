@@ -13,6 +13,7 @@ export 'src/http_server.dart';
 export 'src/task_manager.dart';
 export 'src/hitomi_api.dart';
 export 'src/response.dart';
+
 extension IntParse on dynamic {
   int toInt() {
     if (this is int) {
@@ -40,24 +41,36 @@ extension Comparable on Iterable<int> {
 extension CursorCover on IteratingCursor {
   Stream<Row> asStream(CommonPreparedStatement statement, [Logger? logger]) {
     late StreamController<Row> controller;
-
+    var launch = true;
     void stop() {
       statement.dispose();
     }
 
     void start() {
       try {
-        while (moveNext()) {
+        while (moveNext() && launch) {
           controller.add(current);
         }
-        controller.close();
+        if (launch) {
+          controller.close();
+        }
       } catch (e) {
         logger?.e('handle row error $e');
         controller.addError(e);
       }
     }
 
-    controller = StreamController<Row>(onListen: start, onCancel: stop);
+    void onResume() {
+      launch = true;
+      start();
+    }
+
+    void onPause() {
+      launch = false;
+    }
+
+    controller = StreamController<Row>(
+        onListen: start, onCancel: stop, onPause: onPause, onResume: onResume);
 
     return controller.stream;
   }

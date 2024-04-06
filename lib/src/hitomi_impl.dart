@@ -51,10 +51,9 @@ class _LocalHitomiImpl implements Hitomi {
           .catchError((e) => <int>[], test: (error) => true);
     } else {
       return _helper
-          .querySqlByCursor(
-              'select thumb from GalleryFile where gid=? and hash=?',
+          .querySql('select thumb from GalleryFile where gid=? and hash=?',
               [id, image.hash])
-          .first
+          .then((value) => value.first)
           .then((value) => value['thumb'] as List<int>)
           .catchError((e) => <int>[], test: (error) => true);
     }
@@ -174,12 +173,12 @@ class _LocalHitomiImpl implements Hitomi {
     _manager.logger.d('$sql with $params');
     return _helper
         .querySqlByCursor(sql, params)
-        .fold(<Gallery>[], (previous, element) {
-          if (count <= 0) {
-            count = element['total_count'];
-          }
-          return previous..add(Gallery.fromRow(element));
-        })
+        .then((value) => value.fold(<Gallery>[], (previous, element) {
+              if (count <= 0) {
+                count = element['total_count'];
+              }
+              return previous..add(Gallery.fromRow(element));
+            }))
         .then((galleries) => _helper
                 .selectSqlMultiResultAsync(
                     'select hash,width,name,height,fileHash from GalleryFile where gid=? order by name',
