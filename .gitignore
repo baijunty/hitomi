@@ -12,5 +12,4 @@ doc/api/
 .idea/
 user.db
 nohup.out
-.log
-hitomi.log
+*.log

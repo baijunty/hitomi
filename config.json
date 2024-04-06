@@ -1,6 +1,6 @@
 {
     "output": "/home/bai/ssd/manga",
-    "maxTasks": 5,
+    "maxTasks": 16,
     "languages": [
         "japanese",
         "chinese"

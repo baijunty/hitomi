@@ -22,12 +22,15 @@ var config = UserConfig('/home/bai/ssd/manga/',
 var task = TaskManager(config);
 void main() async {
   test('chapter', () async {
-    var page = 0;
-    var r = true;
-    do {
-      r = await copyFromBack(page);
-      page++;
-    } while (r);
+    var rex = RegExp(r'id: (?<id>\d+)');
+    await File('hitomi.log')
+        .readAsLines()
+        .asStream()
+        .expand((element) => element)
+        .where((event) => rex.hasMatch(event))
+        .map((value) => rex.firstMatch(value)!.namedGroup('id')!)
+        .forEach((value) async =>
+            task.helper.updateTask(value, value, value, false));
   }, timeout: Timeout(Duration(minutes: 120)));
 }
 

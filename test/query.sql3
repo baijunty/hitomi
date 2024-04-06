@@ -1,6 +1,6 @@
 
 SELECT * FROM Gallery g,json_each(g.artist) ja  where (json_valid(g.artist)=1 and ja.value = 'doumou') 
-SELECT * from Tasks WHERE completed=0
+SELECT count(1) from Tasks WHERE completed=1
 SELECT * FROM Tags WHERE translate like '%;%' limit 20
 select * from Gallery g where id=2108755 order by date desc limit 200
 select gft.gid,gft.hash,gft.name,gft.width,gft.height,gft.fileHash,gft.thumb from GalleryFileTemp gft LIMIT 20

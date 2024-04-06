@@ -270,11 +270,10 @@ class TaskManager {
     return count;
   }
 
-  Future<List<Gallery>> remainTask() {
+  Future<Stream<Gallery>> remainTask() {
     return helper
         .querySqlByCursor('select id from Tasks where completed = ?', [0]).then(
-            (value) => value
-                .asyncMap((event) async {
+            (value) => value.asyncMap((event) async {
                   try {
                     var r = await _api.fetchGallery(event['id']);
                     if (r.id.toString() != event['id'].toString()) {
@@ -287,9 +286,7 @@ class TaskManager {
                     await helper.removeTask(event['id'], withGaller: true);
                   }
                   return null;
-                })
-                .filterNonNull()
-                .toList());
+                }).filterNonNull());
   }
 
   Future<dynamic> parseCommandAndRun(String cmd) async {
@@ -305,7 +302,7 @@ class TaskManager {
         String id = cmd;
         hasError = !numberExp.hasMatch(id);
         if (!hasError) {
-          _api
+          return await _api
               .fetchGallery(id)
               .then((value) => _downLoader.addTask(value))
               .then((value) => true)
@@ -383,11 +380,8 @@ class TaskManager {
         return _fetchTagsFromNet()
             .then((value) => helper.updateTagTable(value));
       } else if (result['continue']) {
-        return remainTask()
-            .asStream()
-            .expand((element) => element)
-            .asyncMap((event) => _downLoader.addTask(event))
-            .length;
+        return remainTask().then((value) =>
+            value.asyncMap((event) => _downLoader.addTask(event)).length);
       } else if (result['list']) {
         return <String, dynamic>{
           "queryTask": _tasks
