@@ -234,7 +234,9 @@ class DownLoader {
     if (target == null) {
       var path = await helper.readlData<String>('Gallery', 'path', {'id': id});
       if (path != null) {
-        target = await readGalleryFromPath(join(config.output, path));
+        target = await readGalleryFromPath(join(config.output, path))
+            .catchError((e) => api.fetchGallery(id, usePrefence: false),
+                test: (error) => true);
       }
     }
     if (target != null) {
