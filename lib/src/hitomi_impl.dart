@@ -319,23 +319,24 @@ class _HitomiImpl implements Hitomi {
       final out = File(join(dir.path, image.name));
       var b = await _loopCallBack(TaskStartMessage(gallery, out, image));
       if (b) {
-        var time = DateTime.now().millisecondsSinceEpoch;
         for (var j = 0; j < 3; j++) {
           try {
+            var startTime = DateTime.now().millisecondsSinceEpoch;
             final url =
                 buildImageUrl(image, size: ThumbnaiSize.origin, id: gallery.id);
             var writer = out.openWrite();
+            int lastTime = startTime;
             await _dio
                 .httpInvoke<ResponseBody>(url,
                     headers: buildRequestHeader(url, referer),
                     onProcess: (now, total) async {
                   final realTime = DateTime.now().millisecondsSinceEpoch;
-                  if ((realTime - time) / 1000 > 1) {
+                  if ((realTime - lastTime) / 1000 > 1) {
                     await _loopCallBack(
                       DownLoadingMessage(gallery, i,
-                          now / 1024 / (realTime - time) * 1000, total),
+                          now / 1024 / (realTime - startTime) * 1000, total),
                     );
-                    time = realTime;
+                    lastTime = realTime;
                   }
                 }, token: token)
                 .then((value) => value.stream.fold(

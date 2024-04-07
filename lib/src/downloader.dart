@@ -253,7 +253,8 @@ class DownLoader {
   }
 
   Future<bool> notifyTaskChange({int? id}) async {
-    if (_runningTask.length < config.maxTasks && _pendingTask.isNotEmpty) {
+    if (_runningTask.length < min(5, config.maxTasks) &&
+        _pendingTask.isNotEmpty) {
       IdentifyToken? token;
       if (id != null) {
         token = _pendingTask
