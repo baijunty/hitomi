@@ -11,6 +11,7 @@ import 'package:path/path.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart';
 import 'package:shelf_router/shelf_router.dart';
+import 'package:shelf_static/shelf_static.dart';
 import 'package:tuple/tuple.dart';
 import 'package:dio/dio.dart' show ResponseBody;
 import 'gallery_util.dart';
@@ -35,8 +36,9 @@ class _TaskWarp {
   late Hitomi localHitomi;
   _TaskWarp(this._manager) {
     router
-      ..get('/', (req) => Response.ok('ok'))
+      ..get('/', (req) => Response.movedPermanently('/index.html'))
       ..post('/translate', _translate)
+      ..get('/test', (req) => Response.ok('ok'))
       ..options('/translate', _optionsOk)
       ..post('/addTask', _addTask)
       ..options('/addTask', _optionsOk)
@@ -416,10 +418,20 @@ class _TaskWarp {
 Future<HttpServer> run_server(TaskManager manager) async {
   // Use any available host or container IP (usually `0.0.0.0`).
   // Configure a pipeline that logs requests.
+  Handler? staticHandle;
+  if (Directory('web').existsSync()) {
+    staticHandle = createStaticHandler('web', defaultDocument: 'index.html');
+  }
   final handler = Pipeline()
       .addMiddleware(logRequests(
           logger: (message, isError) =>
               isError ? manager.logger.e(message) : manager.logger.d(message)))
+      .addMiddleware((innerHandler) => (req) {
+            return Future.sync(() => innerHandler(req)).then((value) =>
+                value.statusCode == 404 && staticHandle != null
+                    ? staticHandle(req)
+                    : value);
+          })
       .addHandler(_TaskWarp(manager).router);
   // For running in containers, we respect the PORT environment variable.
   final socketPort = int.parse(Platform.environment['PORT'] ?? '7890');
