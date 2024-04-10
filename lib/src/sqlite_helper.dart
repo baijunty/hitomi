@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:collection/collection.dart';
 import 'package:hitomi/gallery/gallery.dart';
 import 'package:hitomi/gallery/image.dart';
@@ -319,12 +320,12 @@ class SqliteHelper {
     return true;
   }
 
-  Future<bool> insertGallery(Gallery gallery, String path) async {
+  Future<bool> insertGallery(Gallery gallery, FileSystemEntity path) async {
     return await excuteSqlAsync(
         'replace into Gallery(id,path,artist,groupes,series,character,language,title,tag,createDate,type,date,mark,length) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
         [
           gallery.id,
-          basename(path),
+          basename(path.path),
           gallery.artists == null
               ? null
               : json.encode(gallery.artists?.map((e) => e.name).toList()),
@@ -347,7 +348,7 @@ class SqliteHelper {
                       MapEntry(key, value.map((e) => e.name).toList()))),
           gallery.date,
           gallery.type,
-          DateTime.now().millisecondsSinceEpoch,
+          path.statSync().modified.millisecondsSinceEpoch,
           0,
           gallery.files.length
         ]);

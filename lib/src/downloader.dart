@@ -74,7 +74,7 @@ class DownLoader {
                       .updateTask(msg.gallery.id, msg.gallery.dirName,
                           msg.file.path, false)
                       .then((value) =>
-                          helper.insertGallery(msg.gallery, msg.file.path));
+                          helper.insertGallery(msg.gallery, msg.file));
                 }
                 return false;
               });

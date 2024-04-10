@@ -165,7 +165,9 @@ class _LocalHitomiImpl implements Hitomi {
           'select COUNT(*) OVER() AS total_count,g.* from Gallery g where json_value_contains(${tag.localSqlType},?,?)=1 ';
       params.addAll([tag.name, tag.type]);
     }
-    if (sort == SortEnum.DateDesc) {
+    if (sort == SortEnum.Date) {
+      sql = '${sql} order by date asc';
+    } else if (sort == SortEnum.DateDesc) {
       sql = '${sql} order by date desc';
     }
     sql = '$sql limit 25 offset ${(page - 1) * 25}';

@@ -295,7 +295,7 @@ class HitomiDir {
           .then((value) => _downLoader.helper.querySql(
               'select 1 from Gallery where id=? and length!=0', [gallery!.id]))
           .then((value) => value.firstOrNull == null
-              ? _downLoader.helper.insertGallery(gallery!, dir.path)
+              ? _downLoader.helper.insertGallery(gallery!, dir)
               : true)
           .then((_) {
         return _downLoader.helper

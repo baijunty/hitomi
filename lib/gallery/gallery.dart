@@ -92,49 +92,49 @@ class Gallery with Label {
 
   factory Gallery.fromRow(Row row) {
     var gallery = Gallery(
-      type: row['type'],
-      title: row['title'],
-      date: row['createDate'],
-      files: [],
-      id: row['id'],
-      language: row['language'],
-      artists: row['artist'] == null
-          ? null
-          : (json.decode(row['artist']) as List<dynamic>)
-              .map((e) => e as String)
-              .map((e) => Artist(artist: e))
-              .toList(),
-      groups: row['groupes'] == null
-          ? null
-          : (json.decode(row['groupes']) as List<dynamic>)
-              .map((e) => e as String)
-              .map((e) => Group(group: e))
-              .toList(),
-      parodys: row['series'] == null
-          ? null
-          : (json.decode(row['series']) as List<dynamic>)
-              .map((e) => e as String)
-              .map((e) => Parody(parody: e))
-              .toList(),
-      characters: row['character'] == null
-          ? null
-          : (json.decode(row['character']) as List<dynamic>)
-              .map((e) => e as String)
-              .map((e) => Character(character: e))
-              .toList(),
-      tags: row['tag'] == null
-          ? null
-          : (json.decode(row['tag']) as Map<String, dynamic>)
-              .map((key, value) => MapEntry(
-                  key, (value as List<dynamic>).map((e) => e as String)))
-              .entries
-              .fold(
-                  <Tag>[],
-                  (previousValue, element) => previousValue!
-                    ..addAll(element.value
-                        .map((e) => fromString(element.key, e) as Tag))),
-      downDate: row['date'],
-    );
+        type: row['type'],
+        title: row['title'],
+        date: row['createDate'],
+        files: [],
+        id: row['id'],
+        language: row['language'],
+        artists: row['artist'] == null
+            ? null
+            : (json.decode(row['artist']) as List<dynamic>)
+                .map((e) => e as String)
+                .map((e) => Artist(artist: e))
+                .toList(),
+        groups: row['groupes'] == null
+            ? null
+            : (json.decode(row['groupes']) as List<dynamic>)
+                .map((e) => e as String)
+                .map((e) => Group(group: e))
+                .toList(),
+        parodys: row['series'] == null
+            ? null
+            : (json.decode(row['series']) as List<dynamic>)
+                .map((e) => e as String)
+                .map((e) => Parody(parody: e))
+                .toList(),
+        characters: row['character'] == null
+            ? null
+            : (json.decode(row['character']) as List<dynamic>)
+                .map((e) => e as String)
+                .map((e) => Character(character: e))
+                .toList(),
+        tags: row['tag'] == null
+            ? null
+            : (json.decode(row['tag']) as Map<String, dynamic>)
+                .map((key, value) => MapEntry(
+                    key, (value as List<dynamic>).map((e) => e as String)))
+                .entries
+                .fold(
+                    <Tag>[],
+                    (previousValue, element) => previousValue!
+                      ..addAll(element.value
+                          .map((e) => fromString(element.key, e) as Tag))),
+        downDate: row['date'],
+        galleryurl: '/${row['type']}/hitomi-${row['id']}.html');
     return gallery;
   }
 
