@@ -397,10 +397,10 @@
         }
     }
 
-    function appendDwonTask(downTask, ol,labelName) {
+    function appendDwonTask(downTask, ol, labelName, showName) {
         ol.innerHTML = ""
         if (downTask) {
-            document.querySelector(`#${labelName}`).innerText = `任务列表(${downTask.length})`
+            document.querySelector(`#${labelName}`).innerText = `${showName}(${downTask.length})`
             downTask.forEach((task) => {
                 let item = document.createElement('li')
                 item.className = "item"
@@ -408,11 +408,17 @@
                 href.href = task.href
                 href.target = "_blank"
                 href.innerText = task.name
+                if (task['speed'] != null) {
+                    let gallery = JSON.parse(task['gallery'])
+                    href.innerText = `${href.innerText}-(${task['current'] + 1}/${gallery.files.length})-${task['speed'].toFixed(2)}Kb/${(task['length'] / 1024).toFixed(2)}`
+                }
                 item.appendChild(href)
                 ol.appendChild(item)
             })
         }
     }
+
+    var intervalId = 0
 
     async function showTask() {
         let remoteTask = document.createElement('div')
@@ -431,9 +437,9 @@
               </td>
             </tr>
             <tr>
-              <td class="label" id="queryTaskLabel">任务列表</td>
+              <td class="label" id="pendingTaskLabel">等待列表</td>
               <td>
-                <ul id="queryTask" class="tags"></ul>
+                <ul id="pendingTask" class="tags"></ul>
               </td>
             </tr>
             <tr>
@@ -447,11 +453,16 @@
       </div>
         `
         document.body.appendChild(remoteTask)
+        await listTaskContent()
+    }
+
+    async function listTaskContent() {
         let respData = await fetchRemote({ path: 'listTask', data: JSON.stringify({ auth: token }), get: false })
         let resp = JSON.parse(respData)
         appendQueryTask(resp['queryTask'], document.getElementById('queryTask'))
-        appendDwonTask(resp['pendingTask'], document.getElementById('pendingTask'),'queryTaskLabel')
-        appendDwonTask(resp['runningTask'], document.getElementById('runningTask'),'runningTaskLabel')
+        appendDwonTask(resp['pendingTask'], document.getElementById('pendingTask'), 'pendingTaskLabel', '等待列表')
+        appendDwonTask(resp['runningTask'], document.getElementById('runningTask'), 'runningTaskLabel', '下载列表')
+        intervalId = setTimeout(listTaskContent, 2000)
     }
 
     async function listThumbImages() {
@@ -465,10 +476,10 @@
             if (title != null) {
                 let btnArtist = document.createElement('a')
                 btnArtist.style.cssText = "color: red;font-size: 18px;font-style: normal;text-shadow: none;"
-                if(resp.length){
+                if (resp.value.length) {
                     btnArtist.innerHTML = `<a href="/doujinshi/${resp.value[0]}.html" target="_blank"><span> ${resp.value[0]} </span></a>`
-                } else{
-                    btnArtist.innerText="无"
+                } else {
+                    btnArtist.innerText = "无"
                 }
                 title.appendChild(btnArtist)
             }
@@ -624,6 +635,7 @@
         if (taskBar == null) {
             showTask()
         } else {
+            clearTimeout(intervalId)
             taskBar.classList.add('remove')
             setTimeout(() => document.body.removeChild(taskBar), 500)
         }
