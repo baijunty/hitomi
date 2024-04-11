@@ -17,7 +17,7 @@ import 'package:crypto/crypto.dart';
 
 Hitomi fromPrefenerce(TaskManager _manager, bool localDb, String baseHttp) {
   return localDb
-      ? _LocalHitomiImpl(_manager, _HitomiImpl(_manager, baseHttp), baseHttp)
+      ? _LocalHitomiImpl(_manager, _HitomiImpl(_manager, baseHttp))
       : _HitomiImpl(_manager, baseHttp);
 }
 
@@ -25,8 +25,7 @@ class _LocalHitomiImpl implements Hitomi {
   late SqliteHelper _helper;
   final TaskManager _manager;
   final _HitomiImpl _hitomiImpl;
-  final String _baseHttp;
-  _LocalHitomiImpl(this._manager, this._hitomiImpl, this._baseHttp) {
+  _LocalHitomiImpl(this._manager, this._hitomiImpl) {
     _helper = _manager.helper;
   }
 
@@ -35,7 +34,8 @@ class _LocalHitomiImpl implements Hitomi {
       {String refererUrl = '',
       CancelToken? token,
       int id = 0,
-      ThumbnaiSize size = ThumbnaiSize.smaill}) {
+      ThumbnaiSize size = ThumbnaiSize.smaill,
+      void Function(int now, int total)? onProcess}) {
     if (size == ThumbnaiSize.origin) {
       return _helper
           .querySql(
@@ -46,8 +46,15 @@ class _LocalHitomiImpl implements Hitomi {
               ])
           .then((value) =>
               join(_manager.config.output, value.first['path'], image.name))
-          .then((value) => File(value).readAsBytes())
-          .then((value) => value as List<int>)
+          .then((value) {
+            var f = File(value);
+            var length = f.lengthSync();
+            return f.openRead().fold(<int>[], (previous, element) {
+              previous..addAll(element);
+              onProcess?.call(previous.length, length);
+              return previous;
+            });
+          })
           .catchError((e) => <int>[], test: (error) => true);
     } else {
       return _helper
@@ -208,14 +215,6 @@ class _LocalHitomiImpl implements Hitomi {
   }
 
   @override
-  String buildImageUrl(Image image,
-      {ThumbnaiSize size = ThumbnaiSize.smaill,
-      int id = 0,
-      bool proxy = false}) {
-    return '${_baseHttp}/${size == ThumbnaiSize.origin ? 'image' : 'thumb'}/${id}/${image.hash}?size=${size.name}&local=1';
-  }
-
-  @override
   void removeCallBack(Future<bool> Function(Message msg) callBack) {
     return _hitomiImpl.removeCallBack(callBack);
   }
@@ -371,8 +370,8 @@ class _HitomiImpl implements Hitomi {
       {String refererUrl = '',
       CancelToken? token,
       int id = 0,
-      void onProcess(int now, int total)?,
-      ThumbnaiSize size = ThumbnaiSize.smaill}) async {
+      ThumbnaiSize size = ThumbnaiSize.smaill,
+      void Function(int now, int total)? onProcess}) async {
     await checkInit();
     final url = buildImageUrl(image, size: size, id: id);
     final data = await _dio.httpInvoke<List<int>>(url,
@@ -382,14 +381,8 @@ class _HitomiImpl implements Hitomi {
     return data;
   }
 
-  @override
   String buildImageUrl(Image image,
-      {ThumbnaiSize size = ThumbnaiSize.smaill,
-      int id = 0,
-      bool proxy = false}) {
-    if (proxy) {
-      return '${baseHttp}/${size == ThumbnaiSize.origin ? 'image' : 'thumb'}/${id}/${image.hash}?size=${size.name}&local=0';
-    }
+      {ThumbnaiSize size = ThumbnaiSize.smaill, int id = 0}) {
     final lastThreeCode = image.hash.substring(image.hash.length - 3);
     String url;
     var sizeStr;
@@ -898,11 +891,13 @@ class WebHitomi implements Hitomi {
       {usePrefence = true, CancelToken? token}) async {
     return dio
         .post<String>('$bashHttp/proxy/fetchGallery',
-            data: json.encode({
+            queryParameters: {
               'id': id,
               'usePrefence': usePrefence,
-              'auth': auth,
               'local': localDb
+            },
+            data: json.encode({
+              'auth': auth,
             }))
         .then((value) => Gallery.fromJson(value.data!));
   }
@@ -912,20 +907,24 @@ class WebHitomi implements Hitomi {
       {String refererUrl = '',
       CancelToken? token,
       int id = 0,
-      ThumbnaiSize size = ThumbnaiSize.smaill}) {
+      ThumbnaiSize size = ThumbnaiSize.smaill,
+      void Function(int now, int total)? onProcess}) {
     return dio
-        .post<String>('$bashHttp/proxy/fetchImageData',
-            data: json.encode({
-              'image': image,
+        .post<List<int>>('$bashHttp/proxy/fetchImageData',
+            queryParameters: {
+              'hash': image.hash,
+              'name': image.name,
               'referer': refererUrl,
               'size': size.name,
-              'auth': auth,
               'id': id,
               'local': localDb
-            }))
-        .then((value) => (json.decode(value.data!) as List<dynamic>)
-            .map((e) => e as int)
-            .toList());
+            },
+            data: json.encode({
+              'auth': auth,
+            }),
+            options: Options(responseType: ResponseType.bytes),
+            onReceiveProgress: onProcess)
+        .then((value) => value.data!);
   }
 
   @override
@@ -948,14 +947,6 @@ class WebHitomi implements Hitomi {
             }))
         .then((value) => DataResponse.fromStr(value.data!,
             (list) => (list as List<dynamic>).map((e) => e as int).toList()));
-  }
-
-  @override
-  String buildImageUrl(Image image,
-      {ThumbnaiSize size = ThumbnaiSize.smaill,
-      int id = 0,
-      bool proxy = false}) {
-    return '$bashHttp/${size == ThumbnaiSize.origin ? 'image' : 'thumb'}/${id}/${image.hash}?size=${size.name}&local=${localDb ? 1 : 0}';
   }
 
   @override

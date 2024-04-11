@@ -13,7 +13,7 @@ abstract class Hitomi {
   Future<bool> downloadImages(Gallery gallery,
       {bool usePrefence = true, CancelToken? token});
   Future<Gallery> fetchGallery(dynamic id,
-      {usePrefence = true, CancelToken? token});
+      {bool usePrefence = true, CancelToken? token});
   Future<DataResponse<List<int>>> search(List<Label> include,
       {List<Label> exclude, int page = 1, CancelToken? token});
   Future<List<Map<String, dynamic>>> fetchSuggestions(String key);
@@ -21,15 +21,12 @@ abstract class Hitomi {
       Gallery gallery,
       {CancelToken? token});
   Future<List<Map<String, dynamic>>> translate(List<Label> labels);
-  String buildImageUrl(Image image,
-      {ThumbnaiSize size = ThumbnaiSize.smaill,
-      int id = 0,
-      bool proxy = false});
   Future<List<int>> fetchImageData(Image image,
       {String refererUrl,
       CancelToken? token,
       int id = 0,
-      ThumbnaiSize size = ThumbnaiSize.smaill});
+      ThumbnaiSize size = ThumbnaiSize.smaill,
+      void Function(int now, int total)? onProcess});
   Future<DataResponse<List<Gallery>>> viewByTag(Label tag,
       {int page = 1, CancelToken? token, SortEnum? sort});
 }
