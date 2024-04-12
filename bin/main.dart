@@ -41,35 +41,34 @@ void main(List<String> args) async {
     file.writeAsBytesSync(json.encode(config.toJson()).codeUnits);
   }
   print(config);
-  final pool = TaskManager(config);
+  final task = TaskManager(config);
   tasks?.forEach(
-      (element) async => await (await pool.parseCommandAndRun(element.trim())));
-  run_server(pool);
+      (element) async => await (await task.parseCommandAndRun(element.trim())));
+  run_server(task);
   getUserInputId().forEach((element) async {
     print(
-        '\x1b[47;31madd command ${element.trim()} return ${await pool.parseCommandAndRun(element.trim())} \x1b[0m');
+        '\x1b[47;31madd command ${element.trim()} return ${await task.parseCommandAndRun(element.trim())} \x1b[0m');
   });
-  // var already = File('already.txt');
-  // var writer = already.openWrite(mode: FileMode.append);
-  // var len = await already
-  //     .readAsLines()
-  //     .then((value) => readIdFromFile(value))
+  await task.parseCommandAndRun('-c');
+  // var len = await readIdFromFile(pool)
   //     .asStream()
   //     .expand((element) => element)
   //     .asyncMap((event) async {
-  //   var succ = await pool.parseCommandAndRun("-a \'$event\'");
-  //   if (succ) {
-  //     writer.writeln(event);
-  //     await writer.flush();
-  //   }
+  //   return await pool.parseCommandAndRun("-a \'$event\'");
   // }).length;
   // print(len);
 }
 
-Future<Iterable<String>> readIdFromFile(List<String> downed) {
-  return File('artist.txt')
-      .readAsLines()
-      .then((event) => event.where((element) => !downed.contains(element)));
+Future<Iterable<String>> readIdFromFile(TaskManager manager) {
+  return File('artist.txt').readAsLines().then((event) {
+    return manager.helper
+        .selectSqlMultiResultAsync(
+            'select 1 from Gallery g where json_value_contains(g.artist,?)=1',
+            event.map((e) => [e]).toList())
+        .then(
+            (value) => value.entries.where((element) => element.value.isEmpty))
+        .then((value) => value.map((e) => e.key.first as String));
+  });
 }
 
 Stream<String> getUserInputId() {

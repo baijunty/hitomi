@@ -20,15 +20,9 @@ var config = UserConfig('/home/bai/ssd/manga/',
 var task = TaskManager(config);
 void main() async {
   test('chapter', () async {
-    var rex = RegExp(r'id: (?<id>\d+)');
-    await File('hitomi.log')
-        .readAsLines()
-        .asStream()
-        .expand((element) => element)
-        .where((event) => rex.hasMatch(event))
-        .map((value) => rex.firstMatch(value)!.namedGroup('id')!)
-        .forEach((value) async =>
-            task.helper.updateTask(value, value, value, false));
+    await NetworkInterface.list().then((value) => value.forEach((element) {
+          print(element.addresses.firstOrNull?.address);
+        }));
   }, timeout: Timeout(Duration(minutes: 120)));
 }
 

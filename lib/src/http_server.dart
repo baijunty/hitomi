@@ -64,6 +64,10 @@ class _TaskWarp {
                 ...defaultRespHeader,
                 HttpHeaders.contentTypeHeader: 'application/octet-stream'
               }))
+      ..post('/cancel', _cancel)
+      ..options('/cancel', _optionsOk)
+      ..post('/delete', _delete)
+      ..options('/delete', _optionsOk)
       ..post('/excludes', (req) async {
         var succ = await _authToken(req);
         if (succ.item1) {
@@ -373,7 +377,9 @@ class _TaskWarp {
 
   Future<Response> _addTask(Request req) async {
     final task = await _authToken(req);
-    if (task.item1) {
+    final ip = req.headers['x-real-ip'] ?? '';
+    _manager.logger.d('real ip $ip');
+    if (task.item1 && (ip.isEmpty || ip.startsWith('192.168'))) {
       _manager.parseCommandAndRun(task.item2['task']);
       return Response.ok(json.encode({'success': true}),
           headers: defaultRespHeader);
@@ -435,6 +441,30 @@ class _TaskWarp {
     if (task.item1) {
       return localHitomi.fetchSuggestions(key).then((value) =>
           Response.ok(json.encode(value), headers: defaultRespHeader));
+    }
+    return Response.unauthorized('unauth');
+  }
+
+  Future<Response> _cancel(Request req) async {
+    final task = await _authToken(req);
+    final ip = req.headers['x-real-ip'] ?? '';
+    _manager.logger.d('real ip $ip');
+    if (task.item1 && (ip.isEmpty || ip.startsWith('192.168'))) {
+      return _manager.parseCommandAndRun('-p ${task.item2['id']}').then(
+          (value) => Response.ok(json.encode({'success': value}),
+              headers: defaultRespHeader));
+    }
+    return Response.unauthorized('unauth');
+  }
+
+  Future<Response> _delete(Request req) async {
+    final task = await _authToken(req);
+    final ip = req.headers['x-real-ip'] ?? '';
+    _manager.logger.d('real ip $ip');
+    if (task.item1 && (ip.isEmpty || ip.startsWith('192.168'))) {
+      return _manager.parseCommandAndRun('-d ${task.item2['id']}').then(
+          (value) => Response.ok(json.encode({'success': value}),
+              headers: defaultRespHeader));
     }
     return Response.unauthorized('unauth');
   }
