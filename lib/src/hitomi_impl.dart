@@ -104,7 +104,7 @@ class _LocalHitomiImpl implements Hitomi {
   @override
   Future<List<Map<String, dynamic>>> translate(List<Label> labels) {
     return _manager
-        .translateLabel(labels)
+        .collectedInfo(labels)
         .then((value) => value.values.toList());
   }
 
@@ -318,7 +318,8 @@ class _HitomiImpl implements Hitomi {
     for (var i = 0; i < gallery.files.length; i++) {
       Image image = gallery.files[i];
       final out = File(join(dir.path, image.name));
-      var b = await _loopCallBack(TaskStartMessage(gallery, out, image));
+      var b = await _loopCallBack(TaskStartMessage(gallery, out, image)) &&
+          (token?.isCancelled ?? false) == false;
       if (b) {
         for (var j = 0; j < 3; j++) {
           try {
@@ -492,9 +493,7 @@ class _HitomiImpl implements Hitomi {
 
   @override
   Future<List<Map<String, dynamic>>> translate(List<Label> labels) {
-    return manager
-        .translateLabel(labels)
-        .then((value) => value.values.toList());
+    return manager.collectedInfo(labels).then((value) => value.values.toList());
   }
 
   @override
@@ -575,7 +574,7 @@ class _HitomiImpl implements Hitomi {
             key,
             token)
         .then((value) => _fetchTagData(value, token))
-        .then((value) => manager.translateLabel(value))
+        .then((value) => manager.collectedInfo(value))
         .then((value) => value.values.toList());
   }
 

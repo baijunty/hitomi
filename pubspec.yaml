@@ -21,8 +21,9 @@ dependencies:
   sqlite3: ^2.4.0
   dio: ^5.4.2+1
   shelf: ^1.1.4
-  shelf_router: ^1.0.0
-  shelf_static: ^1.0.0
+  shelf_router: ^1.1.4
+  shelf_static: ^1.1.2
+  shelf_web_socket: ^1.0.4
   shelf_packages_handler:  ^3.0.2
   uuid: ^4.3.2
   dcache: ^0.4.0

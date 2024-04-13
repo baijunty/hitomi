@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:collection/collection.dart';
-import 'package:dcache/dcache.dart';
 import 'package:hitomi/gallery/gallery.dart';
 import 'package:hitomi/gallery/image.dart';
 import 'package:hitomi/gallery/label.dart';
@@ -25,8 +24,6 @@ final defaultRespHeader = {
 
 class _TaskWarp {
   final TaskManager _manager;
-  final _cache = SimpleCache<Label, MapEntry<int, String>?>(
-      storage: InMemoryStorage(1024));
   final Router router = Router();
   late Future<Map<String, dynamic>?> Function(String id, String hash)
       thumbFunctin;
@@ -191,6 +188,10 @@ class _TaskWarp {
               _manager.logger.d('$id $hash $name $size $local');
               return Response.badRequest();
             }
+            var before = req.headers['If-None-Match'];
+            if (before != null && before == hash) {
+              return Response.notModified();
+            }
             return _manager
                 .getApiDirect(local: local)
                 .fetchImageData(
@@ -207,6 +208,8 @@ class _TaskWarp {
                     id: int.parse(id))
                 .then((value) => Response.ok(value, headers: {
                       ...defaultRespHeader,
+                      HttpHeaders.cacheControlHeader: 'public, max-age=259200',
+                      HttpHeaders.etagHeader: hash,
                       HttpHeaders.contentTypeHeader:
                           'image/${extension(name).substring(1)}',
                       HttpHeaders.contentLengthHeader: value.length.toString(),
@@ -333,46 +336,7 @@ class _TaskWarp {
   }
 
   Future<List<Map<String, dynamic>>> _collectionTags(List<Label> keys) async {
-    await keys
-        .where((element) => !_cache.containsKey(element))
-        .groupListsBy((element) => element.localSqlType)
-        .entries
-        .asStream()
-        .forEach((entry) async {
-      await _manager.helper
-          .selectSqlMultiResultAsync(
-              'select count(1) as count,date as date from Gallery where json_value_contains(${entry.key},?,?)=1',
-              entry.value
-                  .where((element) => element.runtimeType != TypeLabel)
-                  .map((e) => [e.name, e.type])
-                  .toList())
-          .then((value) {
-        return value.entries.fold(_cache, (previousValue, element) {
-          final row = element.value.firstOrNull;
-          if (row != null && row['date'] != null) {
-            previousValue[fromString(element.key[1], element.key[0])] =
-                MapEntry(
-                    row['count'],
-                    DateTime.fromMillisecondsSinceEpoch(row['date'])
-                        .toString());
-          }
-          return previousValue;
-        });
-      });
-    });
-    final r = await _manager
-        .translateLabel(keys)
-        .then((value) => value.entries.map((entry) {
-              var key = entry.key;
-              var value = entry.value;
-              final cache = _cache[key];
-              if (cache != null) {
-                value['count'] = cache.key;
-                value['date'] = cache.value;
-              }
-              return value;
-            }).toList());
-    return r;
+    return _manager.collectedInfo(keys).then((value) => value.values.toList());
   }
 
   Future<Response> _addTask(Request req) async {
@@ -477,6 +441,11 @@ Future<HttpServer> run_server(TaskManager manager) async {
   if (Directory('web').existsSync()) {
     staticHandle = createStaticHandler('web', defaultDocument: 'index.html');
   }
+  // Handler webSocket = webSocketHandler((webSocket) {
+  //   webSocket.stream.listen((message) {
+  //     webSocket.sink.add("echo $message");
+  //   });
+  // });
   final handler = Pipeline()
       .addMiddleware(logRequests(
           logger: (message, isError) =>
@@ -487,6 +456,10 @@ Future<HttpServer> run_server(TaskManager manager) async {
                     ? staticHandle(req)
                     : value);
           })
+      // .addMiddleware((innerHandler) => (req) {
+      //       webSocket(req);
+      //       return innerHandler(req);
+      //     })
       .addHandler(_TaskWarp(manager).router);
   // For running in containers, we respect the PORT environment variable.
   final socketPort = int.parse(Platform.environment['PORT'] ?? '7890');

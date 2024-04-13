@@ -173,8 +173,41 @@ class TaskManager {
     return [];
   }
 
+  Future<Map<Label, Map<String, dynamic>>> collectedInfo(List<Label> keys) {
+    return keys
+        .where((element) => !_cache.containsKey(element))
+        .groupListsBy((element) => element.localSqlType)
+        .entries
+        .asStream()
+        .asyncMap((entry) {
+      return helper
+          .selectSqlMultiResultAsync(
+              'select count(1) as count,date as date from Gallery where json_value_contains(${entry.key},?,?)=1',
+              entry.value
+                  .where((element) => element.runtimeType != TypeLabel)
+                  .map((e) => [e.name, e.type])
+                  .toList())
+          .then((value) {
+        return value.entries.fold(<Label, Map<String, dynamic>>{},
+            (previousValue, element) {
+          final row = element.value.firstOrNull;
+          if (row != null && row['date'] != null) {
+            previousValue[fromString(element.key[1], element.key[0])] = {
+              'count': row['count'],
+              'date':
+                  DateTime.fromMillisecondsSinceEpoch(row['date']).toString()
+            };
+          }
+          return previousValue;
+        });
+      });
+    }).fold(<Label, Map<String, dynamic>>{},
+            (previous, element) => previous..addAll(element));
+  }
+
   Future<Map<Label, Map<String, dynamic>>> translateLabel(
       List<Label> keys) async {
+    var count = await collectedInfo(keys);
     var missed =
         keys.groupListsBy((element) => _cache[element] != null)[false] ?? [];
     if (missed.isNotEmpty) {
@@ -187,7 +220,8 @@ class TaskManager {
             ?.value
             .firstOrNull;
         if (v != null) {
-          previousValue[element] = {...v, ...element.toMap()};
+          previousValue[element] = {...v, ...element.toMap()}
+            ..addAll(count[element] ?? {});
         }
         return previousValue;
       });
