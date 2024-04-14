@@ -329,14 +329,14 @@ class _TaskWarp {
           .map((e) => fromString(e['type'], e['name']))
           .where((element) => element.runtimeType != QueryText)
           .toSet();
-      final r = await _collectionTags(keys.toList());
-      return Response.ok(json.encode(r), headers: defaultRespHeader);
+
+      return _manager
+          .translateLabel(keys.toList())
+          .then((value) => value.values.toList())
+          .then((value) =>
+              Response.ok(json.encode(value), headers: defaultRespHeader));
     }
     return Response.unauthorized('unauth');
-  }
-
-  Future<List<Map<String, dynamic>>> _collectionTags(List<Label> keys) async {
-    return _manager.collectedInfo(keys).then((value) => value.values.toList());
   }
 
   Future<Response> _addTask(Request req) async {
