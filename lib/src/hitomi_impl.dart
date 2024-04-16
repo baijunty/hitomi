@@ -104,7 +104,7 @@ class _LocalHitomiImpl implements Hitomi {
   @override
   Future<List<Map<String, dynamic>>> translate(List<Label> labels) {
     return _manager
-        .collectedInfo(labels)
+        .translateLabel(labels)
         .then((value) => value.values.toList());
   }
 
@@ -493,7 +493,9 @@ class _HitomiImpl implements Hitomi {
 
   @override
   Future<List<Map<String, dynamic>>> translate(List<Label> labels) {
-    return manager.collectedInfo(labels).then((value) => value.values.toList());
+    return manager
+        .translateLabel(labels)
+        .then((value) => value.values.toList());
   }
 
   @override

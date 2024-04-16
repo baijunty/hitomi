@@ -434,6 +434,16 @@ class _TaskWarp {
   }
 }
 
+SecurityContext getSecurityContext() {
+  // Bind with a secure HTTPS connection
+  final chain = Platform.script.resolve('../server.crt').toFilePath();
+  final key = Platform.script.resolve('../server.key').toFilePath();
+
+  return SecurityContext()
+    ..useCertificateChain(chain)
+    ..usePrivateKey(key, password: 'bai551302');
+}
+
 Future<HttpServer> run_server(TaskManager manager) async {
   // Use any available host or container IP (usually `0.0.0.0`).
   // Configure a pipeline that logs requests.
@@ -464,9 +474,8 @@ Future<HttpServer> run_server(TaskManager manager) async {
   // For running in containers, we respect the PORT environment variable.
   final socketPort = int.parse(Platform.environment['PORT'] ?? '7890');
   final servers = await serve(handler, InternetAddress.anyIPv6, socketPort,
-      poweredByHeader: 'hitomi');
+      poweredByHeader: 'ayaka');
   servers.autoCompress = true;
-  servers.defaultResponseHeaders.clear();
   manager.logger
       .i('Server run on http://${servers.address.address}:${servers.port}');
   return servers;
