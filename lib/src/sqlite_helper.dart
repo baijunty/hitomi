@@ -6,7 +6,6 @@ import 'package:hitomi/gallery/gallery.dart';
 import 'package:hitomi/gallery/image.dart';
 import 'package:hitomi/gallery/label.dart';
 import 'package:hitomi/lib.dart';
-import 'package:hitomi/src/dhash.dart';
 import 'package:logger/logger.dart';
 import 'package:path/path.dart';
 import 'package:sqlite3/common.dart';
@@ -184,14 +183,14 @@ class SqliteHelper {
   Future<bool> insertUserLog(int id, int type,
       {int mark = 0, String? content, List<int> extension = const []}) async {
     return excuteSqlAsync(
-        'replace into UserLog(id,mark,type,content,extension) values (?,?,?,?)',
+        'replace into UserLog(id,mark,type,content,extension) values (?,?,?,?,?)',
         [id, mark, type, content, extension]);
   }
 
   Future<T?> readlData<T>(
       String tableNmae, String name, Map<String, dynamic> params) async {
     var where = params.entries.fold(
-        StringBuffer(), (acc, element) => acc..write('${element.key}=? and'));
+        StringBuffer(), (acc, element) => acc..write('${element.key}=? and '));
     return querySql('select $name from $tableNmae where $where 1=1',
             params.values.toList())
         .then((value) => value.firstOrNull?['$name'] as T?);

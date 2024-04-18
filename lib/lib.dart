@@ -13,6 +13,7 @@ export 'src/http_server.dart';
 export 'src/task_manager.dart';
 export 'src/hitomi_api.dart';
 export 'src/response.dart';
+export 'src/dhash.dart';
 
 extension IntParse on dynamic {
   int toInt() {

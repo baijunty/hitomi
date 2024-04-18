@@ -18,7 +18,6 @@ import 'package:hitomi/src/sqlite_helper.dart';
 import 'package:isolate_manager/isolate_manager.dart';
 import 'package:logger/logger.dart';
 import '../gallery/language.dart';
-import 'dhash.dart';
 import 'dir_scanner.dart';
 import 'hitomi_impl.dart';
 import 'multi_paltform.dart';

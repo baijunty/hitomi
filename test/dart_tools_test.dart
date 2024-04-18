@@ -35,11 +35,13 @@ void main() async {
         .fold(<Image>[], (previous, element) => previous..add(element))
         .then((value) async {
           print(' read ${value.length}');
-          var img = value.reduce((value, element) => value..addFrame(element));
-          var c = Command()..image(img);
-          c.copyResize(width: img.width ~/ 4, height: img.height ~/ 4);
-          c.encodePngFile('/home/bai/ssd/result.png');
-          await c.execute();
+          var data = value
+              .fold(
+                  GifEncoder(delay: 80),
+                  (previousValue, element) =>
+                      previousValue..addFrame(element, duration: 80))
+              .finish();
+          File('result.gif').writeAsBytesSync(data!);
         });
   }, timeout: Timeout(Duration(minutes: 120)));
 }

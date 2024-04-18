@@ -11,7 +11,6 @@ import 'package:logger/logger.dart';
 import 'package:path/path.dart';
 
 import '../gallery/gallery.dart';
-import 'dhash.dart';
 
 List<int> searchSimilerGaller(
     MapEntry<int, List<int>> gallery, Map<int, List<int>> all,

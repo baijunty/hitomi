@@ -7,7 +7,6 @@ import 'package:dio/dio.dart';
 import 'package:hitomi/gallery/artist.dart';
 import 'package:hitomi/gallery/label.dart';
 import 'package:hitomi/lib.dart';
-import 'package:hitomi/src/dhash.dart';
 import 'package:hitomi/src/downloader.dart';
 import 'package:isolate_manager/isolate_manager.dart';
 import 'package:path/path.dart' as path;

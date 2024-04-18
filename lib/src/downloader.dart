@@ -6,7 +6,6 @@ import 'dart:math';
 import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
 import 'package:hitomi/lib.dart';
-import 'package:hitomi/src/dhash.dart';
 import 'package:isolate_manager/isolate_manager.dart';
 import 'package:logger/logger.dart';
 import 'package:path/path.dart';
