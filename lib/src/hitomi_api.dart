@@ -20,7 +20,8 @@ abstract class Hitomi {
   Future<DataResponse<List<Gallery>>> findSimilarGalleryBySearch(
       Gallery gallery,
       {CancelToken? token});
-  Future<List<Map<String, dynamic>>> translate(List<Label> labels);
+  Future<List<Map<String, dynamic>>> translate(List<Label> labels,
+      {CancelToken? token});
   Future<List<int>> fetchImageData(Image image,
       {String refererUrl,
       CancelToken? token,

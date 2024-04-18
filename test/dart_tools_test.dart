@@ -8,6 +8,8 @@ import 'package:hitomi/gallery/label.dart';
 import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/gallery_util.dart';
 import 'package:hitomi/src/multi_paltform.dart';
+import 'package:image/image.dart';
+import 'package:path/path.dart';
 import 'package:sqlite3/common.dart';
 import 'package:test/test.dart';
 
@@ -20,9 +22,25 @@ var config = UserConfig('/home/bai/ssd/manga/',
 var task = TaskManager(config);
 void main() async {
   test('chapter', () async {
-    await NetworkInterface.list().then((value) => value.forEach((element) {
-          print(element.addresses.firstOrNull?.address);
-        }));
+    await Directory('/home/bai/ssd/manga/三花栗鼠屋▎mukarusuya')
+        .list()
+        .where((event) => imageExtension.contains(extension(event.path)))
+        .asyncMap((event) => (event as File).readAsBytes())
+        .asyncMap((event) {
+          var c = Command();
+          c.decodeImage(event);
+          return c.getImageThread();
+        })
+        .filterNonNull()
+        .fold(<Image>[], (previous, element) => previous..add(element))
+        .then((value) async {
+          print(' read ${value.length}');
+          var img = value.reduce((value, element) => value..addFrame(element));
+          var c = Command()..image(img);
+          c.copyResize(width: img.width ~/ 4, height: img.height ~/ 4);
+          c.encodePngFile('/home/bai/ssd/result.png');
+          await c.execute();
+        });
   }, timeout: Timeout(Duration(minutes: 120)));
 }
 

@@ -220,9 +220,14 @@ class TaskManager {
             ?.value
             .firstOrNull;
         if (v != null) {
-          previousValue[element] = {...v, ...element.toMap()}
-            ..addAll(count[element] ?? {});
+          previousValue[element] = {...v, ...element.toMap()};
+        } else {
+          previousValue[element] = {
+            'translate': element.name,
+            ...element.toMap()
+          };
         }
+        previousValue[element]!.addAll(count[element] ?? {});
         return previousValue;
       });
     }

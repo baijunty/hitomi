@@ -102,7 +102,8 @@ class _LocalHitomiImpl implements Hitomi {
   }
 
   @override
-  Future<List<Map<String, dynamic>>> translate(List<Label> labels) {
+  Future<List<Map<String, dynamic>>> translate(List<Label> labels,
+      {CancelToken? token}) {
     return _manager
         .translateLabel(labels)
         .then((value) => value.values.toList());
@@ -492,7 +493,8 @@ class _HitomiImpl implements Hitomi {
   }
 
   @override
-  Future<List<Map<String, dynamic>>> translate(List<Label> labels) {
+  Future<List<Map<String, dynamic>>> translate(List<Label> labels,
+      {CancelToken? token}) {
     return manager
         .translateLabel(labels)
         .then((value) => value.values.toList());
@@ -970,10 +972,12 @@ class WebHitomi implements Hitomi {
   }
 
   @override
-  Future<List<Map<String, dynamic>>> translate(List<Label> labels) {
+  Future<List<Map<String, dynamic>>> translate(List<Label> labels,
+      {CancelToken? token}) {
     return dio
         .post<String>('${bashHttp}/translate',
-            data: json.encode({'auth': auth, 'tags': labels}))
+            data: json.encode({'auth': auth, 'tags': labels}),
+            cancelToken: token)
         .then((value) => json.decode(value.data!) as List<dynamic>)
         .then((value) => value.map((e) => e as Map<String, dynamic>).toList());
   }
