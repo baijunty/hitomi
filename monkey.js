@@ -312,8 +312,10 @@
                 let info = document.createElement('div')
                 info.style.cssText = "display: inline-block;width:100%;background-color: #777;opacity:0.75"
                 document.querySelector('#artistname').innerText = `${name}(${v.count}) at ${v.date}`
-                info.appendChild(covertHtml(v['intro']))
-                info.appendChild(covertHtml(v['links']))
+                if (v['intro'] != null) {
+                    info.appendChild(covertHtml(v['intro']))
+                    info.appendChild(covertHtml(v['links']))
+                }
                 top.appendChild(info)
             }
         }
@@ -457,6 +459,7 @@
     }
 
     async function listTaskContent() {
+        console.log('run list task')
         let respData = await fetchRemote({ path: 'listTask', data: JSON.stringify({ auth: token }), get: false })
         let resp = JSON.parse(respData)
         appendQueryTask(resp['queryTask'], document.getElementById('queryTask'))

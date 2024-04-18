@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:args/args.dart';
 import 'package:async/async.dart';
 import 'package:collection/collection.dart';
@@ -9,6 +10,7 @@ import 'package:dio/dio.dart';
 import 'package:hitomi/gallery/artist.dart';
 import 'package:hitomi/gallery/gallery.dart';
 import 'package:hitomi/gallery/group.dart';
+import 'package:hitomi/gallery/image.dart';
 import 'package:hitomi/gallery/label.dart';
 import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/downloader.dart';
@@ -112,6 +114,7 @@ class TaskManager {
       ..addOption('pause', abbr: 'p')
       ..addOption('delete', abbr: 'd')
       ..addOption('artist', abbr: 'a')
+      ..addOption('admark')
       ..addOption('group', abbr: 'g')
       ..addFlag('list', abbr: 'l')
       ..addMultiOption('tags', abbr: 't');
@@ -402,6 +405,26 @@ class TaskManager {
         logger.d('pause ${id}');
         if (numberExp.hasMatch(id)) {
           return _downLoader.cancelById(int.parse(id));
+        }
+        return false;
+      } else if (result.wasParsed('admark')) {
+        String hash = result["admark"];
+        logger.d('pause ${hash}');
+        if (hash.length == 64) {
+          return _api
+              .fetchImageData(Image(
+                  hash: hash,
+                  hasavif: 0,
+                  width: 0,
+                  haswebp: 0,
+                  name: 'hash.jpg',
+                  height: 0))
+              .then((value) => imageHash(Uint8List.fromList(value)))
+              .then((value) {
+            _downLoader.adImage.add(MapEntry(value, hash));
+            return helper.insertUserLog(hash.hashCode.abs() * -1, 1 << 17,
+                mark: value, content: hash);
+          });
         }
         return false;
       } else if (result['fixDb']) {

@@ -14,7 +14,7 @@ import 'multi_paltform.dart' show openSqliteDb;
 
 class SqliteHelper {
   final String _dirPath;
-  static final _version = 7;
+  static final _version = 8;
   Logger? _logger = null;
   late CommonDatabase _db;
   CommonDatabase? __db;
@@ -172,18 +172,20 @@ class SqliteHelper {
       completed bool default 0
       )''');
     db.execute('''create table if not exists UserLog(
-      id integer PRIMARY KEY,
+      id integer,
       mark integer,
+      type integer default 0,
       content Text,
-      extension BLOB
+      extension BLOB,
+      PRIMARY KEY(id,type)
       )''');
   }
 
-  Future<bool> insertUserLog(int id, int mark,
-      {String? content, List<int> extension = const []}) async {
+  Future<bool> insertUserLog(int id, int type,
+      {int mark = 0, String? content, List<int> extension = const []}) async {
     return excuteSqlAsync(
-        'replace into UserLog(id,mark,content,extension) values (?,?,?,?)',
-        [id, mark, content, extension]);
+        'replace into UserLog(id,mark,type,content,extension) values (?,?,?,?)',
+        [id, mark, type, content, extension]);
   }
 
   Future<T?> readlData<T>(
@@ -208,7 +210,7 @@ class SqliteHelper {
       case 2:
       case 3:
         {
-          db.execute("drop table GalleryTemp ");
+          db.execute("drop table if exists  GalleryTemp ");
           db.execute("ALTER table Gallery rename to GalleryTemp");
           createTables(db);
           db.execute(
@@ -217,7 +219,7 @@ class SqliteHelper {
         }
       case 4:
         {
-          db.execute("drop table GalleryTemp ");
+          db.execute("drop table if exists  GalleryTemp ");
           db.execute("ALTER table Gallery rename to GalleryTemp");
           createTables(db);
           db.execute(
@@ -226,7 +228,7 @@ class SqliteHelper {
         }
       case 5:
         {
-          db.execute("drop table GalleryTemp ");
+          db.execute("drop table if exists  GalleryTemp ");
           db.execute("ALTER table Gallery rename to GalleryTemp");
           createTables(db);
           db.execute(
@@ -235,12 +237,21 @@ class SqliteHelper {
         }
       case 6:
         {
-          db.execute("drop table TagsTemp ");
+          db.execute("drop table if exists   TagsTemp ");
           db.execute("ALTER table Tags rename to TagsTemp");
           createTables(db);
           db.execute(
               """insert into  Tags(id,type,name,translate,intro,links,superior) select id,type,name,translate,intro,null,null from TagsTemp""");
           db.execute("drop table TagsTemp");
+        }
+      case 7:
+        {
+          db.execute("drop table if exists UserLogTemp ");
+          db.execute("ALTER table UserLog rename to UserLogTemp");
+          createTables(db);
+          db.execute(
+              """insert into  UserLog(id,mark,type,content,extension) select id,mark,0,content,extension from UserLogTemp""");
+          db.execute("drop table UserLogTemp");
         }
     }
   }

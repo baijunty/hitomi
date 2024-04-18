@@ -6,6 +6,7 @@ import 'dart:math';
 import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
 import 'package:hitomi/lib.dart';
+import 'package:hitomi/src/dhash.dart';
 import 'package:isolate_manager/isolate_manager.dart';
 import 'package:logger/logger.dart';
 import 'package:path/path.dart';
@@ -41,6 +42,7 @@ class DownLoader {
       .toList();
   Logger? logger;
   final Dio dio;
+  final Set<MapEntry<int, String>> adImage = {};
   DownLoader(
       {required this.config,
       required this.api,
@@ -62,8 +64,8 @@ class DownLoader {
       switch (msg) {
         case TaskStartMessage():
           {
-            if (msg.target is Gallery) {
-              // await translateLabel(msg.gallery.tags ?? []);
+            var target = msg.target;
+            if (target is Gallery) {
               return _findUnCompleteGallery(msg.gallery, msg.file as Directory)
                   .catchError((e) {
                 logger?.e(e);
@@ -78,8 +80,9 @@ class DownLoader {
                 }
                 return false;
               });
-            } else if (msg.target is Image) {
-              return !msg.file.existsSync();
+            } else if (target is Image) {
+              return !msg.file.existsSync() &&
+                  adImage.every((element) => element.value != target.hash);
             }
             return illeagalTagsCheck(msg.gallery, config.excludes);
           }
@@ -98,9 +101,16 @@ class DownLoader {
                       fixFromNet: false)
                   .fixGallery();
             } else if (msg.target is Image) {
-              return manager.compute(msg.file.path).then((value) =>
-                  helper.insertGalleryFile(
-                      msg.gallery, msg.target, value.key, value.value));
+              return manager.compute(msg.file.path).then((value) {
+                if (adImage.any((element) =>
+                    compareHashDistance(element.key, value.key) < 4)) {
+                  logger?.w('delete ad imgage ${msg.file.path}');
+                  msg.file.deleteSync();
+                  return true;
+                }
+                return helper.insertGalleryFile(
+                    msg.gallery, msg.target, value.key, value.value);
+              });
             } else if (msg.target is Gallery) {
               logger?.w('illeagal gallery ${msg.id}');
               return await helper.removeTask(msg.id);
@@ -120,6 +130,11 @@ class DownLoader {
       return useHandle ?? true;
     };
     api.registerCallBack(handle);
+    helper
+        .querySql('select * from UserLog where type=?', [1 << 17])
+        .then((value) => value.map((element) =>
+            MapEntry<int, String>(element['mark'], element['content'])))
+        .then((value) => adImage.addAll(value));
   }
 
   Future<bool> _findUnCompleteGallery(Gallery gallery, Directory newDir) async {

@@ -38,6 +38,8 @@ class _TaskWarp {
       ..options('/translate', _optionsOk)
       ..post('/addTask', _addTask)
       ..options('/addTask', _optionsOk)
+      ..post('/addAdMark', _addAdMark)
+      ..options('/addAdMark', _optionsOk)
       ..post('/listTask', _listTask)
       ..options('/listTask', _optionsOk)
       ..post('/checkId', _checkId)
@@ -428,6 +430,21 @@ class _TaskWarp {
     if (task.item1 && (ip.isEmpty || ip.startsWith('192.168'))) {
       return _manager.parseCommandAndRun('-d ${task.item2['id']}').then(
           (value) => Response.ok(json.encode({'success': value}),
+              headers: defaultRespHeader));
+    }
+    return Response.unauthorized('unauth');
+  }
+
+  Future<Response> _addAdMark(Request req) async {
+    final task = await _authToken(req);
+    final ip = req.headers['x-real-ip'] ?? '';
+    _manager.logger.d('real ip $ip');
+    if (task.item1 && (ip.isEmpty || ip.startsWith('192.168'))) {
+      return (task.item2['mask'] as List<String>)
+          .asStream()
+          .asyncMap((event) => _manager.parseCommandAndRun('--admark ${event}'))
+          .fold(true, (previous, element) => previous && element)
+          .then((value) => Response.ok(json.encode({'success': value}),
               headers: defaultRespHeader));
     }
     return Response.unauthorized('unauth');
