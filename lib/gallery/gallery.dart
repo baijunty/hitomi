@@ -4,6 +4,7 @@ import 'dart:math';
 
 import 'package:collection/collection.dart';
 import 'package:hitomi/gallery/label.dart';
+import 'package:hitomi/src/hitomi_api.dart';
 import 'package:path/path.dart';
 import 'package:sqlite3/common.dart';
 
@@ -134,7 +135,7 @@ class Gallery with Label {
                       ..addAll(element.value
                           .map((e) => fromString(element.key, e) as Tag))),
         downDate: row['date'],
-        galleryurl: '/${row['type']}/hitomi-${row['id']}.html');
+        galleryurl: '/${row['type']}/${row['title']}-${row['id']}.html');
     return gallery;
   }
 
@@ -208,6 +209,11 @@ class Gallery with Label {
       jsonData = json.decode(jsonData);
     }
     return Gallery.fromMap(jsonData as Map<String, dynamic>);
+  }
+
+  @override
+  String urlEncode({SortEnum? sort}) {
+    return '/$type/${Uri.encodeComponent(name.toLowerCase())}-$id.html';
   }
 
   /// `dart:convert`

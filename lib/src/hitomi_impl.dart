@@ -31,7 +31,7 @@ class _LocalHitomiImpl implements Hitomi {
 
   @override
   Future<List<int>> fetchImageData(Image image,
-      {String refererUrl = '',
+      {String refererUrl = 'https://hitomi.la',
       CancelToken? token,
       int id = 0,
       ThumbnaiSize size = ThumbnaiSize.smaill,
@@ -369,7 +369,7 @@ class _HitomiImpl implements Hitomi {
 
   @override
   Future<List<int>> fetchImageData(Image image,
-      {String refererUrl = '',
+      {String refererUrl = 'https://hitomi.la',
       CancelToken? token,
       int id = 0,
       ThumbnaiSize size = ThumbnaiSize.smaill,
@@ -907,7 +907,7 @@ class WebHitomi implements Hitomi {
 
   @override
   Future<List<int>> fetchImageData(Image image,
-      {String refererUrl = '',
+      {String refererUrl = 'https://hitomi.la',
       CancelToken? token,
       int id = 0,
       ThumbnaiSize size = ThumbnaiSize.smaill,
