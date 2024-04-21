@@ -15,10 +15,10 @@ import 'package:collection/collection.dart';
 import '../gallery/gallery.dart';
 import 'package:crypto/crypto.dart';
 
-Hitomi fromPrefenerce(TaskManager _manager, bool localDb, String baseHttp) {
+Hitomi fromPrefenerce(TaskManager _manager, bool localDb) {
   return localDb
-      ? _LocalHitomiImpl(_manager, _HitomiImpl(_manager, baseHttp))
-      : _HitomiImpl(_manager, baseHttp);
+      ? _LocalHitomiImpl(_manager, _HitomiImpl(_manager))
+      : _HitomiImpl(_manager);
 }
 
 class _LocalHitomiImpl implements Hitomi {
@@ -314,8 +314,7 @@ class _HitomiImpl implements Hitomi {
   late List<String> languages;
   late Dio _dio;
   final TaskManager manager;
-  final String baseHttp;
-  _HitomiImpl(this.manager, this.baseHttp) {
+  _HitomiImpl(this.manager) {
     this.outPut = manager.config.output;
     this.languages = manager.config.languages;
     this.logger = manager.logger;

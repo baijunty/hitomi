@@ -26,5 +26,5 @@ HttpClientAdapter crateHttpClientAdapter(String proxy,
 }
 
 Hitomi createHitomi(TaskManager _manager, bool localDb, String baseHttp) {
-  return fromPrefenerce(_manager, localDb, baseHttp);
+  return fromPrefenerce(_manager, localDb);
 }

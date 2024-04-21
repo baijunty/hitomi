@@ -43,6 +43,7 @@ class TaskManager {
   late DownLoader _downLoader;
   late Hitomi _api;
   late Hitomi _localApi;
+  late Hitomi _webHitomi;
   late Logger logger;
   final Dio dio = Dio();
   final _tasks = <Label>{};
@@ -55,8 +56,8 @@ class TaskManager {
     return local ? _localApi : _api;
   }
 
-  Hitomi getApiFromProxy(bool local, String auth, String proxyAddr) {
-    return WebHitomi(dio, local, auth, proxyAddr);
+  Hitomi getApiFromProxy(String auth, String proxyAddr) {
+    return _webHitomi;
   }
 
   TaskManager(this.config) {
@@ -98,6 +99,7 @@ class TaskManager {
     dio.httpClientAdapter = crateHttpClientAdapter(config.proxy);
     _api = createHitomi(this, false, config.remoteHttp);
     _localApi = createHitomi(this, true, config.remoteHttp);
+    _webHitomi = WebHitomi(dio, true, config.auth, config.remoteHttp);
     _downLoader = DownLoader(
         config: config,
         api: _api,
