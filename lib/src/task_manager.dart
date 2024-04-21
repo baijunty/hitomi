@@ -19,6 +19,7 @@ import 'package:isolate_manager/isolate_manager.dart';
 import 'package:logger/logger.dart';
 import '../gallery/language.dart';
 import 'dir_scanner.dart';
+import 'gallery_util.dart';
 import 'hitomi_impl.dart';
 import 'multi_paltform.dart';
 
@@ -173,6 +174,20 @@ class TaskManager {
       return params;
     }
     return [];
+  }
+
+  Future<List<int>> checkExistsId(int id) async {
+    var row =
+        await helper.queryGalleryById(id).then((value) => value.firstOrNull);
+    if (row != null) {
+      return [id];
+    }
+    return _api.fetchGallery(id, usePrefence: false).then((value) =>
+        value.createDir(config.output, createDir: false).existsSync()
+            ? readGalleryFromPath(
+                    value.createDir(config.output, createDir: false).path)
+                .then((value) => [value.id])
+            : findDuplicateGalleryIds(value, helper, _api, logger: logger));
   }
 
   Future<Map<Label, Map<String, dynamic>>> collectedInfo(List<Label> keys) {

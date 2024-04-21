@@ -119,38 +119,98 @@ class _LocalHitomiImpl implements Hitomi {
       {List<Label> exclude = const [],
       int page = 1,
       CancelToken? token}) async {
-    var group = include.groupListsBy((element) => element is QueryText);
-    var excludeGroups = exclude.groupListsBy((element) => element is QueryText);
+    var group = include.groupListsBy((element) => element.runtimeType);
+    var excludeGroups = exclude.groupListsBy((element) => element.runtimeType);
     final sql = StringBuffer(
         'select COUNT(*) OVER() AS total_count,id from Gallery where ');
     final params = [];
-    group[true]?.fold(sql,
-        (previousValue, element) => previousValue..write(' title like ? and '));
-    excludeGroups[true]?.fold(
-        sql,
-        (previousValue, element) =>
-            previousValue..write(' title not like ? and '));
-    group[true]?.fold(params,
-        (previousValue, element) => previousValue..add('%${element.name}%'));
-    excludeGroups[true]?.fold(params,
-        (previousValue, element) => previousValue..add('%${element.name}%'));
-    group[false]?.fold(
-        sql,
-        (previousValue, element) => previousValue
-          ..write(' json_value_contains(${element.localSqlType},?,?)=1 and '));
-    excludeGroups[false]?.fold(
-        sql,
-        (previousValue, element) => previousValue
-          ..write(' json_value_contains(${element.localSqlType},?,?)=0 and '));
-    group[false]?.fold(
-        params,
-        (previousValue, element) =>
-            previousValue..addAll([element.name, element.type]));
-    excludeGroups[false]?.fold(
-        params,
-        (previousValue, element) =>
-            previousValue..addAll([element.name, element.type]));
-    sql.write(' 1=1 limit 25 offset ${(page - 1) * 25}');
+    group.entries.fold(sql, (previousValue, element) {
+      switch (element.key) {
+        case QueryText:
+          {
+            previousValue.write('( ');
+            element.value.foldIndexed(sql, (index, previousValue, element) {
+              params.add('%${element.name}%');
+              if (index != 0) {
+                previousValue.write('and ');
+              }
+              return previousValue..write('title like ? ');
+            });
+            previousValue.write(') and ');
+          }
+        case Language:
+        case TypeLabel:
+          {
+            previousValue.write('( ');
+            element.value.foldIndexed(sql, (index, previousValue, element) {
+              params.addAll([element.name]);
+              if (index != 0) {
+                previousValue.write('or ');
+              }
+              return previousValue..write('${element.localSqlType} =? ');
+            });
+            previousValue.write(') and ');
+          }
+        default:
+          {
+            previousValue.write('( ');
+            element.value.foldIndexed(sql, (index, previousValue, element) {
+              params.addAll([element.name, element.type]);
+              if (index != 0) {
+                previousValue.write('and ');
+              }
+              return previousValue
+                ..write('json_value_contains(${element.localSqlType},?,?)=1 ');
+            });
+            previousValue.write(') and ');
+          }
+      }
+      return previousValue;
+    });
+    excludeGroups.entries.fold(sql, (previousValue, element) {
+      switch (element.key) {
+        case QueryText:
+          {
+            previousValue.write('( ');
+            element.value.foldIndexed(sql, (index, previousValue, element) {
+              params.add('%${element.name}%');
+              if (index != 0) {
+                previousValue.write('and ');
+              }
+              return previousValue..write('title not like ? ');
+            });
+            previousValue.write(') and ');
+          }
+        case Language:
+        case TypeLabel:
+          {
+            previousValue.write('( ');
+            element.value.foldIndexed(sql, (index, previousValue, element) {
+              params.addAll([element.name]);
+              if (index != 0) {
+                previousValue.write('or ');
+              }
+              return previousValue..write('${element.localSqlType} =? ');
+            });
+            previousValue.write(') and ');
+          }
+        default:
+          {
+            previousValue.write('( ');
+            element.value.foldIndexed(sql, (index, previousValue, element) {
+              params.addAll([element.name, element.type]);
+              if (index != 0) {
+                previousValue.write('and ');
+              }
+              return previousValue
+                ..write('json_value_contains(${element.localSqlType},?,?)=0 ');
+            });
+            previousValue.write(') and ');
+          }
+      }
+      return previousValue;
+    });
+    sql.write('1=1 limit 25 offset ${(page - 1) * 25}');
     _manager.logger.d('sql is ${sql} parms = ${params}');
     int count = 0;
     return _helper.querySql(sql.toString(), params).then((value) {

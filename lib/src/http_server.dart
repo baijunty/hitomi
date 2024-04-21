@@ -12,7 +12,6 @@ import 'package:shelf/shelf_io.dart';
 import 'package:shelf_router/shelf_router.dart';
 import 'package:shelf_static/shelf_static.dart';
 import 'package:tuple/tuple.dart';
-import 'gallery_util.dart';
 
 final defaultRespHeader = {
   HttpHeaders.accessControlAllowOriginHeader: '*',
@@ -367,30 +366,8 @@ class _TaskWarp {
     final task = await _authToken(req);
     if (task.item1) {
       int id = task.item2['id'];
-      var row = await _manager.helper
-          .queryGalleryById(id)
-          .then((value) => value.firstOrNull);
-      if (row != null) {
-        return Response.ok(
-            json.encode({
-              'id': id,
-              'value': [id]
-            }),
-            headers: defaultRespHeader);
-      }
       return _manager
-          .getApiDirect()
-          .fetchGallery(id, usePrefence: false)
-          .then((value) => value
-                  .createDir(_manager.config.output, createDir: false)
-                  .existsSync()
-              ? readGalleryFromPath(value
-                      .createDir(_manager.config.output, createDir: false)
-                      .path)
-                  .then((value) => [value.id])
-              : findDuplicateGalleryIds(
-                  value, _manager.helper, _manager.getApiDirect(),
-                  logger: _manager.logger))
+          .checkExistsId(id)
           .then((value) => {'id': id, 'value': value})
           .then((value) =>
               Response.ok(json.encode(value), headers: defaultRespHeader));

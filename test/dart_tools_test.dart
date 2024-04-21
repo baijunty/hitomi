@@ -8,8 +8,6 @@ import 'package:hitomi/gallery/label.dart';
 import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/gallery_util.dart';
 import 'package:hitomi/src/multi_paltform.dart';
-import 'package:image/image.dart';
-import 'package:path/path.dart';
 import 'package:sqlite3/common.dart';
 import 'package:test/test.dart';
 
@@ -22,27 +20,9 @@ var config = UserConfig('/home/bai/ssd/manga/',
 var task = TaskManager(config);
 void main() async {
   test('chapter', () async {
-    await Directory('/home/bai/ssd/manga/三花栗鼠屋▎mukarusuya')
-        .list()
-        .where((event) => imageExtension.contains(extension(event.path)))
-        .asyncMap((event) => (event as File).readAsBytes())
-        .asyncMap((event) {
-          var c = Command();
-          c.decodeImage(event);
-          return c.getImageThread();
-        })
-        .filterNonNull()
-        .fold(<Image>[], (previous, element) => previous..add(element))
-        .then((value) async {
-          print(' read ${value.length}');
-          var data = value
-              .fold(
-                  GifEncoder(delay: 80),
-                  (previousValue, element) =>
-                      previousValue..addFrame(element, duration: 80))
-              .finish();
-          File('result.gif').writeAsBytesSync(data!);
-        });
+    await task.helper
+        .querySql(r'''select COUNT(*) OVER() AS total_count,id from Gallery where  (json_value_contains(language,?,?)=1  or  json_value_contains(language,?,?)=1) and 1=1 limit 25 offset 0''').then(
+            (value) => print(value.length));
   }, timeout: Timeout(Duration(minutes: 120)));
 }
 

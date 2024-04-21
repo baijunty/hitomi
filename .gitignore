@@ -13,3 +13,4 @@ doc/api/
 user.db
 nohup.out
 *.log
+config.json
