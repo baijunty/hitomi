@@ -573,19 +573,18 @@ class _HitomiImpl implements Hitomi {
           .asyncMap((e) async => e is Language || e is TypeLabel
               ? await getCacheIdsFromLang(e, token: token)
               : await _fetchIdsByTag(e, token: token))
-          .fold<Set<int>>(
-              {},
-              (previous, e) => element.key == QueryText
-                  ? previous
-                      .where((element) =>
-                          e.binarySearch(
-                              element, (p0, p1) => p0.compareTo(p1)) >=
-                          0)
-                      .toSet()
-                  : previous
-                ..addAll(e)).then(
-              (value) => value.sorted((a, b) => a.compareTo(b)));
+          .fold<Set<int>>({}, (previous, e) {
+        logger?.d('${element.value} has ${previous.length}');
+        return element.key == QueryText
+            ? previous
+                .where((element) =>
+                    e.binarySearch(element, (p0, p1) => p0.compareTo(p1)) >= 0)
+                .toSet()
+            : previous
+          ..addAll(e);
+      }).then((value) => value.sorted((a, b) => a.compareTo(b)));
     }).reduce((previous, element) {
+      logger?.d('${previous.length} reduce ${element.length}');
       return previous
           .where(
               (e) => element.binarySearch(e, (p0, p1) => p0.compareTo(p1)) >= 0)

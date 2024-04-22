@@ -32,7 +32,7 @@ abstract class Hitomi {
       {int page = 1, CancelToken? token, SortEnum? sort});
 }
 
-enum SortEnum { Date, DateDesc, week, month, year }
+enum SortEnum { Default, Date, DateDesc, week, month, year }
 
 sealed class Message<T> {
   final T id;

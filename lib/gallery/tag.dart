@@ -75,6 +75,6 @@ class Tag with Label {
   @override
   String urlEncode({SortEnum? sort}) {
     String? sexTag = (male ?? female)?.toString();
-    return 'tag/${sort == null ? '' : 'popular/${sort.name}/'}${sexTag == null ? '' : '${'1' == (male?.toString()) ? 'male' : 'female'}:'}${Uri.encodeComponent(name.toLowerCase())}';
+    return 'tag/${sort == null || sort == SortEnum.Default ? '' : 'popular/${sort.name}/'}${sexTag == null ? '' : '${'1' == (male?.toString()) ? 'male' : 'female'}:'}${Uri.encodeComponent(name.toLowerCase())}';
   }
 }

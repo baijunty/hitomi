@@ -73,6 +73,6 @@ class Language with Label {
 
   @override
   String urlEncode({SortEnum? sort}) {
-    return '${sort==null?'index':'popular/${sort.name}'}-$name';
+    return '${sort == null || sort == SortEnum.Default ? 'index' : 'popular/${sort.name}'}-$name';
   }
 }
