@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
 import 'package:hitomi/gallery/artist.dart';
+import 'package:hitomi/gallery/character.dart';
 import 'package:hitomi/gallery/gallery.dart';
 import 'package:hitomi/gallery/label.dart';
 import 'package:hitomi/lib.dart';
@@ -12,7 +14,7 @@ import 'package:sqlite3/common.dart';
 import 'package:test/test.dart';
 
 int count = 10000;
-var config = UserConfig('/home/bai/ssd/manga/',
+var config = UserConfig(r'g:test',
     proxy: '127.0.0.1:8389',
     languages: ['japanese', 'chinese'],
     maxTasks: 5,
@@ -20,9 +22,13 @@ var config = UserConfig('/home/bai/ssd/manga/',
 var task = TaskManager(config);
 void main() async {
   test('chapter', () async {
-    await task.helper
-        .querySql(r'''select COUNT(*) OVER() AS total_count,id from Gallery where  (json_value_contains(language,?,?)=1  or  json_value_contains(language,?,?)=1) and 1=1 limit 25 offset 0''').then(
-            (value) => print(value.length));
+    var list = [1, 6, 3, 7, 2, 4, 9]..sort((p0, p1) => p1.compareTo(p0));
+    print(list);
+    print(list.binarySearch(2, (p0, p1) => p1.compareTo(p0)));
+    await task.getApiDirect().search([
+      Character(character: 'kumano'),
+      Character(character: 'suzuya')
+    ]).then((value) => print(value.data));
   }, timeout: Timeout(Duration(minutes: 120)));
 }
 

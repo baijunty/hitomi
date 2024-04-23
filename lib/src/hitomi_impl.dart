@@ -520,7 +520,7 @@ class _HitomiImpl implements Hitomi {
         .where((element) => zhAndJpCodeExp.hasMatch(element))
         .where((element) => element.isNotEmpty)
         .map((e) => QueryText(e))
-        .take(3)
+        .take(5)
         .fold(<Label>[], (previousValue, element) {
       previousValue.add(element);
       return previousValue;
@@ -541,14 +541,18 @@ class _HitomiImpl implements Hitomi {
     var data = await fetchGalleryHashFromNet(gallery, this, token, false)
         .then((value) => value.value);
     return search(keys, token: token)
+        .then((value) {
+          assert(value.data.length < 100);
+          return value;
+        })
         .asStream()
         .expand((element) => element.data)
         .asyncMap((event) => _fetchGalleryJsonById(event, token))
         .asyncMap((event) => fetchGalleryHashFromNet(event, this, token, false))
         .where((event) => searchSimiler(data, event.value) > 0.75)
         .map((event) => event.key)
-        .fold(<Gallery>[], (previous, element) => previous..add(element)).then(
-            (value) => DataResponse(value, totalCount: value.length));
+        .fold(<Gallery>[], (previous, element) => previous..add(element))
+        .then((value) => DataResponse(value, totalCount: value.length));
   }
 
   @override
@@ -573,21 +577,27 @@ class _HitomiImpl implements Hitomi {
           .asyncMap((e) async => e is Language || e is TypeLabel
               ? await getCacheIdsFromLang(e, token: token)
               : await _fetchIdsByTag(e, token: token))
-          .fold<Set<int>>({}, (previous, e) {
-        logger?.d('${element.value} has ${previous.length}');
-        return element.key == QueryText
-            ? previous
-                .where((element) =>
-                    e.binarySearch(element, (p0, p1) => p0.compareTo(p1)) >= 0)
-                .toSet()
-            : previous
-          ..addAll(e);
-      }).then((value) => value.sorted((a, b) => a.compareTo(b)));
+          .reduce((previous, e) {
+        List<int> r;
+        if (element.key == Language || element.key == TypeLabel) {
+          r = [...previous, ...e];
+          logger?.d(
+              '${element.value} merge ${e.length} and ${previous.length} result ${r.length}');
+        } else {
+          r = previous
+              .where((element) =>
+                  e.binarySearch(element, (p0, p1) => p1.compareTo(p0)) >= 0)
+              .toList();
+          logger?.d(
+              '${element.value} has ${e.length} pre ${previous.length} result ${r.length}');
+        }
+        return r;
+      });
     }).reduce((previous, element) {
       logger?.d('${previous.length} reduce ${element.length}');
       return previous
           .where(
-              (e) => element.binarySearch(e, (p0, p1) => p0.compareTo(p1)) >= 0)
+              (e) => element.binarySearch(e, (p0, p1) => p1.compareTo(p0)) >= 0)
           .toList();
     });
     if (exclude.isNotEmpty && includeIds.isNotEmpty) {
@@ -621,8 +631,8 @@ class _HitomiImpl implements Hitomi {
         url = 'https://ltn.hitomi.la/n/${tag.urlEncode()}-$useLanguage.nozomi';
       }
       return _fetchTagIdsByNet(url, token).then((value) {
-        logger?.d('search label $tag found ${value.length}');
-        return value;
+        logger?.d('search label $tag found ${value.length} ');
+        return value..sort((p0, p1) => p1.compareTo(p0));
       });
     }
   }
