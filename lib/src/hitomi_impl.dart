@@ -594,7 +594,11 @@ class _HitomiImpl implements Hitomi {
               '${element.value} has ${e.length} pre ${previous.length} result ${r.length}');
         }
         return r;
-      });
+      }).then((value) =>
+              (element.key == Language || element.key == TypeLabel) &&
+                      element.value.length > 1
+                  ? (value..sort((p0, p1) => p1.compareTo(p0)))
+                  : value);
     }).reduce((previous, element) {
       logger?.d('${previous.length} reduce ${element.length}');
       return previous
@@ -602,6 +606,7 @@ class _HitomiImpl implements Hitomi {
               (e) => element.binarySearch(e, (p0, p1) => p1.compareTo(p0)) >= 0)
           .toList();
     });
+    logger?.d('all match ids ${includeIds.length}');
     if (exclude.isNotEmpty && includeIds.isNotEmpty) {
       final filtered = await Stream.fromFutures(
               exclude.map((e) => getCacheIdsFromLang(e, token: token)))
@@ -612,8 +617,7 @@ class _HitomiImpl implements Hitomi {
       includeIds = filtered.toList();
     }
     logger?.i('search left id ${includeIds.length}');
-    return DataResponse(includeIds.reversed.toSet().toList(),
-        totalCount: includeIds.length);
+    return DataResponse(includeIds, totalCount: includeIds.length);
   }
 
   Future<List<int>> _fetchIdsByTag(Label tag,
