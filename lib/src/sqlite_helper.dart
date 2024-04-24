@@ -198,7 +198,7 @@ class SqliteHelper {
 
   Future<bool> delete(String tableNmae, Map<String, dynamic> params) async {
     var where = params.entries.fold(
-        StringBuffer(), (acc, element) => acc..write('${element.key}=? and'));
+        StringBuffer(), (acc, element) => acc..write('${element.key}=? and '));
     return excuteSqlAsync(
         'delete from $tableNmae where $where 1=1', params.values.toList());
   }
