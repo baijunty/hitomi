@@ -14,6 +14,7 @@ export 'src/task_manager.dart';
 export 'src/hitomi_api.dart';
 export 'src/response.dart';
 export 'src/dhash.dart';
+export 'src/sqlite_helper.dart';
 
 extension IntParse on dynamic {
   int toInt() {
