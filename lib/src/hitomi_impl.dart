@@ -519,6 +519,7 @@ class _HitomiImpl implements Hitomi {
         .split(_blank)
         .where((element) => zhAndJpCodeExp.hasMatch(element))
         .where((element) => element.isNotEmpty)
+        .takeWhile((value) => value != '|')
         .map((e) => QueryText(e))
         .take(5)
         .fold(<Label>[], (previousValue, element) {
@@ -543,6 +544,7 @@ class _HitomiImpl implements Hitomi {
     return search(keys, token: token)
         .then((value) {
           assert(value.data.length < 100);
+          logger?.d('${value.data}');
           return value;
         })
         .asStream()
