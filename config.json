@@ -10,7 +10,7 @@
         "{\"type\":\"tag\",\"name\":\"novel\",\"weight\":1.0}",
         "{\"type\":\"male\",\"name\":\"yaoi\",\"weight\":1.0}",
         "{\"type\":\"male\",\"name\":\"males only\",\"weight\":1.0}",
-        "{\"type\":\"tag\",\"name\":\"extraneous ads\",\"weight\":1.0}",
+        "{\"type\":\"tag\",\"name\":\"extraneous ads\",\"weight\":0.25}",
         "{\"type\":\"tag\",\"name\":\"ai generated\",\"weight\":1.0}",
         "{\"type\":\"tag\",\"name\":\"artbook\",\"weight\":1.0}",
         "{\"type\":\"tag\",\"name\":\"sample\",\"weight\":1.0}",

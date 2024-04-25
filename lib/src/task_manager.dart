@@ -124,7 +124,10 @@ class TaskManager {
         .querySql('select * from UserLog where type=?', [1 << 17])
         .then((value) => value.map((element) =>
             MapEntry<int, String>(element['mark'], element['content'])))
-        .then((value) => _adImage.addAll(value));
+        .then((value) {
+          logger.d('load ${value.length} ads');
+          _adImage.addAll(value);
+        });
   }
 
   String _takeTranslateText(String input) {
@@ -353,8 +356,12 @@ class TaskManager {
   }
 
   void removeAdImages(Gallery gallery) {
-    gallery.files.removeWhere(
-        (image) => _adImage.any((element) => element.value == image.hash));
+    if (gallery.language == 'chinese' ||
+        gallery.tags?.any((element) => element.name == 'extraneous ads') ==
+            true) {
+      gallery.files.removeWhere(
+          (image) => _adImage.any((element) => element.value == image.hash));
+    }
   }
 
   Future<dynamic> parseCommandAndRun(String cmd) async {
@@ -448,6 +455,7 @@ class TaskManager {
               .then((value) => imageHash(Uint8List.fromList(value)))
               .then((value) {
             _adImage.add(MapEntry(value, hash));
+            logger.d('now hash ${_adImage.length} admrks');
             return helper.insertUserLog(hash.hashCode.abs() * -1, 1 << 17,
                 mark: value, content: hash);
           });

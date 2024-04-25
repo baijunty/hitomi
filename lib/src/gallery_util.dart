@@ -6,7 +6,6 @@ import 'package:async/async.dart';
 import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
 import 'package:hitomi/lib.dart';
-import 'package:hitomi/src/sqlite_helper.dart';
 import 'package:logger/logger.dart';
 import 'package:path/path.dart';
 

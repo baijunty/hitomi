@@ -15,7 +15,6 @@ import 'package:sqlite3/common.dart';
 import '../gallery/gallery.dart';
 import '../gallery/language.dart';
 import 'gallery_util.dart';
-import 'sqlite_helper.dart';
 
 class DirScanner {
   final UserConfig _config;

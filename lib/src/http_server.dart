@@ -417,7 +417,7 @@ class _TaskWarp {
     final ip = req.headers['x-real-ip'] ?? '';
     _manager.logger.d('real ip $ip');
     if (task.item1 && (ip.isEmpty || ip.startsWith('192.168'))) {
-      return (task.item2['mask'] as List<String>)
+      return (task.item2['mask'] as List<dynamic>)
           .asStream()
           .asyncMap((event) => _manager.parseCommandAndRun('--admark ${event}'))
           .fold(true, (previous, element) => previous && element)

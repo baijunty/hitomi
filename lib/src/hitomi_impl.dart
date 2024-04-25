@@ -7,7 +7,6 @@ import 'package:hitomi/gallery/label.dart';
 import 'package:hitomi/gallery/language.dart';
 import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/gallery_util.dart';
-import 'package:hitomi/src/sqlite_helper.dart';
 import 'package:logger/logger.dart';
 import 'package:path/path.dart';
 import 'package:tuple/tuple.dart';
