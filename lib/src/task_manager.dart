@@ -14,7 +14,6 @@ import 'package:hitomi/gallery/image.dart';
 import 'package:hitomi/gallery/label.dart';
 import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/downloader.dart';
-import 'package:hitomi/src/sqlite_helper.dart';
 import 'package:isolate_manager/isolate_manager.dart';
 import 'package:logger/logger.dart';
 import '../gallery/language.dart';
@@ -47,6 +46,7 @@ class TaskManager {
   late Logger logger;
   final Dio dio = Dio();
   final _tasks = <Label>{};
+  final Set<MapEntry<int, String>> _adImage = {};
   final _cache =
       SimpleCache<Label, Map<String, dynamic>>(storage: InMemoryStorage(1024));
   final _reg = RegExp(r'!?\[(?<name>.*?)\]\(#*\s*\"?(?<url>\S+?)\"?\)');
@@ -120,6 +120,11 @@ class TaskManager {
       ..addOption('group', abbr: 'g')
       ..addFlag('list', abbr: 'l')
       ..addMultiOption('tags', abbr: 't');
+    helper
+        .querySql('select * from UserLog where type=?', [1 << 17])
+        .then((value) => value.map((element) =>
+            MapEntry<int, String>(element['mark'], element['content'])))
+        .then((value) => _adImage.addAll(value));
   }
 
   String _takeTranslateText(String input) {
@@ -347,6 +352,11 @@ class TaskManager {
                 }).filterNonNull());
   }
 
+  void removeAdImages(Gallery gallery) {
+    gallery.files.removeWhere(
+        (image) => _adImage.any((element) => element.value == image.hash));
+  }
+
   Future<dynamic> parseCommandAndRun(String cmd) async {
     bool hasError = false;
     var args = _parseArgs(cmd);
@@ -437,7 +447,7 @@ class TaskManager {
                   height: 0))
               .then((value) => imageHash(Uint8List.fromList(value)))
               .then((value) {
-            _downLoader.adImage.add(MapEntry(value, hash));
+            _adImage.add(MapEntry(value, hash));
             return helper.insertUserLog(hash.hashCode.abs() * -1, 1 << 17,
                 mark: value, content: hash);
           });

@@ -16,7 +16,6 @@ import '../gallery/image.dart';
 import '../gallery/label.dart';
 import 'dir_scanner.dart';
 import 'gallery_util.dart';
-import 'sqlite_helper.dart';
 
 class DownLoader {
   final UserConfig config;
@@ -41,7 +40,6 @@ class DownLoader {
       .toList();
   Logger? logger;
   final Dio dio;
-  final Set<MapEntry<int, String>> adImage = {};
   DownLoader(
       {required this.config,
       required this.api,
@@ -80,8 +78,7 @@ class DownLoader {
                 return false;
               });
             } else if (target is Image) {
-              return !msg.file.existsSync() &&
-                  adImage.every((element) => element.value != target.hash);
+              return !msg.file.existsSync();
             }
             return illeagalTagsCheck(msg.gallery, config.excludes);
           }
@@ -101,12 +98,6 @@ class DownLoader {
                   .fixGallery();
             } else if (msg.target is Image) {
               return manager.compute(msg.file.path).then((value) {
-                if (adImage.any((element) =>
-                    compareHashDistance(element.key, value.key) < 4)) {
-                  logger?.w('delete ad imgage ${msg.file.path}');
-                  msg.file.deleteSync();
-                  return true;
-                }
                 return helper.insertGalleryFile(
                     msg.gallery, msg.target, value.key, value.value);
               });
@@ -129,11 +120,6 @@ class DownLoader {
       return useHandle ?? true;
     };
     api.registerCallBack(handle);
-    helper
-        .querySql('select * from UserLog where type=?', [1 << 17])
-        .then((value) => value.map((element) =>
-            MapEntry<int, String>(element['mark'], element['content'])))
-        .then((value) => adImage.addAll(value));
   }
 
   Future<bool> _findUnCompleteGallery(Gallery gallery, Directory newDir) async {

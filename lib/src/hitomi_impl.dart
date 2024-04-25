@@ -331,6 +331,7 @@ class _HitomiImpl implements Hitomi {
             : value)
         .then((value) {
       final gallery = Gallery.fromJson(value);
+      manager.removeAdImages(gallery);
       return gallery;
     });
   }
