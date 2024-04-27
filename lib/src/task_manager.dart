@@ -258,11 +258,13 @@ class TaskManager {
         return previousValue;
       });
     }
-    final r = keys.fold(
-        <Label, Map<String, dynamic>>{},
-        (previousValue, element) => previousValue
-          ..[element] = _cache[element] ??
-              {'translate': element.name, ...element.toMap()});
+    final r =
+        keys.fold(<Label, Map<String, dynamic>>{}, (previousValue, element) {
+      var translate =
+          _cache[element] ?? {'translate': element.name, ...element.toMap()};
+      element.translate = translate;
+      return previousValue..[element] = translate;
+    });
     return r;
   }
 

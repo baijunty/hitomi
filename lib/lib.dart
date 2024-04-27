@@ -16,12 +16,12 @@ export 'src/response.dart';
 export 'src/dhash.dart';
 export 'src/sqlite_helper.dart';
 
-extension IntParse on dynamic {
+extension IntParse on Object {
   int toInt() {
     if (this is int) {
       return this as int;
     }
-    return int.parse(this);
+    return int.parse(toString());
   }
 }
 
