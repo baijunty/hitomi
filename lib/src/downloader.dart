@@ -92,10 +92,16 @@ class DownLoader {
                     msg.gallery.id, msg.gallery.dirName, msg.file.path, true);
               }
               logger?.i('down finish ${msg}');
-              return HitomiDir(
-                      msg.file as Directory, this, msg.gallery, manager,
-                      fixFromNet: false)
-                  .fixGallery();
+              if ((_runningTask.keys
+                          .firstWhereOrNull((e) => msg.id == e.gallery.id)
+                          ?.isCancelled ??
+                      false) ==
+                  false) {
+                return HitomiDir(
+                        msg.file as Directory, this, msg.gallery, manager,
+                        fixFromNet: false)
+                    .fixGallery();
+              }
             } else if (msg.target is Image) {
               return manager.compute(msg.file.path).then((value) {
                 return helper.insertGalleryFile(

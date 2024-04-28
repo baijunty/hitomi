@@ -50,7 +50,7 @@ class TaskManager {
   final _cache =
       SimpleCache<Label, Map<String, dynamic>>(storage: InMemoryStorage(1024));
   final _reg = RegExp(r'!?\[(?<name>.*?)\]\(#*\s*\"?(?<url>\S+?)\"?\)');
-  late IsolateManager<MapEntry<int, List<int>?>, String> manager;
+  late IsolateManager<MapEntry<int, List<int>?>, String> _manager;
 
   Hitomi getApiDirect({bool local = false}) {
     return local ? _localApi : _api;
@@ -92,7 +92,7 @@ class TaskManager {
             printEmojis: false,
             printTime: false,
             noBoxingByDefault: true));
-    manager = IsolateManager<MapEntry<int, List<int>?>, String>.create(
+    _manager = IsolateManager<MapEntry<int, List<int>?>, String>.create(
         _compressRunner,
         concurrent: config.maxTasks);
     helper = SqliteHelper(config.output, logger: logger);
@@ -104,7 +104,7 @@ class TaskManager {
         config: config,
         api: _api,
         helper: helper,
-        manager: this.manager,
+        manager: this._manager,
         logger: logger,
         dio: dio);
     _parser = ArgParser()
@@ -298,7 +298,7 @@ class TaskManager {
   }
 
   Future<int> _fixGallerys() async {
-    final count = await DirScanner(config, helper, _downLoader, manager)
+    final count = await DirScanner(config, helper, _downLoader, _manager)
         .listDirs()
         .filterNonNull()
         .where((event) {
@@ -464,11 +464,11 @@ class TaskManager {
         }
         return false;
       } else if (result['fixDb']) {
-        final count = await DirScanner(config, helper, _downLoader, manager)
+        final count = await DirScanner(config, helper, _downLoader, _manager)
             .fixMissDbRow();
         logger.d("database fix ${count}");
       } else if (result['fixDup']) {
-        final count = await DirScanner(config, helper, _downLoader, manager)
+        final count = await DirScanner(config, helper, _downLoader, _manager)
             .removeDupGallery();
         logger.d("database fix ${count}");
         return count;
