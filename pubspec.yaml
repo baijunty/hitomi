@@ -14,7 +14,7 @@ dependencies:
   crypto: ^3.0.3
   image: ^4.1.7
   async: ^2.11.0
-  json_annotation: ^4.8.1
+  json_annotation: ^4.9.0
   freezed_annotation: ^2.4.1
   tuple: ^2.0.2
   collection: ^1.18.0
@@ -26,7 +26,7 @@ dependencies:
   uuid: ^4.4.0
   dcache: ^0.4.0
   logger: ^2.2.0
-  isolate_manager: ^4.1.5+1
+  isolate_manager: ^4.2.2
   http: ^1.2.1
 
 
