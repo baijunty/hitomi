@@ -4,7 +4,6 @@ SELECT count(1) from Tasks WHERE completed=1
 SELECT * FROM Tags WHERE translate like '%;%' limit 20
 select * from Gallery g  limit 20
 select * from UserLog
-drop table if exists UserLog
 select gft.gid,gft.hash,gft.name,gft.width,gft.height,gft.fileHash,gft.thumb from GalleryFileTemp gft LIMIT 20
 select count(1) from GalleryFile LIMIT 20 where gid=1435461 order by name
 select COUNT(*) OVER() AS total_count,g.* from Gallery g  where title like '%青春%' and title not like '%男優%' LIMIT 10

@@ -47,8 +47,9 @@ class TaskManager {
   final Dio dio = Dio();
   final _tasks = <Label>{};
   final Set<MapEntry<int, String>> _adImage = {};
-  final _cache =
-      SimpleCache<Label, Map<String, dynamic>>(storage: InMemoryStorage(1024));
+  final _storage = InMemoryStorage<Label, Map<String, dynamic>>(1024);
+  late SimpleCache<Label, Map<String, dynamic>> _cache =
+      SimpleCache<Label, Map<String, dynamic>>(storage: _storage);
   final _reg = RegExp(r'!?\[(?<name>.*?)\]\(#*\s*\"?(?<url>\S+?)\"?\)');
   late IsolateManager<MapEntry<int, List<int>?>, String> _manager;
 
@@ -400,7 +401,11 @@ class TaskManager {
             TypeLabel('doujinshi'),
             TypeLabel('manga')
           ], MapEntry('artist', artist), CancelToken(),
-              onFinish: (success) => _tasks.remove(label));
+              onFinish: (success) async {
+            _tasks.remove(label);
+            _storage.remove(label);
+            await translateLabel([label]);
+          });
         }
       } else if (result.wasParsed('group')) {
         String? group = result['group'];
@@ -414,7 +419,11 @@ class TaskManager {
             TypeLabel('doujinshi'),
             TypeLabel('manga')
           ], MapEntry('groupes', group), CancelToken(),
-              onFinish: (success) => _tasks.remove(label));
+              onFinish: (success) async {
+            _tasks.remove(label);
+            _storage.remove(label);
+            await translateLabel([label]);
+          });
         }
       } else if (result.wasParsed('tags')) {
         List<Label> tags = result["tags"]
