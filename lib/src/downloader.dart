@@ -134,44 +134,56 @@ class DownLoader {
         logger?.d('${newDir.path} $gallery exists $value ');
         return (compareGallerWithOther(value, [gallery], config.languages).id !=
                 value.id) ||
-            (newDir.listSync().length - 1) != value.files.length;
+            (newDir.listSync().length - 1) < value.files.length;
       }).catchError((e) => true, test: (error) => true);
-    } else
-      return findDuplicateGalleryIds(gallery, helper, api, logger: logger)
-          .then((value) {
+    } else {
+      return fetchGalleryHash(gallery, helper, api, fullHash: true)
+          .then((value) => findDuplicateGalleryIds(gallery, helper, api,
+              logger: logger, fileHashs: value.value))
+          .then((value) async {
         if (value.isNotEmpty) {
           logger?.i('found duplicate with $value');
-          return Future.wait(value.map((e) => helper.queryGalleryById(e).then(
+          var v = await Future.wait(value.map((e) => helper.queryGalleryById(e).then(
               (value) => readGalleryFromPath(join(config.output, value.first['path']))
                   .catchError((e) => api.fetchGallery(value.first['id'], usePrefence: false),
                       test: (error) => true)
-                  .then((value) => value.createDir(config.output, createDir: false))))).then(
-              (value) => value.every(
-                  (element) => !element.existsSync() || element.listSync().length < 18));
+                  .then((value) =>
+                      value.createDir(config.output, createDir: false))))).then(
+              (value) => value.every((element) => !element.existsSync() || element.listSync().length < 18));
+          return v;
         }
-        // if (value.isEmpty) {
-        //   return findDuplicateGalleryIds(gallery, helper, api,
-        //           logger: logger, skipTail: true)
-        //       .then((value) => value.firstOrNull)
-        //       .then((value) {
-        //     if (value != null) {
-        //       helper
-        //           .queryGalleryById(value)
-        //           .then((value) => readGalleryFromPath(
-        //               join(config.output, value.first['path'])))
-        //           .then((value) => value.createDir(config.output))
-        //           .then((dir) {
-        //         logger?.i(
-        //             '$value with ${dir.path} hash newer ${gallery.id} ${newDir.path}');
-        //         dir.renameSync(newDir.path);
-        //         return false;
-        //       }).catchError((e) => false, test: (error) => true);
-        //     }
-        //     return false;
-        //   });
-        // }
         return value.isEmpty;
+      }).then((value) async {
+        if (value) {
+          await findDuplicateGalleryIds(gallery, helper, api,
+                  logger: logger, reserved: true)
+              .then((value) async {
+            if (value.isNotEmpty) {
+              logger?.w('found overWrite $value');
+              var exists = await Future.wait(value.map((e) => helper
+                  .queryGalleryById(e)
+                  .then((value) => Gallery.fromRow(value.first))));
+              var chapterDown = chapter(gallery.name);
+              if (chapterDown.isNotEmpty &&
+                  exists.length == 1 &&
+                  chapterContains(chapterDown, chapter(exists[0].name))) {
+                newDir.deleteSync(recursive: true);
+                exists[0].createDir(config.output).renameSync(newDir.path);
+              } else {
+                await exists
+                    .map((e) => HitomiDir(
+                        e.createDir(config.output), this, e, manager,
+                        fixFromNet: false))
+                    .asStream()
+                    .asyncMap((event) => event.deleteGallery())
+                    .length;
+              }
+            }
+          });
+        }
+        return value;
       });
+    }
   }
 
   bool illeagalTagsCheck(Gallery gallery, List<FilterLabel> excludes) {
@@ -245,7 +257,7 @@ class DownLoader {
                 test: (error) => true);
       }
     }
-    if (target != null) {
+    if (target != null && target.id == id) {
       await HitomiDir(target.createDir(config.output, createDir: false), this,
               target, manager)
           .deleteGallery();
@@ -318,7 +330,7 @@ class DownLoader {
                 if (previous.any((pre) =>
                     pre.languages?.any((lang) =>
                             lang.galleryid == element.id.toString() &&
-                            max(0, config.languages.indexOf(lang.name)) <=
+                            max(0, config.languages.indexOf(pre.language!)) <=
                                 max(
                                     0,
                                     config.languages
@@ -343,7 +355,7 @@ class DownLoader {
     return list
         .asStream()
         .asyncMap((event) => fetchGalleryHash(
-                    event, helper, api, token, true, config.output, logger)
+                    event, helper, api, token: token, fullHash: true, outDir:  config.output,logger: logger)
                 .catchError((err) {
               logger?.e('fetchGalleryHash $err');
               return MapEntry(event, <int>[]);

@@ -65,10 +65,10 @@ Gallery compareGallerWithOther(
 
 Future<MapEntry<Gallery, List<int>>> fetchGalleryHash(
     Gallery gallery, SqliteHelper helper, Hitomi api,
-    [CancelToken? token,
+    {CancelToken? token,
     bool fullHash = false,
     String? outDir,
-    Logger? logger]) async {
+    Logger? logger}) async {
   return helper
       .queryImageHashsById(gallery.id)
       .then((value) => value.fold(<int>[],
@@ -139,9 +139,77 @@ Future<MapEntry<Gallery, List<int>>> fetchGalleryHashFromNet(
           (value) => MapEntry<Gallery, List<int>>(gallery, value));
 }
 
+String titleFixed(String title) {
+  final matcher = chapterRex.allMatches(title).toList();
+  if (matcher.isNotEmpty) {
+    final last = matcher.last;
+    final atEnd = title.substring(last.end).isEmpty;
+    if (atEnd) {
+      return title.substring(0, last.start);
+    }
+  }
+  return title;
+}
+
+List<int> chapter(String name) {
+  final matcher = chapterRex.allMatches(name).toList();
+  if (matcher.isNotEmpty) {
+    final last = matcher.last;
+    var start = last.namedGroup('start');
+    final digit = start!.codeUnitAt(0) >= '0'.codeUnitAt(0) &&
+        start.codeUnitAt(0) <= '9'.codeUnitAt(0);
+    final atEnd = name.substring(last.end).isEmpty;
+    if (digit && atEnd) {
+      var chapters = <int>[];
+      var end = last.namedGroup('end') ?? start;
+      end = end.isNotEmpty ? end : start;
+      var from = int.parse(start);
+      for (var i = from; i <= int.parse(end); i++) {
+        chapters.add(i);
+      }
+      return chapters;
+    } else if (atEnd && start.length == 1) {
+      var chapters = <int>[];
+      var from = start.codeUnits
+          .map((e) => String.fromCharCode(e))
+          .map((e) => zhNum.indexOf(e) - 1)
+          .first;
+      var end = last.namedGroup('end') ?? start;
+      end = end.length == 1 ? end : start;
+      final to = end.codeUnits
+          .map((e) => String.fromCharCode(e))
+          .map((e) => zhNum.indexOf(e) - 1)
+          .first;
+      for (var i = from; i <= to; i++) {
+        chapters.add(i);
+      }
+      return chapters;
+    }
+  }
+  return [];
+}
+
+bool chapterContains(List<int> chapters1, List<int> chapters2) {
+  if (chapters1.equals(chapters2)) {
+    return false;
+  }
+  if (chapters1.length < chapters2.length) {
+    return false;
+  }
+  var same = (chapters1.isEmpty ^ chapters2.isEmpty) == false;
+  if (same && chapters1.isNotEmpty) {
+    chapters2.removeWhere((element) => chapters1.contains(element));
+    return chapters2.isEmpty;
+  }
+  return same;
+}
+
 Future<List<int>> findDuplicateGalleryIds(
     Gallery gallery, SqliteHelper helper, Hitomi api,
-    {Logger? logger, CancelToken? token}) async {
+    {Logger? logger,
+    CancelToken? token,
+    bool reserved = false,
+    List<int>? fileHashs}) async {
   Map<int, List<int>> allFileHash = {};
   if (gallery.artists != null) {
     await gallery.artists!
@@ -158,15 +226,26 @@ Future<List<int>> findDuplicateGalleryIds(
         .fold(allFileHash, (previous, element) => previous..addAll(element));
   }
   if (allFileHash.isNotEmpty == true) {
-    // logger?.d('${gallery.id} hash log length ${allFileHash.length}');
-    return fetchGalleryHash(gallery, helper, api, token)
-        .then((value) => MapEntry(value.key.id, value.value))
-        .then(
-            (value) => searchSimilerGaller(value, allFileHash, logger: logger))
-        .catchError((err) {
-      logger?.e(err);
-      return <int>[];
-    }, test: (error) => true);
+    return fileHashs != null
+        ? Future.value(fileHashs)
+        : fetchGalleryHash(gallery, helper, api,
+                token: token, fullHash: reserved)
+            .then((value) => MapEntry(value.key.id, value.value))
+            .then((value) {
+            if (reserved) {
+              var map = {value.key: value.value};
+              return allFileHash.entries.where((e) {
+                var r = searchSimilerGaller(e, map, logger: logger);
+                logger?.d('find ${e.key} with ${map.keys} result $r');
+                return r.isNotEmpty;
+              }).fold(<int>[],
+                  (previousValue, element) => previousValue..add(element.key));
+            }
+            return searchSimilerGaller(value, allFileHash, logger: logger);
+          }).catchError((err) {
+            logger?.e(err);
+            return <int>[];
+          }, test: (error) => true);
   }
   return [];
 }

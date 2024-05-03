@@ -179,3 +179,7 @@ final imageExtension = [
   '.gif',
   '.bmp'
 ];
+
+final zhNum = '零〇一二三四五六七八九十';
+final chapterRex = RegExp(
+    r'第?\s*(?<start>[零〇一二三四五六七八九十|\d]{1,})\s*-?\s*(?<end>[零〇一二三四五六七八九十|\d]*)\s*(?<unit>[章|回|话|話|編|巻|集]*)');

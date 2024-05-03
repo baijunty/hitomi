@@ -1,12 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
 import 'package:hitomi/gallery/artist.dart';
-import 'package:hitomi/gallery/character.dart';
 import 'package:hitomi/gallery/gallery.dart';
 import 'package:hitomi/gallery/label.dart';
+import 'package:hitomi/gallery/language.dart';
 import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/gallery_util.dart';
 import 'package:hitomi/src/multi_paltform.dart';
@@ -14,7 +13,7 @@ import 'package:sqlite3/common.dart';
 import 'package:test/test.dart';
 
 int count = 10000;
-var config = UserConfig(r'g:test',
+var config = UserConfig(r'/home/bai/ssd/manga',
     proxy: '127.0.0.1:8389',
     languages: ['japanese', 'chinese'],
     maxTasks: 5,
@@ -22,13 +21,23 @@ var config = UserConfig(r'g:test',
 var task = TaskManager(config);
 void main() async {
   test('chapter', () async {
-    var list = [1, 6, 3, 7, 2, 4, 9]..sort((p0, p1) => p1.compareTo(p0));
-    print(list);
-    print(list.binarySearch(2, (p0, p1) => p1.compareTo(p0)));
-    await task.getApiDirect().search([
-      Character(character: 'kumano'),
-      Character(character: 'suzuya')
-    ]).then((value) => print(value.data));
+    await task
+        .getApiDirect()
+        .fetchGallery(2905265)
+        .then((value) => findDuplicateGalleryIds(
+            value, task.helper, task.getApiDirect(),
+            logger: task.logger, reserved: true))
+        .then((value) => print(value));
+    // await task.down.fetchGallerysByTags([
+    //   Artist(artist: 'bizen'),
+    //   Language.japanese,
+    //   Language.chinese,
+    //   TypeLabel('doujinshi'),
+    //   TypeLabel('manga')
+    // ], task.down.filter, CancelToken(), null).then(
+    //     (value) => value.forEach((element) {
+    //           print(element);
+    //         }));
   }, timeout: Timeout(Duration(minutes: 120)));
 }
 
@@ -142,22 +151,6 @@ Future<void> testHttpServer() async {
 //     });
 //   });
 // }
-
-Future<Gallery> getGalleryInfoFromFile(String name) async {
-  var gallery = await getGalleryInfoFromFile(r'2089241');
-  var gallery1 = await getGalleryInfoFromFile(r'2087609');
-  print(
-      "${gallery.id} and ${gallery.chapter()} with ${gallery.nameFixed} and ${gallery.chapterContains(gallery1)} ${gallery == gallery1}");
-  var config = UserConfig('/home/bai/ssd/photos',
-      proxy: '192.168.1.1:8389',
-      languages: ['chinese', 'japanese'],
-      maxTasks: 5);
-  var file = File(config.output + '/$name/meta.json');
-  if (file.existsSync()) {
-    return Gallery.fromJson(file.readAsStringSync());
-  }
-  return createHitomi(task, false, '').fetchGallery(name, usePrefence: false);
-}
 
 Future<void> testImageDownload() async {
   var token = CancelToken();

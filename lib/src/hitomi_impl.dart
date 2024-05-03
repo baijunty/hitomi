@@ -227,6 +227,10 @@ class _LocalHitomiImpl implements Hitomi {
       sql =
           'select COUNT(*) OVER() AS total_count,g.* from Gallery g where g.title like ? ';
       params.add('%${tag.name}%');
+    } else if (tag is TypeLabel) {
+      sql =
+          'select COUNT(*) OVER() AS total_count,g.* from Gallery g where type =? ';
+      params.add(tag.name);
     } else {
       sql =
           'select COUNT(*) OVER() AS total_count,g.* from Gallery g where json_value_contains(${tag.localSqlType},?,?)=1 ';

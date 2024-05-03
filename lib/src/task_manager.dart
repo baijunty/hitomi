@@ -52,7 +52,7 @@ class TaskManager {
       SimpleCache<Label, Map<String, dynamic>>(storage: _storage);
   final _reg = RegExp(r'!?\[(?<name>.*?)\]\(#*\s*\"?(?<url>\S+?)\"?\)');
   late IsolateManager<MapEntry<int, List<int>?>, String> _manager;
-
+  DownLoader get down => _downLoader;
   Hitomi getApiDirect({bool local = false}) {
     return local ? _localApi : _api;
   }

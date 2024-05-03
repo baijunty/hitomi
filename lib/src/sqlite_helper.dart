@@ -6,6 +6,7 @@ import 'package:hitomi/gallery/gallery.dart';
 import 'package:hitomi/gallery/image.dart';
 import 'package:hitomi/gallery/label.dart';
 import 'package:hitomi/lib.dart';
+import 'package:hitomi/src/gallery_util.dart';
 import 'package:logger/logger.dart';
 import 'package:path/path.dart';
 import 'package:sqlite3/common.dart';
@@ -42,9 +43,7 @@ class SqliteHelper {
         if (data is Map<String, dynamic>) {
           return data.keys.contains(arguments[1]);
         }
-      } catch (e) {
-        _logger?.e('jsonKeyContains illgal json $e with ${arguments[0]}');
-      }
+      } catch (e) {}
     }
     return false;
   }
@@ -64,11 +63,13 @@ class SqliteHelper {
         } else if (data is List<dynamic>) {
           return data.contains(arguments[1].toString());
         }
-      } catch (e) {
-        _logger?.e('jsonValueContains illgal json $e with ${arguments[0]}');
-      }
+      } catch (e) {}
     }
     return false;
+  }
+
+  String? pureTitle(List<Object?> title) {
+    return titleFixed(title[0].toString());
   }
 
   int hashDistance(List<Object?> arguments) {
@@ -86,6 +87,10 @@ class SqliteHelper {
     _db.createFunction(
         functionName: 'json_key_contains',
         function: jsonKeyContains,
+        argumentCount: AllowedArgumentCount(2));
+    _db.createFunction(
+        functionName: 'title_fixed',
+        function: pureTitle,
         argumentCount: AllowedArgumentCount(2));
     _db.createFunction(
         functionName: 'json_value_contains',
