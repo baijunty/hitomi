@@ -226,26 +226,25 @@ Future<List<int>> findDuplicateGalleryIds(
         .fold(allFileHash, (previous, element) => previous..addAll(element));
   }
   if (allFileHash.isNotEmpty == true) {
-    return fileHashs != null
-        ? Future.value(fileHashs)
-        : fetchGalleryHash(gallery, helper, api,
-                token: token, fullHash: reserved)
-            .then((value) => MapEntry(value.key.id, value.value))
-            .then((value) {
-            if (reserved) {
-              var map = {value.key: value.value};
-              return allFileHash.entries.where((e) {
-                var r = searchSimilerGaller(e, map, logger: logger);
-                logger?.d('find ${e.key} with ${map.keys} result $r');
-                return r.isNotEmpty;
-              }).fold(<int>[],
-                  (previousValue, element) => previousValue..add(element.key));
-            }
-            return searchSimilerGaller(value, allFileHash, logger: logger);
-          }).catchError((err) {
-            logger?.e(err);
-            return <int>[];
-          }, test: (error) => true);
+    return (fileHashs != null
+            ? Future.value(MapEntry(gallery.id, fileHashs))
+            : fetchGalleryHash(gallery, helper, api,
+                    token: token, fullHash: reserved)
+                .then((value) => MapEntry(value.key.id, value.value)))
+        .then((value) {
+      if (reserved) {
+        var map = {value.key: value.value};
+        return allFileHash.entries
+            .where(
+                (e) => searchSimilerGaller(e, map, logger: logger).isNotEmpty)
+            .fold(<int>[],
+                (previousValue, element) => previousValue..add(element.key));
+      }
+      return searchSimilerGaller(value, allFileHash, logger: logger);
+    }).catchError((err) {
+      logger?.e(err);
+      return <int>[];
+    }, test: (error) => true);
   }
   return [];
 }

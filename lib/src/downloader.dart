@@ -142,7 +142,7 @@ class DownLoader {
               logger: logger, fileHashs: value.value))
           .then((value) async {
         if (value.isNotEmpty) {
-          logger?.i('found duplicate with $value');
+          logger?.i('${gallery.id} found duplicate with $value');
           var v = await Future.wait(value.map((e) => helper.queryGalleryById(e).then(
               (value) => readGalleryFromPath(join(config.output, value.first['path']))
                   .catchError((e) => api.fetchGallery(value.first['id'], usePrefence: false),
