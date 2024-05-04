@@ -129,17 +129,16 @@ class DownLoader {
   }
 
   Future<bool> _findUnCompleteGallery(Gallery gallery, Directory newDir) async {
+    Future<bool> check;
     if (newDir.listSync().isNotEmpty) {
-      return readGalleryFromPath(newDir.path).then((value) {
+      check = readGalleryFromPath(newDir.path).then((value) {
         logger?.d('${newDir.path} $gallery exists $value ');
         return (compareGallerWithOther(value, [gallery], config.languages).id !=
                 value.id) ||
             (newDir.listSync().length - 1) < value.files.length;
       }).catchError((e) => true, test: (error) => true);
     } else {
-      return fetchGalleryHash(gallery, helper, api, fullHash: true)
-          .then((value) => findDuplicateGalleryIds(gallery, helper, api,
-              logger: logger, fileHashs: value.value))
+      check = findDuplicateGalleryIds(gallery, helper, api, logger: logger)
           .then((value) async {
         if (value.isNotEmpty) {
           logger?.i('${gallery.id} found duplicate with $value');
@@ -153,37 +152,38 @@ class DownLoader {
           return v;
         }
         return value.isEmpty;
-      }).then((value) async {
-        if (value) {
-          await findDuplicateGalleryIds(gallery, helper, api,
-                  logger: logger, reserved: true)
-              .then((value) async {
-            if (value.isNotEmpty) {
-              logger?.w('found overWrite $value');
-              var exists = await Future.wait(value.map((e) => helper
-                  .queryGalleryById(e)
-                  .then((value) => Gallery.fromRow(value.first))));
-              var chapterDown = chapter(gallery.name);
-              if (chapterDown.isNotEmpty &&
-                  exists.length == 1 &&
-                  chapterContains(chapterDown, chapter(exists[0].name))) {
-                newDir.deleteSync(recursive: true);
-                exists[0].createDir(config.output).renameSync(newDir.path);
-              } else {
-                await exists
-                    .map((e) => HitomiDir(
-                        e.createDir(config.output), this, e, manager,
-                        fixFromNet: false))
-                    .asStream()
-                    .asyncMap((event) => event.deleteGallery())
-                    .length;
-              }
-            }
-          });
-        }
-        return value;
       });
     }
+    return check.then((value) async {
+      if (value) {
+        await findDuplicateGalleryIds(gallery, helper, api,
+                logger: logger, reserved: true)
+            .then((value) async {
+          if (value.isNotEmpty) {
+            logger?.w('found overWrite $value');
+            var exists = await Future.wait(value.map((e) => helper
+                .queryGalleryById(e)
+                .then((value) => Gallery.fromRow(value.first))));
+            var chapterDown = chapter(gallery.name);
+            if (chapterDown.isNotEmpty &&
+                exists.length == 1 &&
+                chapterContains(chapterDown, chapter(exists[0].name))) {
+              newDir.deleteSync(recursive: true);
+              exists[0].createDir(config.output).renameSync(newDir.path);
+            } else {
+              await exists
+                  .map((e) => HitomiDir(
+                      e.createDir(config.output), this, e, manager,
+                      fixFromNet: false))
+                  .asStream()
+                  .asyncMap((event) => event.deleteGallery())
+                  .length;
+            }
+          }
+        });
+      }
+      return value;
+    });
   }
 
   bool illeagalTagsCheck(Gallery gallery, List<FilterLabel> excludes) {
@@ -354,8 +354,11 @@ class DownLoader {
     list.sort((e1, e2) => e2.files.length - e1.files.length);
     return list
         .asStream()
-        .asyncMap((event) => fetchGalleryHash(
-                    event, helper, api, token: token, fullHash: true, outDir:  config.output,logger: logger)
+        .asyncMap((event) => fetchGalleryHash(event, helper, api,
+                    token: token,
+                    fullHash: true,
+                    outDir: config.output,
+                    logger: logger)
                 .catchError((err) {
               logger?.e('fetchGalleryHash $err');
               return MapEntry(event, <int>[]);

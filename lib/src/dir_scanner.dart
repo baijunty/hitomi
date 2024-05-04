@@ -271,7 +271,8 @@ class HitomiDir {
   }
 
   Future<bool> deleteGallery() async {
-    _downLoader.logger?.w('del gallery $gallery with path $dir');
+    _downLoader.logger
+        ?.w('del gallery $gallery with path $dir exists ${dir.existsSync()}');
     return _downLoader.helper
         .deleteGallery(gallery!.id)
         .then((value) => dir.exists())
