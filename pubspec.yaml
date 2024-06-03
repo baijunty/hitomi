@@ -26,12 +26,12 @@ dependencies:
   uuid: ^4.4.0
   dcache: ^0.4.0
   logger: ^2.2.0
-  isolate_manager: ^4.2.2
+  isolate_manager: ^5.0.2+1
   http: ^1.2.1
 
 
 dev_dependencies:
-  lints: ^3.0.0
+  lints: ^4.0.0
   build_runner: ^2.4.1
   json_serializable: ^6.7.1
   freezed: ^2.5.2

@@ -176,7 +176,9 @@ class DownLoader {
                       e.createDir(config.output), this, e, manager,
                       fixFromNet: false))
                   .asStream()
-                  .asyncMap((event) => event.deleteGallery())
+                  .asyncMap((event) => event.deleteGallery(
+                      reason:
+                          'new collection ${gallery.id} contails exists gallery'))
                   .length;
             }
           }
@@ -260,7 +262,7 @@ class DownLoader {
     if (target != null && target.id == id) {
       await HitomiDir(target.createDir(config.output, createDir: false), this,
               target, manager)
-          .deleteGallery();
+          .deleteGallery(reason: 'user delete');
     }
     await helper.removeTask(id, withGaller: true);
     return target != null;

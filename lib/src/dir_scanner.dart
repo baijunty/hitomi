@@ -263,16 +263,17 @@ class HitomiDir {
     if (left.id == this.gallery!.id) {
       return others
           .asStream()
-          .asyncMap((event) => event.deleteGallery())
+          .asyncMap((event) =>
+              event.deleteGallery(reason: 'compare exists ${left.id}'))
           .fold(true, (previous, element) => previous && element);
     } else {
       return deleteGallery();
     }
   }
 
-  Future<bool> deleteGallery() async {
-    _downLoader.logger
-        ?.w('del gallery $gallery with path $dir exists ${dir.existsSync()}');
+  Future<bool> deleteGallery({String reason = ''}) async {
+    _downLoader.logger?.w(
+        'because $reason del gallery $gallery with path $dir exists ${dir.existsSync()}');
     return _downLoader.helper
         .deleteGallery(gallery!.id)
         .then((value) => dir.exists())
@@ -287,7 +288,7 @@ class HitomiDir {
   Future<bool> fixGallery() async {
     if (gallery != null) {
       if (!_downLoader.filter(gallery!)) {
-        return deleteGallery();
+        return deleteGallery(reason: 'filter failed');
       }
       return _fixIllegalFiles()
           // .then((value) => _downLoader.helper.insertGallery(gallery!, dir.path))
