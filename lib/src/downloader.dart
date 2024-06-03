@@ -135,7 +135,7 @@ class DownLoader {
         logger?.d('${newDir.path} $gallery exists $value ');
         return (compareGallerWithOther(value, [gallery], config.languages).id !=
                 value.id) ||
-            (newDir.listSync().length - 1) < value.files.length;
+            (newDir.listSync().length - 1) < gallery.files.length;
       }).catchError((e) => true, test: (error) => true);
     } else {
       check = findDuplicateGalleryIds(gallery, helper, api, logger: logger)
