@@ -66,6 +66,11 @@ class _TaskWarp {
       ..options('/cancel', _optionsOk)
       ..post('/delete', _delete)
       ..options('/delete', _optionsOk)
+      ..options('/adList', _optionsOk)
+      ..get('/adList', (req) {
+        return Response.ok(json.encode(_manager.adImage),
+            headers: defaultRespHeader);
+      })
       ..post('/excludes', (req) async {
         var succ = await _authToken(req);
         if (succ.item1) {
@@ -137,6 +142,10 @@ class _TaskWarp {
           {
             List<dynamic> tags = task.item2['include'];
             List<dynamic>? exclude = task.item2['excludes'];
+            var querySort = task.item2['sort'];
+            SortEnum sort = SortEnum.values
+                    .firstWhereOrNull((element) => element.name == querySort) ??
+                SortEnum.Default;
             return (task.item2['local'] == true
                     ? localHitomi
                     : _manager.getApiDirect())
@@ -144,6 +153,7 @@ class _TaskWarp {
                     exclude: exclude != null
                         ? _mapFromRequest(exclude)
                         : _manager.config.excludes,
+                    sort: sort,
                     page: task.item2['page'] ?? 1)
                 .then((value) => Response.ok(
                     json.encode(value.toJson((p1) => p1)),

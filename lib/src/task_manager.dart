@@ -61,6 +61,9 @@ class TaskManager {
     return _webHitomi;
   }
 
+  List<String> get adImage =>
+      _adImage.map((e) => e.value).toList(growable: false);
+
   TaskManager(this.config) {
     Level level;
     switch (config.logLevel) {
