@@ -331,7 +331,11 @@ class TaskManager {
                   .where((element) => element.dir.existsSync())
                   .forEach((e) {
                 logger.d('delete duplication ${e.gallery?.id} with ${e.dir}');
-                e.dir.deleteSync(recursive: true);
+                try {
+                  e.dir.deleteSync(recursive: true);
+                } catch (err) {
+                  logger.e('delete ${e.gallery?.id} err ${err}');
+                }
               });
             }
             return event.first.fixGallery();

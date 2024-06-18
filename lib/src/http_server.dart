@@ -71,6 +71,17 @@ class _TaskWarp {
         return Response.ok(json.encode(_manager.adImage),
             headers: defaultRespHeader);
       })
+      ..get('/ip', (req) {
+        return NetworkInterface.list()
+            .then((value) => value.firstOrNull?.addresses
+                .where((element) =>
+                    element.type == InternetAddressType.IPv6 &&
+                    element.address.startsWith('2'))
+                .map((e) => e.address)
+                .toList())
+            .then((rep) =>
+                Response.ok(json.encode(rep), headers: defaultRespHeader));
+      })
       ..post('/excludes', (req) async {
         var succ = await _authToken(req);
         if (succ.item1) {
