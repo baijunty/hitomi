@@ -14,7 +14,7 @@ import 'multi_paltform.dart' show openSqliteDb;
 
 class SqliteHelper {
   final String _dirPath;
-  static final _version = 8;
+  static final _version = 9;
   Logger? _logger = null;
   late CommonDatabase _db;
   CommonDatabase? __db;
@@ -165,7 +165,7 @@ class SqliteHelper {
       width integer,
       height integer,
       fileHash integer,
-      thumb BLOB,
+      tag TEXT,
       PRIMARY KEY(gid,hash),
       FOREIGN KEY(gid) REFERENCES Gallery(id)  ON DELETE CASCADE
       )''');
@@ -256,6 +256,15 @@ class SqliteHelper {
           db.execute(
               """insert into  UserLog(id,mark,type,content,extension) select id,mark,0,content,extension from UserLogTemp""");
           db.execute("drop table UserLogTemp");
+        }
+      case 8:
+        {
+          db.execute("drop table if exists GalleryFileTemp ");
+          db.execute("ALTER table GalleryFile rename to GalleryFileTemp");
+          createTables(db);
+          db.execute(
+              """insert into GalleryFile(gid,hash,name,width,height,fileHash,tag) select gid,hash,name,width,height,fileHash,null from GalleryFileTemp""");
+          db.execute("drop table GalleryFileTemp");
         }
     }
   }
@@ -401,9 +410,9 @@ class SqliteHelper {
   }
 
   Future<bool> insertGalleryFile(
-      Gallery gallery, Image image, int hash, List<int>? thumb) async {
+      Gallery gallery, Image image, int hash, Map<String, dynamic>? tag) async {
     return excuteSqlAsync(
-        'replace into GalleryFile(gid,hash,name,width,height,fileHash,thumb) values(?,?,?,?,?,?,?)',
+        'replace into GalleryFile(gid,hash,name,width,height,fileHash,tag) values(?,?,?,?,?,?,?)',
         [
           gallery.id,
           image.hash,
@@ -411,7 +420,7 @@ class SqliteHelper {
           image.width,
           image.height,
           hash,
-          thumb
+          tag == null ? null : json.encode(tag)
         ]);
   }
 

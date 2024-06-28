@@ -23,16 +23,11 @@ import 'hitomi_impl.dart';
 import 'multi_paltform.dart';
 
 @pragma('vm:entry-point')
-Future<MapEntry<int, List<int>?>> _compressRunner(String imagePath) async {
+Future<List<int>?> _compressRunner(String imagePath) async {
   return File(imagePath)
       .readAsBytes()
-      .then((value) => resizeThumbImage(value, 256).then((v) async {
-            return MapEntry(
-                await imageHash(v ?? value)
-                    .catchError((e) => 0, test: (error) => true),
-                v?.toList(growable: false));
-          }))
-      .catchError((e) => MapEntry(0, null), test: (error) => true);
+      .then((value) => resizeThumbImage(value, 256))
+      .catchError((e) => null, test: (error) => true);
 }
 
 class TaskManager {
@@ -51,7 +46,7 @@ class TaskManager {
   late SimpleCache<Label, Map<String, dynamic>> _cache =
       SimpleCache<Label, Map<String, dynamic>>(storage: _storage);
   final _reg = RegExp(r'!?\[(?<name>.*?)\]\(#*\s*\"?(?<url>\S+?)\"?\)');
-  late IsolateManager<MapEntry<int, List<int>?>, String> _manager;
+  late IsolateManager<List<int>?, String> _manager;
   DownLoader get down => _downLoader;
   Hitomi getApiDirect({bool local = false}) {
     return local ? _localApi : _api;
@@ -96,8 +91,7 @@ class TaskManager {
             printEmojis: false,
             printTime: false,
             noBoxingByDefault: true));
-    _manager = IsolateManager<MapEntry<int, List<int>?>, String>.create(
-        _compressRunner,
+    _manager = IsolateManager<List<int>?, String>.create(_compressRunner,
         concurrent: config.maxTasks);
     helper = SqliteHelper(config.output, logger: logger);
     dio.httpClientAdapter = crateHttpClientAdapter(config.proxy);

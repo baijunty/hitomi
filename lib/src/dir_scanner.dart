@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
 import 'package:hitomi/gallery/artist.dart';
+import 'package:hitomi/gallery/image.dart';
 import 'package:hitomi/gallery/label.dart';
 import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/downloader.dart';
@@ -20,7 +21,7 @@ class DirScanner {
   final UserConfig _config;
   final SqliteHelper _helper;
   final DownLoader _downLoader;
-  final IsolateManager<MapEntry<int, List<int>?>, String> manager;
+  final IsolateManager<List<int>?, String> manager;
   static final titleReg = RegExp(r'\((.+)\)(.+)');
   DirScanner(this._config, this._helper, this._downLoader, this.manager);
 
@@ -40,15 +41,14 @@ class DirScanner {
           return await useDir
               .delete(recursive: true)
               .then((v) => event.rename(v.path))
-              .then(
-                  (v) => HitomiDir(v as Directory, _downLoader, value, manager))
+              .then((v) => HitomiDir(v as Directory, _downLoader, value))
               .catchError((e) {
             _downLoader.logger?.e(e);
             return HitomiDir(
-                value.createDir(_config.output), _downLoader, value, manager);
+                value.createDir(_config.output), _downLoader, value);
           }, test: (error) => true);
         }
-        return HitomiDir(event as Directory, _downLoader, value, manager);
+        return HitomiDir(event as Directory, _downLoader, value);
       }).catchError((e) {
         _downLoader.logger?.e('$event error $e');
         var dir = event as Directory;
@@ -56,7 +56,7 @@ class DirScanner {
         //   return HitomiDir(dir, _downLoader, null, manager);
         // }
         return _parseFromDir(event.path)
-            .then((value) => HitomiDir(dir, _downLoader, value, manager));
+            .then((value) => HitomiDir(dir, _downLoader, value));
       }, test: (error) => true);
     });
   }
@@ -68,7 +68,7 @@ class DirScanner {
               var dir = Directory(
                   path.join(_downLoader.config.output, event['path']));
               return readGalleryFromPath(dir.path).then((value) async {
-                await HitomiDir(dir, _downLoader, value, manager).fixGallery();
+                await HitomiDir(dir, _downLoader, value).fixGallery();
                 if (value.id.toString() != id.toString()) {
                   _downLoader.logger?.i('db id $id found id ${value.id}');
                   return await _helper.deleteGallery(id);
@@ -136,7 +136,7 @@ class DirScanner {
         .where((event) => event.value.existsSync())
         .asyncMap((event) async {
       return readGalleryFromPath(event.value.path)
-          .then((value) => HitomiDir(event.value, _downLoader, value, manager))
+          .then((value) => HitomiDir(event.value, _downLoader, value))
           .then((value) => MapEntry(event.key, value));
     }).fold(<int, HitomiDir>{},
             (previous, element) => previous..[element.key] = element.value);
@@ -198,10 +198,8 @@ class HitomiDir {
   final Directory dir;
   final Gallery? gallery;
   final DownLoader _downLoader;
-  final IsolateManager<MapEntry<int, List<int>?>, String> manager;
   final bool fixFromNet;
-  HitomiDir(this.dir, this._downLoader, this.gallery, this.manager,
-      {this.fixFromNet = true});
+  HitomiDir(this.dir, this._downLoader, this.gallery, {this.fixFromNet = true});
 
   Future<int> get coverHash => File('${dir.path}/${gallery?.files.first.name}')
       .readAsBytes()
@@ -231,7 +229,7 @@ class HitomiDir {
         await completer.future.then((value) => _downLoader.logger
             ?.d('${gallery!.id} lost ${fileLost} redownload $value'));
       }
-      await dir
+      return dir
           .list()
           .map((e) => path.basename(e.path))
           .takeWhile(
@@ -244,9 +242,6 @@ class HitomiDir {
           value.map((e) => File(path.join(dir.path, e))).forEach((element) {
             element.deleteSync();
           });
-          // return _downLoader.helper.excuteSqlMultiParams(
-          //     'delete from GalleryFile where gid =? and name=?',
-          //     value.map((e) => [gallery!.id, e]).toList());
         }
         return true;
       });
@@ -285,6 +280,36 @@ class HitomiDir {
     }, test: (error) => true);
   }
 
+  Future<bool> batchInsertImage(
+      Iterable<Image> imgs, List<MapEntry<String, Map<String, dynamic>>> tags) {
+    return Future.wait(imgs.map((img) => File(path.join(dir.path, img.name))
+            .readAsBytes()
+            .then((data) =>
+                imageHash(data).catchError((e) => 0, test: (error) => true))
+            .then((hash) => _downLoader.helper.insertGalleryFile(gallery!, img,
+                hash, tags.firstWhereOrNull((e) => e.key == img.name)?.value))))
+        .then((vs) => vs.fold(true, (acc, i) => acc && i))
+        .then((v) => v);
+  }
+
+  Future<List<MapEntry<String, Map<String, dynamic>>>> autoTagImages() async {
+    return await Process.run(
+        '${_downLoader.config.aiTagPath}/autotag',
+        workingDirectory: _downLoader.config.aiTagPath,
+        [dir.path]).then((r) => r.stdout as String).then((s) {
+      var r = s
+          .split('\n')
+          .where((s) => s.isNotEmpty)
+          .map((s) => json.decode(s) as Map<String, dynamic>)
+          .fold(
+              <MapEntry<String, Map<String, dynamic>>>[],
+              (list, m) => list
+                ..add(MapEntry(
+                    m['filename'], m['tags'] as Map<String, dynamic>)));
+      return r;
+    });
+  }
+
   Future<bool> fixGallery() async {
     if (gallery != null) {
       if (!_downLoader.filter(gallery!)) {
@@ -300,31 +325,39 @@ class HitomiDir {
           .then((_) {
         return _downLoader.helper
             .selectSqlMultiResultAsync(
-                'select 1 from GalleryFile where gid=? and hash=?',
+                r"select (ifnull(tag, '') = '') as tag from GalleryFile where gid=? and hash=?",
                 gallery!.files.map((e) => [gallery!.id, e.hash]).toList())
             .then((value) => value.entries
-                .where((element) => element.value.firstOrNull == null))
-            .then((value) => value.map((e) => e.key))
-            .then((value) => value.toList())
-            .then((value) {
-          final fs = value
-              .map((element) =>
-                  gallery!.files.firstWhere((e) => e.hash == element[1]))
-              .toList();
-          if (fs.isEmpty) {
+                .where((element) =>
+                    element.value.firstOrNull == null ||
+                    element.value.first['tag'] == 1)
+                .toList())
+            .then((value) async {
+          if (value.isEmpty) {
             return Future.value(true);
           }
-          var time = DateTime.now();
-          return Future.wait(fs
-                  .map((img) => manager.compute(path.join(dir.path, img.name))))
-              .then((value) {
-            _downLoader.logger?.d(
-                '${gallery!.id} lost ${value.length} compute time ${DateTime.now().difference(time).inSeconds} ');
-            return Future.wait(value.mapIndexed((index, value) =>
-                _downLoader.helper.insertGalleryFile(gallery!, fs[index],
-                    value.key, value.value))).then((value) => value.fold(
-                true, (previousValue, element) => previousValue && element));
-          });
+          List<MapEntry<String, Map<String, dynamic>>> autoTags =
+              _downLoader.config.aiTagPath.isNotEmpty
+                  ? await autoTagImages()
+                  : [];
+          var missing = value.where((e) => e.value.firstOrNull == null).map(
+              (element) =>
+                  gallery!.files.firstWhere((e) => e.hash == element.key[1]));
+          var lost = missing.isEmpty;
+          if (missing.isNotEmpty) {
+            _downLoader.logger
+                ?.d('fix file missing ${missing.map((e) => e.name).toList()}');
+            lost = await batchInsertImage(missing, autoTags);
+          }
+          missing = value.where((e) => e.value.firstOrNull?['tag'] == 1).map(
+              (element) =>
+                  gallery!.files.firstWhere((e) => e.hash == element.key[1]));
+          if (missing.isNotEmpty && autoTags.isNotEmpty) {
+            _downLoader.logger
+                ?.d('fix tag missing ${missing.map((e) => e.name).toList()}');
+            lost &= await batchInsertImage(missing, autoTags);
+          }
+          return lost;
         });
       }).catchError((e) async {
         _downLoader.logger?.e('scan gallery faild $e');

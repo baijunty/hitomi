@@ -91,16 +91,6 @@ class _TaskWarp {
         return Response.unauthorized('unauth');
       });
     localHitomi = createHitomi(_manager, true, 'http://127.0.0.1:7890');
-    thumbFunctin = (id, hash) => _manager.helper
-        .querySql(
-            'select gf.thumb,gf.name from GalleryFile gf where gf.gid=? and hash=?',
-            [id, hash])
-        .then((value) => value.first)
-        .then((event) => {
-              'name': event['name'],
-              'data': event['thumb'],
-              'length': (event['thumb'] as List<int>?)?.length.toString()
-            });
 
     originFunctin = (id, hash) => _manager.helper
         .querySqlByCursor(
@@ -115,6 +105,19 @@ class _TaskWarp {
             'data': File(path).openRead(),
             'length': File(path).lengthSync().toString()
           };
+        });
+    originFunctin = (id, hash) => _manager.helper
+        .querySqlByCursor(
+            'select gf.name,g.path from Gallery g left join GalleryFile gf on g.id=gf.gid where g.id=? and gf.hash=?',
+            [id, hash])
+        .then((value) => value.first)
+        .then((value) {
+          var path = join(_manager.config.output, value['name']);
+          return _manager.down.manager.compute(path).then((data) => {
+                'name': value['name'],
+                'data': data!,
+                'length': data.length
+              });
         });
   }
 

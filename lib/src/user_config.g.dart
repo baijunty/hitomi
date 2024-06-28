@@ -9,7 +9,7 @@ part of 'user_config.dart';
 _$UserConfigImpl _$$UserConfigImplFromJson(Map<String, dynamic> json) =>
     _$UserConfigImpl(
       json['output'] as String,
-      maxTasks: json['maxTasks'] as int? ?? 5,
+      maxTasks: (json['maxTasks'] as num?)?.toInt() ?? 5,
       languages: (json['languages'] as List<dynamic>?)
               ?.map((e) => e as String)
               .toList() ??
@@ -19,10 +19,11 @@ _$UserConfigImpl _$$UserConfigImplFromJson(Map<String, dynamic> json) =>
               ?.map((e) => FilterLabel.fromJson(e as String))
               .toList() ??
           const [],
-      dateLimit: json['dateLimit'] as String? ?? "1970-01-01",
+      dateLimit: json['dateLimit'] as String? ?? "2013-01-01",
       auth: json['auth'] as String? ?? "12345678",
       logLevel: json['logLevel'] as String? ?? "debug",
       logOutput: json['logOutput'] as String? ?? "",
+      aiTagPath: json['aiTagPath'] as String? ?? "",
       remoteHttp: json['remoteHttp'] as String? ?? "127.0.0.1:7890",
     );
 
@@ -37,5 +38,6 @@ Map<String, dynamic> _$$UserConfigImplToJson(_$UserConfigImpl instance) =>
       'auth': instance.auth,
       'logLevel': instance.logLevel,
       'logOutput': instance.logOutput,
+      'aiTagPath': instance.aiTagPath,
       'remoteHttp': instance.remoteHttp,
     };

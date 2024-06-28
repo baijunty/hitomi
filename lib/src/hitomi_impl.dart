@@ -35,32 +35,27 @@ class _LocalHitomiImpl implements Hitomi {
       int id = 0,
       ThumbnaiSize size = ThumbnaiSize.smaill,
       void Function(int now, int total)? onProcess}) {
+    var origin = _helper.querySql(
+        'select path from Gallery g left join GalleryFile gf on g.id=gf.gid where g.id=? and gf.hash=?',
+        [
+          id,
+          image.hash
+        ]).then((value) =>
+        join(_manager.config.output, value.first['path'], image.name));
     if (size == ThumbnaiSize.origin) {
-      return _helper
-          .querySql(
-              'select path from Gallery g left join GalleryFile gf on g.id=gf.gid where g.id=? and gf.hash=?',
-              [
-                id,
-                image.hash
-              ])
-          .then((value) =>
-              join(_manager.config.output, value.first['path'], image.name))
-          .then((value) {
-            var f = File(value);
-            var length = f.lengthSync();
-            return f.openRead().fold(<int>[], (previous, element) {
-              previous..addAll(element);
-              onProcess?.call(previous.length, length);
-              return previous;
-            });
-          })
-          .catchError((e) => <int>[], test: (error) => true);
+      return origin.then((value) {
+        var f = File(value);
+        var length = f.lengthSync();
+        return f.openRead().fold(<int>[], (previous, element) {
+          previous..addAll(element);
+          onProcess?.call(previous.length, length);
+          return previous;
+        });
+      }).catchError((e) => <int>[], test: (error) => true);
     } else {
-      return _helper
-          .querySql('select thumb from GalleryFile where gid=? and hash=?',
-              [id, image.hash])
-          .then((value) => value.first)
-          .then((value) => value['thumb'] as List<int>)
+      return origin
+          .then((value) => _manager.down.manager.compute(value))
+          .then((value) => value ?? <int>[])
           .catchError((e) => <int>[], test: (error) => true);
     }
   }

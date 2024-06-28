@@ -32,5 +32,6 @@
     "auth": "12345678",
     "logLevel": "debug",
     "logOutput": "",
+    "aiTagPath":"/home/bai/soft/code/autotagger",
     "remoteHttp": "127.0.0.1:7890"
 }

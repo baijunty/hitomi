@@ -24,7 +24,7 @@ class DownLoader {
   final Map<IdentifyToken, DownLoadingMessage> _runningTask =
       <IdentifyToken, DownLoadingMessage>{};
   final SqliteHelper helper;
-  late IsolateManager<MapEntry<int, List<int>?>, String> manager;
+  late IsolateManager<List<int>?, String> manager;
 
   late DateTime limit;
 
@@ -98,15 +98,10 @@ class DownLoader {
                       false) ==
                   false) {
                 return HitomiDir(
-                        msg.file as Directory, this, msg.gallery, manager,
+                        msg.file as Directory, this, msg.gallery,
                         fixFromNet: false)
                     .fixGallery();
               }
-            } else if (msg.target is Image) {
-              return manager.compute(msg.file.path).then((value) {
-                return helper.insertGalleryFile(
-                    msg.gallery, msg.target, value.key, value.value);
-              });
             } else if (msg.target is Gallery) {
               logger?.w('illeagal gallery ${msg.id}');
               return await helper.removeTask(msg.id);
@@ -173,7 +168,7 @@ class DownLoader {
             } else {
               await exists
                   .map((e) => HitomiDir(
-                      e.createDir(config.output), this, e, manager,
+                      e.createDir(config.output), this, e, 
                       fixFromNet: false))
                   .asStream()
                   .asyncMap((event) => event.deleteGallery(
@@ -261,7 +256,7 @@ class DownLoader {
     }
     if (target != null && target.id == id) {
       await HitomiDir(target.createDir(config.output, createDir: false), this,
-              target, manager)
+              target)
           .deleteGallery(reason: 'user delete');
     }
     await helper.removeTask(id, withGaller: true);

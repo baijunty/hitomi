@@ -12,7 +12,7 @@ _$DataResponseImpl<T> _$$DataResponseImplFromJson<T>(
 ) =>
     _$DataResponseImpl<T>(
       fromJsonT(json['data']),
-      totalCount: json['totalCount'] as int? ?? 0,
+      totalCount: (json['totalCount'] as num?)?.toInt() ?? 0,
     );
 
 Map<String, dynamic> _$$DataResponseImplToJson<T>(

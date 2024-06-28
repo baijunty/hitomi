@@ -6,69 +6,29 @@ import 'package:hitomi/gallery/artist.dart';
 import 'package:hitomi/gallery/gallery.dart';
 import 'package:hitomi/gallery/label.dart';
 import 'package:hitomi/lib.dart';
+import 'package:hitomi/src/dir_scanner.dart';
 import 'package:hitomi/src/gallery_util.dart';
 import 'package:hitomi/src/multi_paltform.dart';
-import 'package:sqlite3/common.dart';
 import 'package:test/test.dart';
 
 int count = 10000;
-var config = UserConfig(r'/home/bai/ssd/manga',
-    proxy: '127.0.0.1:8389',
-    languages: ['japanese', 'chinese'],
-    maxTasks: 5,
-    remoteHttp: 'http://127.0.0.1:7890');
+var config = UserConfig.fromStr(File('config.json').readAsStringSync());
 var task = TaskManager(config);
 void main() async {
   test('chapter', () async {
-    await task
-        .getApiDirect()
-        .fetchGallery(2905265)
-        .then((value) => findDuplicateGalleryIds(
-            value, task.helper, task.getApiDirect(),
-            logger: task.logger, reserved: true))
-        .then((value) => print(value));
-    // await task.down.fetchGallerysByTags([
-    //   Artist(artist: 'bizen'),
-    //   Language.japanese,
-    //   Language.chinese,
-    //   TypeLabel('doujinshi'),
-    //   TypeLabel('manga')
-    // ], task.down.filter, CancelToken(), null).then(
-    //     (value) => value.forEach((element) {
-    //           print(element);
-    //         }));
+    // await task
+    //     .getApiDirect()
+    //     .fetchGallery(2905265)
+    //     .then((value) => findDuplicateGalleryIds(
+    //         value, task.helper, task.getApiDirect(),
+    //         logger: task.logger, reserved: true))
+    //     .then((value) => print(value));
+    await readGalleryFromPath('/home/bai/ssd/manga/(ayuma sayu)小悪魔ちゃんのこうげき!')
+        .then((value) =>
+            HitomiDir(value.createDir(config.output), task.down, value))
+        .then((value) => value.fixGallery())
+        .then((r) => print(r));
   }, timeout: Timeout(Duration(minutes: 120)));
-}
-
-Future<bool> copyFromBack(int page) async {
-  print('copy row $page total ${(page + 1) * count}');
-  CommonPreparedStatement? stat;
-  return await task.helper.databaseOpera(
-      'select gft.gid,gft.hash,gft.name,gft.width,gft.height,gft.fileHash,gft.thumb from GalleryFileTemp gft limit $count offset ${page * count}',
-      (stmt) {
-    stat = stmt;
-    return stmt.selectCursor([]);
-  }, releaseOnce: false).then((value) async {
-    while (value.moveNext()) {
-      var element = value.current;
-      await task.helper.excuteSqlAsync(
-          'replace into GalleryFile(gid,hash,name,width,height,fileHash,thumb) values(?,?,?,?,?,?,?)',
-          [
-            element['gid'],
-            element['hash'],
-            element['name'],
-            element['width'],
-            element['height'],
-            element['fileHash'],
-            element['thumb']
-          ]);
-    }
-    print('insert complete');
-    return true;
-  }).catchError((e) {
-    print(e);
-    return false;
-  }, test: (error) => true).whenComplete(() => stat?.dispose());
 }
 
 Future readIdFromFile() async {

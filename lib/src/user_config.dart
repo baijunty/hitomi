@@ -18,6 +18,7 @@ class UserConfig with _$UserConfig {
     @Default("12345678") String auth,
     @Default("debug") String logLevel,
     @Default("") String logOutput,
+    @Default("") String aiTagPath,
     @Default("127.0.0.1:7890") String remoteHttp,
   }) = _UserConfig;
   factory UserConfig.fromJson(Map<String, Object> json) =>

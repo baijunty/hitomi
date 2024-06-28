@@ -29,6 +29,7 @@ mixin _$UserConfig {
   String get auth => throw _privateConstructorUsedError;
   String get logLevel => throw _privateConstructorUsedError;
   String get logOutput => throw _privateConstructorUsedError;
+  String get aiTagPath => throw _privateConstructorUsedError;
   String get remoteHttp => throw _privateConstructorUsedError;
 
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -53,6 +54,7 @@ abstract class $UserConfigCopyWith<$Res> {
       String auth,
       String logLevel,
       String logOutput,
+      String aiTagPath,
       String remoteHttp});
 }
 
@@ -78,6 +80,7 @@ class _$UserConfigCopyWithImpl<$Res, $Val extends UserConfig>
     Object? auth = null,
     Object? logLevel = null,
     Object? logOutput = null,
+    Object? aiTagPath = null,
     Object? remoteHttp = null,
   }) {
     return _then(_value.copyWith(
@@ -117,6 +120,10 @@ class _$UserConfigCopyWithImpl<$Res, $Val extends UserConfig>
           ? _value.logOutput
           : logOutput // ignore: cast_nullable_to_non_nullable
               as String,
+      aiTagPath: null == aiTagPath
+          ? _value.aiTagPath
+          : aiTagPath // ignore: cast_nullable_to_non_nullable
+              as String,
       remoteHttp: null == remoteHttp
           ? _value.remoteHttp
           : remoteHttp // ignore: cast_nullable_to_non_nullable
@@ -143,6 +150,7 @@ abstract class _$$UserConfigImplCopyWith<$Res>
       String auth,
       String logLevel,
       String logOutput,
+      String aiTagPath,
       String remoteHttp});
 }
 
@@ -166,6 +174,7 @@ class __$$UserConfigImplCopyWithImpl<$Res>
     Object? auth = null,
     Object? logLevel = null,
     Object? logOutput = null,
+    Object? aiTagPath = null,
     Object? remoteHttp = null,
   }) {
     return _then(_$UserConfigImpl(
@@ -205,6 +214,10 @@ class __$$UserConfigImplCopyWithImpl<$Res>
           ? _value.logOutput
           : logOutput // ignore: cast_nullable_to_non_nullable
               as String,
+      aiTagPath: null == aiTagPath
+          ? _value.aiTagPath
+          : aiTagPath // ignore: cast_nullable_to_non_nullable
+              as String,
       remoteHttp: null == remoteHttp
           ? _value.remoteHttp
           : remoteHttp // ignore: cast_nullable_to_non_nullable
@@ -221,10 +234,11 @@ class _$UserConfigImpl implements _UserConfig {
       final List<String> languages = const ["japanese", "chinese"],
       this.proxy = "",
       final List<FilterLabel> excludes = const [],
-      this.dateLimit = "1970-01-01",
+      this.dateLimit = "2013-01-01",
       this.auth = "12345678",
       this.logLevel = "debug",
       this.logOutput = "",
+      this.aiTagPath = "",
       this.remoteHttp = "127.0.0.1:7890"})
       : _languages = languages,
         _excludes = excludes;
@@ -272,11 +286,14 @@ class _$UserConfigImpl implements _UserConfig {
   final String logOutput;
   @override
   @JsonKey()
+  final String aiTagPath;
+  @override
+  @JsonKey()
   final String remoteHttp;
 
   @override
   String toString() {
-    return 'UserConfig(output: $output, maxTasks: $maxTasks, languages: $languages, proxy: $proxy, excludes: $excludes, dateLimit: $dateLimit, auth: $auth, logLevel: $logLevel, logOutput: $logOutput, remoteHttp: $remoteHttp)';
+    return 'UserConfig(output: $output, maxTasks: $maxTasks, languages: $languages, proxy: $proxy, excludes: $excludes, dateLimit: $dateLimit, auth: $auth, logLevel: $logLevel, logOutput: $logOutput, aiTagPath: $aiTagPath, remoteHttp: $remoteHttp)';
   }
 
   @override
@@ -298,6 +315,8 @@ class _$UserConfigImpl implements _UserConfig {
                 other.logLevel == logLevel) &&
             (identical(other.logOutput, logOutput) ||
                 other.logOutput == logOutput) &&
+            (identical(other.aiTagPath, aiTagPath) ||
+                other.aiTagPath == aiTagPath) &&
             (identical(other.remoteHttp, remoteHttp) ||
                 other.remoteHttp == remoteHttp));
   }
@@ -315,6 +334,7 @@ class _$UserConfigImpl implements _UserConfig {
       auth,
       logLevel,
       logOutput,
+      aiTagPath,
       remoteHttp);
 
   @JsonKey(ignore: true)
@@ -341,6 +361,7 @@ abstract class _UserConfig implements UserConfig {
       final String auth,
       final String logLevel,
       final String logOutput,
+      final String aiTagPath,
       final String remoteHttp}) = _$UserConfigImpl;
 
   factory _UserConfig.fromJson(Map<String, dynamic> json) =
@@ -364,6 +385,8 @@ abstract class _UserConfig implements UserConfig {
   String get logLevel;
   @override
   String get logOutput;
+  @override
+  String get aiTagPath;
   @override
   String get remoteHttp;
   @override
