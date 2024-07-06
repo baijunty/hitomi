@@ -999,7 +999,7 @@ class WebHitomi implements Hitomi {
       ThumbnaiSize size = ThumbnaiSize.smaill,
       void Function(int now, int total)? onProcess}) {
     return dio
-        .post<List<int>>('$bashHttp/proxy/fetchImageData',
+        .get<List<int>>('$bashHttp/fetchImageData',
             queryParameters: {
               'hash': image.hash,
               'name': image.name,
@@ -1008,9 +1008,6 @@ class WebHitomi implements Hitomi {
               'id': id,
               'local': localDb
             },
-            data: json.encode({
-              'auth': auth,
-            }),
             options: Options(responseType: ResponseType.bytes),
             onReceiveProgress: onProcess)
         .then((value) => value.data!);

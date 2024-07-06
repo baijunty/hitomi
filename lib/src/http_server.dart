@@ -24,10 +24,6 @@ final defaultRespHeader = {
 class _TaskWarp {
   final TaskManager _manager;
   final Router router = Router();
-  late Future<Map<String, dynamic>?> Function(String id, String hash)
-      thumbFunctin;
-  late Future<Map<String, dynamic>?> Function(String id, String hash)
-      originFunctin;
   late Hitomi localHitomi;
   _TaskWarp(this._manager) {
     router
@@ -48,16 +44,9 @@ class _TaskWarp {
       ..post('/proxy/<method>', _proxy)
       ..options('/proxy/<method>',
           (req) => Response.ok(null, headers: defaultRespHeader))
-      ..get('/thumb/<gid>/<hash>', _thumb)
+      ..get('/fetchImageData', _image)
       ..options(
-          '/thumb/<gid>/<hash>',
-          (req) => Response.ok(null, headers: {
-                ...defaultRespHeader,
-                HttpHeaders.contentTypeHeader: 'application/octet-stream'
-              }))
-      ..get('/image/<gid>/<hash>', _image)
-      ..options(
-          '/image/<gid>/<hash>',
+          '/fetchImageData',
           (req) => Response.ok(null, headers: {
                 ...defaultRespHeader,
                 HttpHeaders.contentTypeHeader: 'application/octet-stream'
@@ -91,34 +80,6 @@ class _TaskWarp {
         return Response.unauthorized('unauth');
       });
     localHitomi = createHitomi(_manager, true, 'http://127.0.0.1:7890');
-
-    originFunctin = (id, hash) => _manager.helper
-        .querySqlByCursor(
-            'select gf.name,g.path from Gallery g left join GalleryFile gf on g.id=gf.gid where g.id=? and gf.hash=?',
-            [id, hash])
-        .then((value) => value.first)
-        .then((event) async {
-          String fileName = event['name'];
-          String path = join(_manager.config.output, event['path'], fileName);
-          return {
-            'name': fileName,
-            'data': File(path).openRead(),
-            'length': File(path).lengthSync().toString()
-          };
-        });
-    originFunctin = (id, hash) => _manager.helper
-        .querySqlByCursor(
-            'select gf.name,g.path from Gallery g left join GalleryFile gf on g.id=gf.gid where g.id=? and gf.hash=?',
-            [id, hash])
-        .then((value) => value.first)
-        .then((value) {
-          var path = join(_manager.config.output, value['name']);
-          return _manager.down.manager.compute(path).then((data) => {
-                'name': value['name'],
-                'data': data!,
-                'length': data.length
-              });
-        });
   }
 
   Future<Response> _optionsOk(Request req) async {
@@ -199,47 +160,6 @@ class _TaskWarp {
                     json.encode(value.toJson((p1) => p1)),
                     headers: defaultRespHeader));
           }
-        case 'fetchImageData':
-          {
-            var id = req.url.queryParameters['id'];
-            var hash = req.url.queryParameters['hash'];
-            var name = req.url.queryParameters['name'];
-            var size = req.url.queryParameters['size'];
-            var local = req.url.queryParameters['local'] == 'true';
-            if (id == null ||
-                (hash?.length ?? 0) != 64 ||
-                size == null ||
-                name == null) {
-              _manager.logger.d('$id $hash $name $size $local');
-              return Response.badRequest();
-            }
-            var before = req.headers['If-None-Match'];
-            if (before != null && before == hash) {
-              return Response.notModified();
-            }
-            return _manager
-                .getApiDirect(local: local)
-                .fetchImageData(
-                    Image(
-                        hash: hash!,
-                        hasavif: 0,
-                        width: 0,
-                        haswebp: 0,
-                        name: name,
-                        height: 0),
-                    refererUrl: req.url.queryParameters['referer'] ?? '',
-                    size: ThumbnaiSize.values
-                        .firstWhere((element) => element.name == size),
-                    id: int.parse(id))
-                .then((value) => Response.ok(value, headers: {
-                      ...defaultRespHeader,
-                      HttpHeaders.cacheControlHeader: 'public, max-age=259200',
-                      HttpHeaders.etagHeader: hash,
-                      HttpHeaders.contentTypeHeader:
-                          'image/${extension(name).substring(1)}',
-                      HttpHeaders.contentLengthHeader: value.length.toString(),
-                    }));
-          }
         default:
           {
             _manager.logger.d('method $method');
@@ -287,61 +207,44 @@ class _TaskWarp {
     return Response.notFound(null);
   }
 
-  Future<Response> _thumb(Request req) async {
-    var hash = req.params['hash'] ?? '';
-    var id = req.params['gid']!;
-    var size = req.url.queryParameters['size'] ?? 'medium';
-    if (req.url.queryParameters['local'] == '1') {
-      return _loadImageInner(
-          id, hash, req.headers['If-None-Match'], thumbFunctin);
+  Future<Response> _image(Request req) async {
+    var id = req.url.queryParameters['id'];
+    var hash = req.url.queryParameters['hash'];
+    var name = req.url.queryParameters['name'];
+    var size = req.url.queryParameters['size'];
+    var local = req.url.queryParameters['local'] == 'true';
+    if (id == null ||
+        (hash?.length ?? 0) != 64 ||
+        size == null ||
+        name == null) {
+      _manager.logger.d('$id $hash $name $size $local');
+      return Response.badRequest();
+    }
+    var before = req.headers['If-None-Match'];
+    if (before != null && before == hash) {
+      return Response.notModified();
     }
     return _manager
-        .getApiDirect()
+        .getApiDirect(local: local)
         .fetchImageData(
             Image(
-                hash: hash,
+                hash: hash!,
                 hasavif: 0,
                 width: 0,
-                height: 0,
                 haswebp: 0,
-                name: ''),
+                name: name,
+                height: 0),
+            refererUrl: req.url.queryParameters['referer'] ?? '',
             size: ThumbnaiSize.values
                 .firstWhere((element) => element.name == size),
-            refererUrl: 'https://hitomi.la/doujinshi/test-$id.html')
+            id: int.parse(id))
         .then((value) => Response.ok(value, headers: {
               ...defaultRespHeader,
-              HttpHeaders.contentTypeHeader: 'image/webp',
               HttpHeaders.cacheControlHeader: 'public, max-age=259200',
-              HttpHeaders.contentLengthHeader: value.length.toString(),
               HttpHeaders.etagHeader: hash,
-            }));
-  }
-
-  Future<Response> _image(Request req) async {
-    var hash = req.params['hash'] ?? '';
-    var id = req.params['gid']!;
-    if (req.url.queryParameters['local'] == '1') {
-      return _loadImageInner(req.params['gid']!, hash,
-          req.headers['If-None-Match'], originFunctin);
-    }
-    return _manager
-        .getApiDirect()
-        .fetchImageData(
-            Image(
-                hash: hash,
-                hasavif: 0,
-                width: 0,
-                height: 0,
-                haswebp: 0,
-                name: ''),
-            size: ThumbnaiSize.origin,
-            refererUrl: 'https://hitomi.la/doujinshi/test-$id.html')
-        .then((value) => Response.ok(value, headers: {
-              ...defaultRespHeader,
-              HttpHeaders.contentTypeHeader: 'image/webp',
-              HttpHeaders.cacheControlHeader: 'public, max-age=259200',
+              HttpHeaders.contentTypeHeader:
+                  'image/${extension(name).substring(1)}',
               HttpHeaders.contentLengthHeader: value.length.toString(),
-              HttpHeaders.etagHeader: hash,
             }));
   }
 

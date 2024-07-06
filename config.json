@@ -30,7 +30,7 @@
     ],
     "dateLimit": "2013-01-01",
     "auth": "12345678",
-    "logLevel": "debug",
+    "logLevel": "warning",
     "logOutput": "",
     "aiTagPath":"/home/bai/soft/code/autotagger",
     "remoteHttp": "127.0.0.1:7890"
