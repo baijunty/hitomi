@@ -17,4 +17,4 @@ select g.id from  Gallery g,json_each(g.artist) ja left join GalleryFile gf on g
 select gf.thumb,gf.name,gf.gid from GalleryFile gf where gid=508271 and hash='0f4cda8385ff5e27b49360e87141d4ef11b4821cfbee3577d1e76c1355478d0f'
 select COUNT(*) OVER() AS total_count,g.* from Gallery g where g.title like '%%'  order by date desc limit 25 offset 0
 select COUNT(*) OVER() AS total_count,id from Gallery where  (  json_value_contains(language,?,?)=1  or  json_value_contains(language,?,?)=1  ) and 1=1 limit 25 offset 0
-select * from GalleryFile where gid=1468177
+select * from GalleryFile where gid=1064421

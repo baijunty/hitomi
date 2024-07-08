@@ -92,7 +92,7 @@ class TaskManager {
             printTime: false,
             noBoxingByDefault: true));
     _manager = IsolateManager<List<int>?, String>.create(_compressRunner,
-        concurrent: config.maxTasks);
+        concurrent: Platform.numberOfProcessors);
     helper = SqliteHelper(config.output, logger: logger);
     dio.httpClientAdapter = crateHttpClientAdapter(config.proxy);
     _api = createHitomi(this, false, config.remoteHttp);

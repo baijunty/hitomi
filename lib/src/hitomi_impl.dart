@@ -856,7 +856,9 @@ class _HitomiImpl implements Hitomi {
     if (_timer == null) {
       await initData();
       _timer = Timer.periodic(
-          Duration(minutes: 30), (timer) async => await initData());
+          Duration(minutes: 30),
+          (timer) => initData()
+              .catchError((e) => logger?.e(e), test: (error) => true));
     }
   }
 

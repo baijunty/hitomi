@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:collection/collection.dart';
 import 'package:image/image.dart';
@@ -14,6 +15,18 @@ Future<int> imageHash(Uint8List data,
   final bits = hash.hash(image!).foldIndexed<int>(
       0, (index, acc, element) => acc |= element ? 1 << (63 - index) : 0);
   return bits;
+}
+
+Future<int> imageFileHash(File file,
+    {ImageHash hash = ImageHash.AHash,
+    Interpolation interpolation = Interpolation.average}) async {
+  if (file.existsSync()) {
+    return file
+        .readAsBytes()
+        .then((data) => imageHash(data))
+        .catchError((e) => 0, test: (error) => true);
+  }
+  return 0;
 }
 
 Future<Uint8List?> resizeThumbImage(Uint8List data, int width,

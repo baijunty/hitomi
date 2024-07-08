@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:math';
 
 import 'package:collection/collection.dart';
@@ -97,14 +98,19 @@ class DownLoader {
                           ?.isCancelled ??
                       false) ==
                   false) {
-                return HitomiDir(
-                        msg.file as Directory, this, msg.gallery,
+                return HitomiDir(msg.file as Directory, this, msg.gallery,
                         fixFromNet: false)
                     .fixGallery();
               }
             } else if (msg.target is Gallery) {
               logger?.w('illeagal gallery ${msg.id}');
               return await helper.removeTask(msg.id);
+            } else if (msg.target is Image) {
+              return (config.aiTagPath.isNotEmpty? autoTagImages('${config.aiTagPath}/autotag', config.aiTagPath,
+                  msg.file.path) : Future.value(<MapEntry<String, Map<String, dynamic>>>[])).then((l) async{
+                    var hashValue=await imageFileHash(msg.file as File);
+                    return helper.insertGalleryFile(msg.gallery, msg.target, hashValue, l.firstOrNull?.value);
+                  });
             }
           }
         case DownLoadingMessage():
@@ -121,6 +127,26 @@ class DownLoader {
       return useHandle ?? true;
     };
     api.registerCallBack(handle);
+  }
+
+  Future<List<MapEntry<String, Map<String, dynamic>>>> autoTagImages(
+      String tagPath, String workPath, String filePath) async {
+    return Isolate.run(() =>
+        Process.run(tagPath, workingDirectory: workPath, [filePath])
+            .then((r) => r.stdout as String)
+            .then((s) {
+          var r = s
+              .split('\n')
+              .where((s) => s.isNotEmpty)
+              .map((s) => json.decode(s) as Map<String, dynamic>)
+              .fold(
+                  <MapEntry<String, Map<String, dynamic>>>[],
+                  (list, m) => list
+                    ..add(MapEntry(
+                        m['filename'], m['tags'] as Map<String, dynamic>)));
+          return r;
+        }).catchError((e) => <MapEntry<String, Map<String, dynamic>>>[],
+                test: (error) => true));
   }
 
   Future<bool> _findUnCompleteGallery(Gallery gallery, Directory newDir) async {
@@ -167,8 +193,7 @@ class DownLoader {
               exists[0].createDir(config.output).renameSync(newDir.path);
             } else {
               await exists
-                  .map((e) => HitomiDir(
-                      e.createDir(config.output), this, e, 
+                  .map((e) => HitomiDir(e.createDir(config.output), this, e,
                       fixFromNet: false))
                   .asStream()
                   .asyncMap((event) => event.deleteGallery(
@@ -255,8 +280,8 @@ class DownLoader {
       }
     }
     if (target != null && target.id == id) {
-      await HitomiDir(target.createDir(config.output, createDir: false), this,
-              target)
+      await HitomiDir(
+              target.createDir(config.output, createDir: false), this, target)
           .deleteGallery(reason: 'user delete');
     }
     await helper.removeTask(id, withGaller: true);

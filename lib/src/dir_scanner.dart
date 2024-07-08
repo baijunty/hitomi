@@ -292,24 +292,6 @@ class HitomiDir {
         .then((v) => v);
   }
 
-  Future<List<MapEntry<String, Map<String, dynamic>>>> autoTagImages() async {
-    return await Process.run(
-        '${_downLoader.config.aiTagPath}/autotag',
-        workingDirectory: _downLoader.config.aiTagPath,
-        [dir.path]).then((r) => r.stdout as String).then((s) {
-      var r = s
-          .split('\n')
-          .where((s) => s.isNotEmpty)
-          .map((s) => json.decode(s) as Map<String, dynamic>)
-          .fold(
-              <MapEntry<String, Map<String, dynamic>>>[],
-              (list, m) => list
-                ..add(MapEntry(
-                    m['filename'], m['tags'] as Map<String, dynamic>)));
-      return r;
-    });
-  }
-
   Future<bool> fixGallery() async {
     if (gallery != null) {
       if (!_downLoader.filter(gallery!)) {
@@ -338,20 +320,29 @@ class HitomiDir {
           }
           List<MapEntry<String, Map<String, dynamic>>> autoTags =
               _downLoader.config.aiTagPath.isNotEmpty
-                  ? await autoTagImages()
+                  ? await _downLoader.autoTagImages(
+                      '${_downLoader.config.aiTagPath}/autotag',
+                      _downLoader.config.aiTagPath,
+                      dir.path)
                   : [];
-          var missing = value.where((e) => e.value.firstOrNull == null).map(
-              (element) =>
-                  gallery!.files.firstWhere((e) => e.hash == element.key[1]));
+          var missing = value
+              .where((e) => e.value.firstOrNull == null)
+              .map((element) =>
+                  gallery!.files.firstWhere((e) => e.hash == element.key[1]))
+              .toList();
           var lost = missing.isEmpty;
           if (missing.isNotEmpty) {
             _downLoader.logger
                 ?.d('fix file missing ${missing.map((e) => e.name).toList()}');
             lost = await batchInsertImage(missing, autoTags);
           }
-          missing = value.where((e) => e.value.firstOrNull?['tag'] == 1).map(
-              (element) =>
-                  gallery!.files.firstWhere((e) => e.hash == element.key[1]));
+          missing = value
+              .where((e) =>
+                  missing.every((miss) => miss.hash != e.key[1]) &&
+                  e.value.firstOrNull?['tag'] == 1)
+              .map((element) =>
+                  gallery!.files.firstWhere((e) => e.hash == element.key[1]))
+              .toList();
           if (missing.isNotEmpty && autoTags.isNotEmpty) {
             _downLoader.logger
                 ?.d('fix tag missing ${missing.map((e) => e.name).toList()}');
