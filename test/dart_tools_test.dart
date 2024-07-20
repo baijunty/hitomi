@@ -6,7 +6,6 @@ import 'package:hitomi/gallery/artist.dart';
 import 'package:hitomi/gallery/gallery.dart';
 import 'package:hitomi/gallery/label.dart';
 import 'package:hitomi/lib.dart';
-import 'package:hitomi/src/dir_scanner.dart';
 import 'package:hitomi/src/gallery_util.dart';
 import 'package:hitomi/src/multi_paltform.dart';
 import 'package:test/test.dart';
@@ -23,11 +22,6 @@ void main() async {
     //         value, task.helper, task.getApiDirect(),
     //         logger: task.logger, reserved: true))
     //     .then((value) => print(value));
-    await readGalleryFromPath('/home/bai/ssd/manga/(ayuma sayu)小悪魔ちゃんのこうげき!')
-        .then((value) =>
-            HitomiDir(value.createDir(config.output), task.down, value))
-        .then((value) => value.fixGallery())
-        .then((r) => print(r));
   }, timeout: Timeout(Duration(minutes: 120)));
 }
 

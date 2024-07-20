@@ -262,7 +262,7 @@ class HitomiDir {
               event.deleteGallery(reason: 'compare exists ${left.id}'))
           .fold(true, (previous, element) => previous && element);
     } else {
-      return deleteGallery();
+      return deleteGallery(reason: 'exist better ${left.id}');
     }
   }
 
@@ -332,8 +332,8 @@ class HitomiDir {
               .toList();
           var lost = missing.isEmpty;
           if (missing.isNotEmpty) {
-            _downLoader.logger
-                ?.d('fix file missing ${missing.map((e) => e.name).toList()}');
+            _downLoader.logger?.d(
+                '${gallery} fix file missing ${missing.map((e) => e.name).toList()}');
             lost = await batchInsertImage(missing, autoTags);
           }
           missing = value
@@ -344,15 +344,15 @@ class HitomiDir {
                   gallery!.files.firstWhere((e) => e.hash == element.key[1]))
               .toList();
           if (missing.isNotEmpty && autoTags.isNotEmpty) {
-            _downLoader.logger
-                ?.d('fix tag missing ${missing.map((e) => e.name).toList()}');
+            _downLoader.logger?.d(
+                '${gallery} fix tag missing ${missing.map((e) => e.name).toList()}');
             lost &= await batchInsertImage(missing, autoTags);
           }
           return lost;
         });
       }).catchError((e) async {
         _downLoader.logger?.e('scan gallery faild $e');
-        await deleteGallery();
+        await deleteGallery(reason: 'error $e');
         return false;
       }, test: (error) => true);
     } else {
