@@ -11,7 +11,6 @@ import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart';
 import 'package:shelf_router/shelf_router.dart';
 import 'package:shelf_static/shelf_static.dart';
-import 'package:tuple/tuple.dart';
 
 final defaultRespHeader = {
   HttpHeaders.accessControlAllowOriginHeader: '*',
@@ -73,7 +72,7 @@ class _TaskWarp {
       })
       ..post('/excludes', (req) async {
         var succ = await _authToken(req);
-        if (succ.item1) {
+        if (succ.key) {
           return Response.ok(json.encode(_manager.config.excludes),
               headers: defaultRespHeader);
         }
@@ -101,7 +100,7 @@ class _TaskWarp {
   Future<Response> _proxy(Request req) async {
     final task = await _authToken(req);
     final method = req.params['method'];
-    if (task.item1 && method?.isNotEmpty == true) {
+    if (task.key && method?.isNotEmpty == true) {
       switch (method!) {
         case 'fetchGallery':
           {
@@ -115,13 +114,13 @@ class _TaskWarp {
           }
         case 'search':
           {
-            List<dynamic> tags = task.item2['include'];
-            List<dynamic>? exclude = task.item2['excludes'];
-            var querySort = task.item2['sort'];
+            List<dynamic> tags = task.value['include'];
+            List<dynamic>? exclude = task.value['excludes'];
+            var querySort = task.value['sort'];
             SortEnum sort = SortEnum.values
                     .firstWhereOrNull((element) => element.name == querySort) ??
                 SortEnum.Default;
-            return (task.item2['local'] == true
+            return (task.value['local'] == true
                     ? localHitomi
                     : _manager.getApiDirect())
                 .search(_mapFromRequest(tags),
@@ -129,30 +128,30 @@ class _TaskWarp {
                         ? _mapFromRequest(exclude)
                         : _manager.config.excludes,
                     sort: sort,
-                    page: task.item2['page'] ?? 1)
+                    page: task.value['page'] ?? 1)
                 .then((value) => Response.ok(
                     json.encode(value.toJson((p1) => p1)),
                     headers: defaultRespHeader));
           }
         case 'viewByTag':
           {
-            List<dynamic> tags = task.item2['tags'];
-            var querySort = task.item2['sort'];
+            List<dynamic> tags = task.value['tags'];
+            var querySort = task.value['sort'];
             SortEnum? sort = SortEnum.values
                 .firstWhereOrNull((element) => element.name == querySort);
-            return (task.item2['local'] == true
+            return (task.value['local'] == true
                     ? localHitomi
                     : _manager.getApiDirect())
                 .viewByTag(_mapFromRequest(tags).first,
-                    page: task.item2['page'] ?? 1, sort: sort)
+                    page: task.value['page'] ?? 1, sort: sort)
                 .then((value) => Response.ok(
                     json.encode(value.toJson((p1) => p1)),
                     headers: defaultRespHeader));
           }
         case 'findSimilar':
           {
-            String string = task.item2['gallery'];
-            return (task.item2['local'] == true
+            String string = task.value['gallery'];
+            return (task.value['local'] == true
                     ? localHitomi
                     : _manager.getApiDirect())
                 .findSimilarGalleryBySearch(Gallery.fromJson(string))
@@ -170,41 +169,13 @@ class _TaskWarp {
     return Response.unauthorized('unauth');
   }
 
-  Future<Tuple2<bool, Map<String, dynamic>>> _authToken(Request req) async {
+  Future<MapEntry<bool, Map<String, dynamic>>> _authToken(Request req) async {
     var posted = await req.readAsString();
     if (posted.isNotEmpty) {
       Map<String, dynamic> body = json.decode(posted);
-      return Tuple2(body['auth'] == _manager.config.auth, body);
+      return MapEntry(body['auth'] == _manager.config.auth, body);
     }
-    return Tuple2(false, Map());
-  }
-
-  Future<Response> _loadImageInner<T>(
-      String id,
-      String? hash,
-      String? before,
-      Future<Map<String, dynamic>?> Function(String id, String hash)
-          fetch) async {
-    if (hash == null || hash.length != 64) {
-      return Response.badRequest();
-    }
-    if (before != null && before == hash) {
-      return Response.notModified();
-    }
-    var data =
-        await fetch(id, hash).catchError((e) => null, test: ((error) => true));
-    if (data != null) {
-      var fileName = data['name'];
-      return Response.ok(data['data'], headers: {
-        ...defaultRespHeader,
-        HttpHeaders.contentLengthHeader: data['length'],
-        HttpHeaders.contentTypeHeader:
-            'image/${extension(fileName).substring(1)}',
-        HttpHeaders.cacheControlHeader: 'public, max-age=259200',
-        HttpHeaders.etagHeader: hash,
-      });
-    }
-    return Response.notFound(null);
+    return MapEntry(false, Map());
   }
 
   Future<Response> _image(Request req) async {
@@ -250,8 +221,8 @@ class _TaskWarp {
 
   Future<Response> _translate(Request req) async {
     final task = await _authToken(req);
-    if (task.item1) {
-      Set<Label> keys = (task.item2['tags'] as List<dynamic>)
+    if (task.key) {
+      Set<Label> keys = (task.value['tags'] as List<dynamic>)
           .map((e) =>
               (e is Map<String, dynamic>) ? e : (json.decode(e.toString())))
           .map((e) => fromString(e['type'], e['name']))
@@ -271,8 +242,8 @@ class _TaskWarp {
     final task = await _authToken(req);
     final ip = req.headers['x-real-ip'] ?? '';
     _manager.logger.d('real ip $ip');
-    if (task.item1 && (ip.isEmpty || ip.startsWith('192.168'))) {
-      _manager.parseCommandAndRun(task.item2['task']);
+    if (task.key && (ip.isEmpty || ip.startsWith('192.168'))) {
+      _manager.parseCommandAndRun(task.value['task']);
       return Response.ok(json.encode({'success': true}),
           headers: defaultRespHeader);
     }
@@ -281,7 +252,7 @@ class _TaskWarp {
 
   Future<Response> _listTask(Request req) async {
     final task = await _authToken(req);
-    if (task.item1) {
+    if (task.key) {
       Map<String, dynamic> r = await _manager.parseCommandAndRun('-l');
       r['success'] = true;
       return Response.ok(json.encode(r), headers: defaultRespHeader);
@@ -291,8 +262,8 @@ class _TaskWarp {
 
   Future<Response> _checkId(Request req) async {
     final task = await _authToken(req);
-    if (task.item1) {
-      int id = task.item2['id'];
+    if (task.key) {
+      int id = task.value['id'];
       return _manager
           .checkExistsId(id)
           .then((value) => {'id': id, 'value': value})
@@ -308,7 +279,7 @@ class _TaskWarp {
       return Response.badRequest();
     }
     final task = await _authToken(req);
-    if (task.item1) {
+    if (task.key) {
       return localHitomi.fetchSuggestions(key).then((value) =>
           Response.ok(json.encode(value), headers: defaultRespHeader));
     }
@@ -319,8 +290,8 @@ class _TaskWarp {
     final task = await _authToken(req);
     final ip = req.headers['x-real-ip'] ?? '';
     _manager.logger.d('real ip $ip');
-    if (task.item1 && (ip.isEmpty || ip.startsWith('192.168'))) {
-      return _manager.parseCommandAndRun('-p ${task.item2['id']}').then(
+    if (task.key && (ip.isEmpty || ip.startsWith('192.168'))) {
+      return _manager.parseCommandAndRun('-p ${task.value['id']}').then(
           (value) => Response.ok(json.encode({'success': value}),
               headers: defaultRespHeader));
     }
@@ -331,8 +302,8 @@ class _TaskWarp {
     final task = await _authToken(req);
     final ip = req.headers['x-real-ip'] ?? '';
     _manager.logger.d('real ip $ip');
-    if (task.item1 && (ip.isEmpty || ip.startsWith('192.168'))) {
-      return _manager.parseCommandAndRun('-d ${task.item2['id']}').then(
+    if (task.key && (ip.isEmpty || ip.startsWith('192.168'))) {
+      return _manager.parseCommandAndRun('-d ${task.value['id']}').then(
           (value) => Response.ok(json.encode({'success': value}),
               headers: defaultRespHeader));
     }
@@ -343,8 +314,8 @@ class _TaskWarp {
     final task = await _authToken(req);
     final ip = req.headers['x-real-ip'] ?? '';
     _manager.logger.d('real ip $ip');
-    if (task.item1 && (ip.isEmpty || ip.startsWith('192.168'))) {
-      return (task.item2['mask'] as List<dynamic>)
+    if (task.key && (ip.isEmpty || ip.startsWith('192.168'))) {
+      return (task.value['mask'] as List<dynamic>)
           .asStream()
           .asyncMap((event) => _manager.parseCommandAndRun('--admark ${event}'))
           .fold(true, (previous, element) => previous && element)

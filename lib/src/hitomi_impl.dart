@@ -9,7 +9,6 @@ import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/gallery_util.dart';
 import 'package:logger/logger.dart';
 import 'package:path/path.dart';
-import 'package:tuple/tuple.dart';
 import 'package:collection/collection.dart';
 import '../gallery/gallery.dart';
 import 'package:crypto/crypto.dart';
@@ -669,13 +668,13 @@ class _HitomiImpl implements Hitomi {
   }
 
   Future<List<Label>> _fetchTagData(
-      Tuple2<int, int> tuple, CancelToken? token) async {
+      MapEntry<int, int> tuple, CancelToken? token) async {
     await checkInit();
     final url = 'https://ltn.hitomi.la/tagindex/global.$tag_index_version.data';
     return await _dio
         .httpInvoke<List<int>>(url,
             headers: buildRequestHeader(url, 'https://hitomi.la/',
-                range: MapEntry(tuple.item1, tuple.item1 + tuple.item2 - 1)),
+                range: MapEntry(tuple.key, tuple.key + tuple.value - 1)),
             token: token)
         .then((value) {
       final view = _DataView(value);
@@ -703,7 +702,7 @@ class _HitomiImpl implements Hitomi {
     });
   }
 
-  Future<Tuple2<int, int>> _fetchQuery(
+  Future<MapEntry<int, int>> _fetchQuery(
       String url, String word, CancelToken? token) async {
     await checkInit();
     logger?.d('$url with $word');
@@ -713,23 +712,23 @@ class _HitomiImpl implements Hitomi {
         .then((value) => _netBTreeSearch(url, value, hash, token));
   }
 
-  Future<Tuple2<int, int>> _netBTreeSearch(
+  Future<MapEntry<int, int>> _netBTreeSearch(
       String url, _Node node, List<int> hashKey, CancelToken? token) async {
-    var tuple = Tuple2(false, node.keys.length);
+    var tuple = MapEntry(false, node.keys.length);
     for (var i = 0; i < node.keys.length; i++) {
       var v = hashKey.compareTo(node.keys[i]);
       if (v <= 0) {
-        tuple = Tuple2(v == 0, i);
+        tuple = MapEntry(v == 0, i);
         break;
       }
     }
-    if (tuple.item1) {
-      return node.datas[tuple.item2];
+    if (tuple.key) {
+      return node.datas[tuple.value];
     } else if (node.subnode_addresses.any((element) => element != 0) &&
-        node.subnode_addresses[tuple.item2] != 0) {
+        node.subnode_addresses[tuple.value] != 0) {
       return _netBTreeSearch(
           url,
-          await _fetchNode(url, start: node.subnode_addresses[tuple.item2]),
+          await _fetchNode(url, start: node.subnode_addresses[tuple.value]),
           hashKey,
           token);
     }
@@ -737,14 +736,14 @@ class _HitomiImpl implements Hitomi {
   }
 
   Future<List<int>> _fetchData(
-      Tuple2<int, int> tuple, CancelToken? token) async {
+      MapEntry<int, int> tuple, CancelToken? token) async {
     await checkInit();
     final url =
         'https://ltn.hitomi.la/galleriesindex/galleries.${galleries_index_version}.data';
     return await _dio
         .httpInvoke<List<int>>(url,
             headers: buildRequestHeader(url, 'https://hitomi.la/',
-                range: MapEntry(tuple.item1, tuple.item1 + tuple.item2 - 1)),
+                range: MapEntry(tuple.key, tuple.key + tuple.value - 1)),
             token: token)
         .then((value) {
       final view = _DataView(value);
@@ -906,7 +905,7 @@ class _HitomiImpl implements Hitomi {
 
 class _Node {
   List<List<int>> keys = [];
-  List<Tuple2<int, int>> datas = [];
+  List<MapEntry<int, int>> datas = [];
   List<int> subnode_addresses = [];
   _Node.parse(List<int> data) {
     final dataView = _DataView(data);
@@ -919,7 +918,7 @@ class _Node {
     for (var i = 0; i < size; i++) {
       var start = dataView.getData(8);
       var end = dataView.getData(4);
-      datas.add(Tuple2(start, end));
+      datas.add(MapEntry(start, end));
     }
     for (var i = 0; i < 17; i++) {
       var v = dataView.getData(8);
