@@ -209,14 +209,15 @@ class _TaskWarp {
             size: ThumbnaiSize.values
                 .firstWhere((element) => element.name == size),
             id: int.parse(id))
-        .then((value) => Response.ok(value, headers: {
-              ...defaultRespHeader,
-              HttpHeaders.cacheControlHeader: 'public, max-age=259200',
-              HttpHeaders.etagHeader: hash,
-              HttpHeaders.contentTypeHeader:
-                  'image/${extension(name).substring(1)}',
-              HttpHeaders.contentLengthHeader: value.length.toString(),
-            }));
+        .fold(<int>[], (acc, l) => acc..addAll(l)).then(
+            (value) => Response.ok(Stream.value(value), headers: {
+                  ...defaultRespHeader,
+                  HttpHeaders.cacheControlHeader: 'public, max-age=259200',
+                  HttpHeaders.etagHeader: hash,
+                  HttpHeaders.contentTypeHeader:
+                      'image/${extension(name).substring(1)}',
+                  HttpHeaders.contentLengthHeader: value.length.toString(),
+                }));
   }
 
   Future<Response> _translate(Request req) async {

@@ -25,7 +25,7 @@ abstract class Hitomi {
       {CancelToken? token});
   Future<List<Map<String, dynamic>>> translate(List<Label> labels,
       {CancelToken? token});
-  Future<List<int>> fetchImageData(Image image,
+  Stream<List<int>> fetchImageData(Image image,
       {String refererUrl,
       CancelToken? token,
       int id = 0,

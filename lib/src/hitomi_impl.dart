@@ -28,7 +28,7 @@ class _LocalHitomiImpl implements Hitomi {
   }
 
   @override
-  Future<List<int>> fetchImageData(Image image,
+  Stream<List<int>> fetchImageData(Image image,
       {String refererUrl = 'https://hitomi.la',
       CancelToken? token,
       int id = 0,
@@ -41,22 +41,32 @@ class _LocalHitomiImpl implements Hitomi {
           image.hash
         ]).then((value) =>
         join(_manager.config.output, value.first['path'], image.name));
+    final stream = StreamController<List<int>>();
     if (size == ThumbnaiSize.origin) {
-      return origin.then((value) {
+      origin.then((value) async {
         var f = File(value);
         var length = f.lengthSync();
-        return f.openRead().fold(<int>[], (previous, element) {
-          previous..addAll(element);
-          onProcess?.call(previous.length, length);
+        var count = 0;
+        await f.openRead().fold(stream, (previous, element) {
+          previous.add(element);
+          count += element.length;
+          onProcess?.call(count, length);
           return previous;
         });
-      }).catchError((e) => <int>[], test: (error) => true);
+        stream.close();
+      }).catchError((e) {
+        stream.addError(e);
+        stream.close();
+      }, test: (error) => true);
     } else {
-      return origin
+      origin
           .then((value) => _manager.down.manager.compute(value))
-          .then((value) => value ?? <int>[])
-          .catchError((e) => <int>[], test: (error) => true);
+          .then((value) =>
+              value != null ? stream.add(value) : stream.addError('empty data'))
+          .catchError((e) => <int>[], test: (error) => true)
+          .whenComplete(() => stream.close());
     }
+    return stream.stream;
   }
 
   @override
@@ -434,19 +444,24 @@ class _HitomiImpl implements Hitomi {
   }
 
   @override
-  Future<List<int>> fetchImageData(Image image,
+  Stream<List<int>> fetchImageData(Image image,
       {String refererUrl = 'https://hitomi.la',
       CancelToken? token,
       int id = 0,
       ThumbnaiSize size = ThumbnaiSize.smaill,
-      void Function(int now, int total)? onProcess}) async {
-    await checkInit();
-    final url = buildImageUrl(image, size: size, id: id);
-    final data = await _dio.httpInvoke<List<int>>(url,
-        headers: buildRequestHeader(url, refererUrl),
-        onProcess: onProcess,
-        token: token);
-    return data;
+      void Function(int now, int total)? onProcess}) {
+    final stream = StreamController<List<int>>();
+    checkInit()
+        .then((d) => buildImageUrl(image, size: size, id: id))
+        .then((url) => _dio
+            .httpInvoke<ResponseBody>(url,
+                headers: buildRequestHeader(url, refererUrl),
+                onProcess: onProcess,
+                token: token)
+            .then((resp) => stream.addStream(resp.stream)))
+        .catchError((e) => stream.addError(e), test: (error) => true)
+        .whenComplete(() => stream.close());
+    return stream.stream;
   }
 
   String buildImageUrl(Image image,
@@ -994,14 +1009,15 @@ class WebHitomi implements Hitomi {
   }
 
   @override
-  Future<List<int>> fetchImageData(Image image,
+  Stream<List<int>> fetchImageData(Image image,
       {String refererUrl = 'https://hitomi.la',
       CancelToken? token,
       int id = 0,
       ThumbnaiSize size = ThumbnaiSize.smaill,
       void Function(int now, int total)? onProcess}) {
-    return dio
-        .get<List<int>>('$bashHttp/fetchImageData',
+    final stream = StreamController<List<int>>();
+    dio
+        .get<ResponseBody>('$bashHttp/fetchImageData',
             queryParameters: {
               'hash': image.hash,
               'name': image.name,
@@ -1012,7 +1028,10 @@ class WebHitomi implements Hitomi {
             },
             options: Options(responseType: ResponseType.bytes),
             onReceiveProgress: onProcess)
-        .then((value) => value.data!);
+        .then((value) => stream.addStream(value.data!.stream))
+        .catchError((e) => stream.addError(e), test: (error) => true)
+        .whenComplete(() => stream.close());
+    return stream.stream;
   }
 
   @override

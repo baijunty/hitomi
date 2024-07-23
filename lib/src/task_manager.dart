@@ -89,10 +89,9 @@ class TaskManager {
             methodCount: 0,
             errorMethodCount: 10,
             printEmojis: false,
-            printTime: false,
             noBoxingByDefault: true));
     _manager = IsolateManager<List<int>?, String>.create(_compressRunner,
-        concurrent: Platform.numberOfProcessors);
+        concurrent: config.maxTasks * 2);
     helper = SqliteHelper(config.output, logger: logger);
     dio.httpClientAdapter = crateHttpClientAdapter(config.proxy);
     _api = createHitomi(this, false, config.remoteHttp);
@@ -464,13 +463,14 @@ class TaskManager {
                   haswebp: 0,
                   name: 'hash.jpg',
                   height: 0))
+              .fold(<int>[], (acc, l) => acc..addAll(l))
               .then((value) => imageHash(Uint8List.fromList(value)))
               .then((value) {
-            _adImage.add(MapEntry(value, hash));
-            logger.d('now hash ${_adImage.length} admrks');
-            return helper.insertUserLog(hash.hashCode.abs() * -1, 1 << 17,
-                mark: value, content: hash);
-          });
+                _adImage.add(MapEntry(value, hash));
+                logger.d('now hash ${_adImage.length} admrks');
+                return helper.insertUserLog(hash.hashCode.abs() * -1, 1 << 17,
+                    mark: value, content: hash);
+              });
         }
         return false;
       } else if (result['fixDb']) {

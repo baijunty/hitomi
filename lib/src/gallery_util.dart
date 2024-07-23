@@ -92,6 +92,7 @@ Future<MapEntry<Gallery, List<int>>> fetchGalleryHash(
                             gallery.files.firstWhere(
                                 (element) => e.path.endsWith(element.name)),
                             refererUrl: 'https://hitomi.la')
+                        .fold(<int>[], (acc, l) => acc..addAll(l))
                         .then((value) => e.writeAsBytes(value, flush: true))
                         .then((value) => value.readAsBytes())
                         .then((value) => imageHash(value));
@@ -133,6 +134,7 @@ Future<MapEntry<Gallery, List<int>>> fetchGalleryHashFromNet(
                   'https://hitomi.la${Uri.encodeFull(gallery.galleryurl!)}',
               token: token,
               id: gallery.id)
+          .fold(<int>[], (acc, l) => acc..addAll(l))
           .then((value) => imageHash(Uint8List.fromList(value)))
           .catchError((e) => 0, test: (error) => true))))
       .fold(<int>[], (previous, element) => previous..addAll(element)).then(
