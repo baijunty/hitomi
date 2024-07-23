@@ -1026,11 +1026,14 @@ class WebHitomi implements Hitomi {
               'id': id,
               'local': localDb
             },
-            options: Options(responseType: ResponseType.bytes),
+            options: Options(responseType: ResponseType.stream),
             onReceiveProgress: onProcess)
         .then((value) => stream.addStream(value.data!.stream))
-        .catchError((e) => stream.addError(e), test: (error) => true)
-        .whenComplete(() => stream.close());
+        .then((value) => stream.close())
+        .catchError((e) {
+      stream.addError(e);
+      stream.close();
+    }, test: (error) => true);
     return stream.stream;
   }
 
