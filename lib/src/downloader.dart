@@ -41,13 +41,15 @@ class DownLoader {
       .toList();
   Logger? logger;
   final Dio dio;
+  final Set<MapEntry<int, String>> adImage;
   DownLoader(
       {required this.config,
       required this.api,
       required this.helper,
       required this.manager,
       required this.logger,
-      required this.dio}) {
+      required this.dio,
+      required this.adImage}) {
     limit = DateTime.parse(config.dateLimit);
     filter = (Gallery gallery) =>
         illeagalTagsCheck(gallery, config.excludes) &&
@@ -106,11 +108,25 @@ class DownLoader {
               logger?.w('illeagal gallery ${msg.id}');
               return await helper.removeTask(msg.id);
             } else if (msg.target is Image) {
-              return (config.aiTagPath.isNotEmpty? autoTagImages('${config.aiTagPath}/autotag', config.aiTagPath,
-                  msg.file.path) : Future.value(<MapEntry<String, Map<String, dynamic>>>[])).then((l) async{
-                    var hashValue=await imageFileHash(msg.file as File);
-                    return helper.insertGalleryFile(msg.gallery, msg.target, hashValue, l.firstOrNull?.value);
-                  });
+              return (config.aiTagPath.isNotEmpty
+                      ? autoTagImages('${config.aiTagPath}/autotag',
+                          config.aiTagPath, msg.file.path)
+                      : Future.value(
+                          <MapEntry<String, Map<String, dynamic>>>[]))
+                  .then((l) async {
+                var hashValue = await imageFileHash(msg.file as File);
+                if (adImage
+                    .map((e) => e.key)
+                    .toList()
+                    .any((hash) => compareHashDistance(hash, hashValue) < 2)) {
+                  msg.gallery.files
+                      .removeWhere((f) => f.name == (msg.target as Image).name);
+                  return msg.file.delete().then((_) => false);
+                } else {
+                  return helper.insertGalleryFile(
+                      msg.gallery, msg.target, hashValue, l.firstOrNull?.value);
+                }
+              });
             }
           }
         case DownLoadingMessage():

@@ -103,7 +103,8 @@ class TaskManager {
         helper: helper,
         manager: this._manager,
         logger: logger,
-        dio: dio);
+        dio: dio,
+        adImage: this._adImage);
     _parser = ArgParser()
       ..addFlag('fix')
       ..addFlag('fixDb')

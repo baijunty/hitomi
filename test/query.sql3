@@ -18,3 +18,4 @@ select gf.thumb,gf.name,gf.gid from GalleryFile gf where gid=508271 and hash='0f
 select COUNT(*) OVER() AS total_count,g.* from Gallery g where g.title like '%%'  order by date desc limit 25 offset 0
 select COUNT(*) OVER() AS total_count,id from Gallery where  (  json_value_contains(language,?,?)=1  or  json_value_contains(language,?,?)=1  ) and 1=1 limit 25 offset 0
 select * from GalleryFile where gid=1064421
+select * from UserLog where type= 1 << 17
