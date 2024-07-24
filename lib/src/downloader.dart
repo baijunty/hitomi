@@ -118,7 +118,7 @@ class DownLoader {
                 if (adImage
                     .map((e) => e.key)
                     .toList()
-                    .any((hash) => compareHashDistance(hash, hashValue) < 2)) {
+                    .any((hash) => compareHashDistance(hash, hashValue) < 4)) {
                   msg.gallery.files
                       .removeWhere((f) => f.name == (msg.target as Image).name);
                   return msg.file.delete().then((_) => false);

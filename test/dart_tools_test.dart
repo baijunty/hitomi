@@ -15,13 +15,23 @@ var config = UserConfig.fromStr(File('config.json').readAsStringSync());
 var task = TaskManager(config);
 void main() async {
   test('chapter', () async {
-    // await task
-    //     .getApiDirect()
-    //     .fetchGallery(2905265)
-    //     .then((value) => findDuplicateGalleryIds(
-    //         value, task.helper, task.getApiDirect(),
-    //         logger: task.logger, reserved: true))
-    //     .then((value) => print(value));
+    var list = await task.helper
+        .querySql('select * from UserLog where type=?', [1 << 17]).then(
+            (value) => value
+                .map((element) =>
+                    MapEntry<int, String>(element['mark'], element['content']))
+                .toList());
+    print('size ${list.length}');
+    await list
+        .map((hash) => list
+            .where((h) => compareHashDistance(hash.key, h.key) < 4)
+            .toList())
+        .where((e) => e.length > 1)
+        .map((l) => l.skip(1))
+        .fold(<MapEntry<int, String>>[], (acc, l) => acc..addAll(l))
+        .asStream()
+        .forEach((l) => task.helper.delete(
+            'UserLog', {'id': l.value.hashCode.abs() * -1, 'type': 1 << 17}));
   }, timeout: Timeout(Duration(minutes: 120)));
 }
 

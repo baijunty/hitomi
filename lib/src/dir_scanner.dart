@@ -329,6 +329,7 @@ class HitomiDir {
               .where((e) => e.value.firstOrNull == null)
               .map((element) =>
                   gallery!.files.firstWhere((e) => e.hash == element.key[1]))
+              .where((e) => File(path.join(dir.path, e.name)).existsSync())
               .toList();
           var lost = missing.isEmpty;
           if (missing.isNotEmpty) {
@@ -342,6 +343,7 @@ class HitomiDir {
                   e.value.firstOrNull?['tag'] == 1)
               .map((element) =>
                   gallery!.files.firstWhere((e) => e.hash == element.key[1]))
+              .where((e) => File(path.join(dir.path, e.name)).existsSync())
               .toList();
           if (missing.isNotEmpty && autoTags.isNotEmpty) {
             _downLoader.logger?.d(

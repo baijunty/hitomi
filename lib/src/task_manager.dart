@@ -467,10 +467,13 @@ class TaskManager {
               .fold(<int>[], (acc, l) => acc..addAll(l))
               .then((value) => imageHash(Uint8List.fromList(value)))
               .then((value) {
-                _adImage.add(MapEntry(value, hash));
-                logger.d('now hash ${_adImage.length} admrks');
-                return helper.insertUserLog(hash.hashCode.abs() * -1, 1 << 17,
-                    mark: value, content: hash);
+                if (_adImage
+                    .every((e) => compareHashDistance(value, e.key) > 3)) {
+                  _adImage.add(MapEntry(value, hash));
+                  logger.d('now hash ${_adImage.length} admrks');
+                  return helper.insertUserLog(hash.hashCode.abs() * -1, 1 << 17,
+                      mark: value, content: hash);
+                }
               });
         }
         return false;
