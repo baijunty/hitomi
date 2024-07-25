@@ -430,8 +430,11 @@ class _HitomiImpl implements Hitomi {
             b = false;
           }
         }
+        b = out.existsSync() && out.lengthSync() > 0;
         if (!b) {
-          out.deleteSync();
+          if (out.existsSync() && out.lengthSync() == 0) {
+            out.delete();
+          }
           missImages.add(image);
         }
         await _loopCallBack(DownLoadFinished(image, gallery, out, b));

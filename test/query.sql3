@@ -1,21 +1,14 @@
-
-SELECT * FROM Gallery g,json_each(g.artist) ja  where (json_valid(g.artist)=1 and ja.value = 'doumou') 
 SELECT count(1) from Tasks WHERE completed=1
 SELECT * FROM Tags WHERE translate like '%;%' limit 20
-select * from Gallery g  limit 20
-select * from UserLog
-select count(1) from GalleryFile LIMIT 20 where gid=1435461 order by name
-select COUNT(*) OVER() AS total_count,g.* from Gallery g  where title like '%青春%' and title not like '%男優%' LIMIT 10
-select distinct(ja.value) from Gallery g,json_each(g.artist) ja where json_valid(g.artist)=1 group by ja.value  limit 20
-select * from GalleryFile where gid=1271545   order by name
-select count(1) from GalleryFile
-select gf.gid,gf.fileHash,gf.name,g.path,g.length from Gallery g,json_each(g.artist) ja left join GalleryFile gf on g.id=gf.gid 
-where (json_valid(g.artist)=1 and ja.value = 'yahiro pochi' ) order by gf.gid,gf.name
 
 SELECT gf.gid  from (SELECT DISTINCT(gid) from GalleryFile)  gf WHERE  not EXISTS (SELECT 1 from Gallery g WHERE g.id=gf.gid)
 select g.id from  Gallery g,json_each(g.artist) ja left join GalleryFile gf on g.id=gf.gid where json_valid(g.artist)=1 and ja.value = 'fuuga' and gf.gid is null
 select gf.thumb,gf.name,gf.gid from GalleryFile gf where gid=508271 and hash='0f4cda8385ff5e27b49360e87141d4ef11b4821cfbee3577d1e76c1355478d0f'
 select COUNT(*) OVER() AS total_count,g.* from Gallery g where g.title like '%%'  order by date desc limit 25 offset 0
 select COUNT(*) OVER() AS total_count,id from Gallery where  (  json_value_contains(language,?,?)=1  or  json_value_contains(language,?,?)=1  ) and 1=1 limit 25 offset 0
-select * from GalleryFile where gid=1064421
+select * from ( select count(gid) as count,* from GalleryFile where fileHash=0 group by gid ) as g where g.count>1 order by count desc
+SELECT * from Gallery where id=1679943
+select * from GalleryFile where gid=2444598 order by name
+select count(gid) as count,* from GalleryFile where gid=2444598 and fileHash=0 group by gid
 select * from UserLog where type= 1 << 17
+SELECT SUM("pgsize")/1024/1024,name FROM "dbstat" group by name 

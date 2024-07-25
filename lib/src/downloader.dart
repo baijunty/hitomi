@@ -81,7 +81,8 @@ class DownLoader {
                 return false;
               });
             } else if (target is Image) {
-              return !msg.file.existsSync();
+              return !msg.file.existsSync() ||
+                  (msg.file as File).lengthSync() == 0;
             }
             return illeagalTagsCheck(msg.gallery, config.excludes);
           }
@@ -119,6 +120,7 @@ class DownLoader {
                     .map((e) => e.key)
                     .toList()
                     .any((hash) => compareHashDistance(hash, hashValue) < 4)) {
+                  logger?.w('fount ad image ${msg.file.path}');
                   msg.gallery.files
                       .removeWhere((f) => f.name == (msg.target as Image).name);
                   return msg.file.delete().then((_) => false);
@@ -168,11 +170,17 @@ class DownLoader {
   Future<bool> _findUnCompleteGallery(Gallery gallery, Directory newDir) async {
     Future<bool> check;
     if (newDir.listSync().isNotEmpty) {
-      check = readGalleryFromPath(newDir.path).then((value) {
+      check = readGalleryFromPath(newDir.path).then((value) async {
         logger?.d('${newDir.path} $gallery exists $value ');
         return (compareGallerWithOther(value, [gallery], config.languages).id !=
                 value.id) ||
-            (newDir.listSync().length - 1) < gallery.files.length;
+            (newDir.listSync().length - 1) < gallery.files.length ||
+            value.files
+                .map((e) => e.name)
+                .map((e) => File(join(newDir.path, e)))
+                .where((element) =>
+                    !element.existsSync() || element.lengthSync() == 0)
+                .isNotEmpty;
       }).catchError((e) => true, test: (error) => true);
     } else {
       check = findDuplicateGalleryIds(gallery, helper, api, logger: logger)

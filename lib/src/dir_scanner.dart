@@ -210,7 +210,8 @@ class HitomiDir {
       var files = gallery!.files.map((e) => e.name).toList();
       var fileLost = files
           .map((e) => File(path.join(dir.path, e)))
-          .where((element) => !element.existsSync())
+          .where(
+              (element) => !element.existsSync() || element.lengthSync() == 0)
           .toList();
       if (fileLost.isNotEmpty && fixFromNet) {
         var completer = Completer();
@@ -348,7 +349,7 @@ class HitomiDir {
           if (missing.isNotEmpty && autoTags.isNotEmpty) {
             _downLoader.logger?.d(
                 '${gallery} fix tag missing ${missing.map((e) => e.name).toList()}');
-            lost &= await batchInsertImage(missing, autoTags);
+            lost = await batchInsertImage(missing, autoTags);
           }
           return lost;
         });
