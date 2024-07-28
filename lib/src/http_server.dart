@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:collection/collection.dart';
@@ -11,6 +12,7 @@ import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart';
 import 'package:shelf_router/shelf_router.dart';
 import 'package:shelf_static/shelf_static.dart';
+import 'package:shelf_web_socket/shelf_web_socket.dart';
 
 final defaultRespHeader = {
   HttpHeaders.accessControlAllowOriginHeader: '*',
@@ -34,8 +36,6 @@ class _TaskWarp {
       ..options('/addTask', _optionsOk)
       ..post('/addAdMark', _addAdMark)
       ..options('/addAdMark', _optionsOk)
-      ..post('/listTask', _listTask)
-      ..options('/listTask', _optionsOk)
       ..post('/checkId', _checkId)
       ..options('/checkId', _optionsOk)
       ..post('/fetchTag/<key>', _fetchTag)
@@ -251,16 +251,6 @@ class _TaskWarp {
     return Response.unauthorized('unauth');
   }
 
-  Future<Response> _listTask(Request req) async {
-    final task = await _authToken(req);
-    if (task.key) {
-      Map<String, dynamic> r = await _manager.parseCommandAndRun('-l');
-      r['success'] = true;
-      return Response.ok(json.encode(r), headers: defaultRespHeader);
-    }
-    return Response.unauthorized('unauth');
-  }
-
   Future<Response> _checkId(Request req) async {
     final task = await _authToken(req);
     if (task.key) {
@@ -344,11 +334,18 @@ Future<HttpServer> run_server(TaskManager manager) async {
   if (Directory('web').existsSync()) {
     staticHandle = createStaticHandler('web', defaultDocument: 'index.html');
   }
-  // Handler webSocket = webSocketHandler((webSocket) {
-  //   webSocket.stream.listen((message) {
-  //     webSocket.sink.add("echo $message");
-  //   });
-  // });
+  Handler webSocket = webSocketHandler((webSocket) {
+    Stream stream = webSocket.stream;
+    final Function(Map<String, dynamic>) observer = (msg) {
+      webSocket.sink.add(json.encode(msg));
+    };
+    stream.listen((message) {
+      webSocket.sink.add('{success:true}');
+      manager.addTaskObserver(observer);
+    })
+      ..onDone(() => manager.removeTaskObserver(observer))
+      ..onError((e) => manager.removeTaskObserver(observer));
+  });
   final handler = Pipeline()
       .addMiddleware(logRequests(
           logger: (message, isError) =>
@@ -359,10 +356,10 @@ Future<HttpServer> run_server(TaskManager manager) async {
                     ? staticHandle(req)
                     : value);
           })
-      // .addMiddleware((innerHandler) => (req) {
-      //       webSocket(req);
-      //       return innerHandler(req);
-      //     })
+      .addMiddleware((innerHandler) => (req) {
+            webSocket(req);
+            return innerHandler(req);
+          })
       .addHandler(_TaskWarp(manager).router);
   // For running in containers, we respect the PORT environment variable.
   final socketPort = int.parse(Platform.environment['PORT'] ?? '7890');

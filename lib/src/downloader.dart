@@ -30,15 +30,8 @@ class DownLoader {
   late DateTime limit;
 
   late bool Function(Gallery) filter;
-
-  List<IdentifyToken> get pendingTask => [..._pendingTask];
-  List<Map<String, dynamic>> get runningTask => _runningTask.entries
-      .map((entry) => {
-            'href': entry.key.gallery.galleryurl,
-            'name': entry.key.gallery.dirName,
-            ...entry.value.toMap
-          })
-      .toList();
+  final Function(MapEntry<List<Gallery>, List<DownLoadingMessage>> msg)
+      taskObserver;
   Logger? logger;
   final Dio dio;
   final Set<MapEntry<int, String>> adImage;
@@ -49,7 +42,8 @@ class DownLoader {
       required this.manager,
       required this.logger,
       required this.dio,
-      required this.adImage}) {
+      required this.adImage,
+      required this.taskObserver}) {
     limit = DateTime.parse(config.dateLimit);
     filter = (Gallery gallery) =>
         illeagalTagsCheck(gallery, config.excludes) &&
@@ -137,6 +131,8 @@ class DownLoader {
                 .firstWhereOrNull((element) => element.gallery.id == msg.id);
             if ((key != null)) {
               _runningTask[key] = msg;
+              taskObserver(MapEntry(_pendingTask.map((e) => e.gallery).toList(),
+                  _runningTask.values.toList()));
             }
           }
         default:
@@ -254,6 +250,8 @@ class DownLoader {
       return false;
     }, test: (e) => true);
     _runningTask.remove(token);
+    taskObserver(MapEntry(_pendingTask.map((e) => e.gallery).toList(),
+        _runningTask.values.toList()));
     notifyTaskChange();
     return b;
   }
@@ -265,6 +263,8 @@ class DownLoader {
     var token = IdentifyToken(gallery);
     token.handle = handle;
     _pendingTask.add(token);
+    taskObserver(MapEntry(_pendingTask.map((e) => e.gallery).toList(),
+        _runningTask.values.toList()));
     final path = join(config.output, gallery.dirName);
     await helper.updateTask(gallery.id, gallery.dirName, path, false);
     if (immediately) {
@@ -294,6 +294,8 @@ class DownLoader {
         ?.gallery;
     if (target != null) {
       _pendingTask.removeWhere((element) => element.gallery.id == id);
+      taskObserver(MapEntry(_pendingTask.map((e) => e.gallery).toList(),
+          _runningTask.values.toList()));
     }
     if (target == null) {
       var path = await helper.readlData<String>('Gallery', 'path', {'id': id});
@@ -330,6 +332,8 @@ class DownLoader {
       _pendingTask.remove(token);
       _runningTask[token] =
           DownLoadingMessage(token.gallery, 0, 0, token.gallery.files.length);
+      taskObserver(MapEntry(_pendingTask.map((e) => e.gallery).toList(),
+          _runningTask.values.toList()));
       logger?.d(
           'run task ${token.gallery.id} left length ${_pendingTask.length} running ${_runningTask.length}');
       _downLoadGallery(token);

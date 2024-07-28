@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
 import 'package:hitomi/gallery/artist.dart';
 import 'package:hitomi/gallery/gallery.dart';
@@ -15,23 +16,30 @@ var config = UserConfig.fromStr(File('config.json').readAsStringSync());
 var task = TaskManager(config);
 void main() async {
   test('chapter', () async {
+    var trans = await File('danbooru-0-zh.csv').readAsLines().then((s) => s
+        .map((line) => line.split(','))
+        .where((words) => words.length == 3)
+        .fold(<String, String>{}, (acc, words) => acc..[words[0]] = words[2]));
     var list = await task.helper
-        .querySql('select * from UserLog where type=?', [1 << 17]).then(
-            (value) => value
-                .map((element) =>
-                    MapEntry<int, String>(element['mark'], element['content']))
-                .toList());
-    print('size ${list.length}');
-    await list
-        .map((hash) => list
-            .where((h) => compareHashDistance(hash.key, h.key) < 4)
+        .querySql("select tag,name from GalleryFile where  gid=? and name=?",
+            [3000073, '012.jpg'])
+        .then((value) => value
+            .map((element) => MapEntry(
+                element['name'] as String,
+                (json.decode(element['tag']) as Map<String, dynamic>)
+                    .map((k, v) => MapEntry(k, v as double))))
             .toList())
-        .where((e) => e.length > 1)
-        .map((l) => l.skip(1))
-        .fold(<MapEntry<int, String>>[], (acc, l) => acc..addAll(l))
-        .asStream()
-        .forEach((l) => task.helper.delete(
-            'UserLog', {'id': l.value.hashCode.abs() * -1, 'type': 1 << 17}));
+        .then((l) => l.fold(
+            <String, MapEntry<double, List<String>>>{},
+            (acc, m) => m.value.entries.fold(
+                acc,
+                (fill, e) =>
+                    fill..[e.key] = MapEntry((fill[e.key]?.key ?? 0) + e.value, (fill[e.key]?.value ?? [])..add(m.key)))));
+    var result = list.entries
+        .sortedByCompare((e) => e.value.key, (e1, e2) => e2.compareTo(e1))
+        .map((e) => '(${trans[e.key]??e.key}')
+        .toList();
+    print('result ${result.toString()}');
   }, timeout: Timeout(Duration(minutes: 120)));
 }
 
@@ -84,36 +92,7 @@ Future<void> testHttpServer() async {
     return value.close();
   }).then((value) => utf8.decodeStream(value));
   print(result);
-  // result = await c
-  //     .getUrl(Uri.parse('http://192.168.1.107:7890/listTask'))
-  //     .then((value) {
-  //   return value.close();
-  // }).then((value) => utf8.decodeStream(value));
-  // print(result);
 }
-// Future<void> testGalleryInfoDistance() async {
-//   var config = UserContext(UserConfig(r'/home/bai/ssd/photos',
-//       proxy: '127.0.0.1:8389',
-//       languages: ['chinese', 'japanese'],
-//       maxTasks: 5));
-//   var fix = GalleryManager(config, null);
-//   final result = await fix.listInfo().then((value) =>
-//       value.fold<Map<GalleryInfo, List<GalleryInfo>>>({}, ((previous, element) {
-//         final list = previous[element] ?? [];
-//         list.add(element);
-//         previous[element] = list;
-//         return previous;
-//       })));
-//   result.entries.where((element) => element.value.length > 1).forEach((entry) {
-//     var key = entry.key;
-//     var value = entry.value;
-//     print('$key and ${value.length}');
-//     value.forEach((element) {
-//       final reletion = key.relationToOther(element);
-//       print('$key and ${element} is $reletion');
-//     });
-//   });
-// }
 
 Future<void> testImageDownload() async {
   var token = CancelToken();

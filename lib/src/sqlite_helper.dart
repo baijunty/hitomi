@@ -420,7 +420,10 @@ class SqliteHelper {
           image.width,
           image.height,
           hash,
-          tag == null ? null : json.encode(tag)
+          tag == null
+              ? null
+              : json.encode(tag.map((k, v) =>
+                  MapEntry(k, double.parse((v as double).toStringAsFixed(2)))))
         ]);
   }
 

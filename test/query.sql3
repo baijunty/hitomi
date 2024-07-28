@@ -6,9 +6,9 @@ select g.id from  Gallery g,json_each(g.artist) ja left join GalleryFile gf on g
 select gf.thumb,gf.name,gf.gid from GalleryFile gf where gid=508271 and hash='0f4cda8385ff5e27b49360e87141d4ef11b4821cfbee3577d1e76c1355478d0f'
 select COUNT(*) OVER() AS total_count,g.* from Gallery g where g.title like '%%'  order by date desc limit 25 offset 0
 select COUNT(*) OVER() AS total_count,id from Gallery where  (  json_value_contains(language,?,?)=1  or  json_value_contains(language,?,?)=1  ) and 1=1 limit 25 offset 0
-select * from ( select count(gid) as count,* from GalleryFile where fileHash=0 group by gid ) as g where g.count>1 order by count desc
-SELECT * from Gallery where id=1679943
-select * from GalleryFile where gid=2444598 order by name
-select count(gid) as count,* from GalleryFile where gid=2444598 and fileHash=0 group by gid
+select * from ( select count(gid) as count,* from GalleryFile where fileHash=-1 group by gid ) as g where g.count>4 order by count desc
+SELECT * from Gallery where id=3000073
+select count(1),* from GalleryFile where  tag like '%missionary%' group by gid limit 20
+select * from GalleryFile where width<1000 order by gid desc LIMIT 20
 select * from UserLog where type= 1 << 17
 SELECT SUM("pgsize")/1024/1024,name FROM "dbstat" group by name 

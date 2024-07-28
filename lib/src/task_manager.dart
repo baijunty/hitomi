@@ -40,7 +40,8 @@ class TaskManager {
   late Hitomi _webHitomi;
   late Logger logger;
   final Dio dio = Dio();
-  final _tasks = <Label>{};
+  final Set<Label> _tasks = <Label>{};
+  final taskObserver = <Function(Map<String, dynamic>)>{};
   final Set<MapEntry<int, String>> _adImage = {};
   final _storage = InMemoryStorage<Label, Map<String, dynamic>>(1024);
   late SimpleCache<Label, Map<String, dynamic>> _cache =
@@ -58,6 +59,14 @@ class TaskManager {
 
   List<String> get adImage =>
       _adImage.map((e) => e.value).toList(growable: false);
+
+  void addTaskObserver(Function(Map<String, dynamic>) observer) {
+    taskObserver.add(observer);
+  }
+
+  void removeTaskObserver(Function(Map<String, dynamic>) observer) {
+    taskObserver.remove(observer);
+  }
 
   TaskManager(this.config) {
     Level level;
@@ -104,7 +113,23 @@ class TaskManager {
         manager: this._manager,
         logger: logger,
         dio: dio,
-        adImage: this._adImage);
+        adImage: this._adImage,
+        taskObserver: (msg) {
+          if (taskObserver.isNotEmpty) {
+            var data = <String, dynamic>{
+              "queryTask": _tasks
+                  .map((e) =>
+                      {'href': '/${e.urlEncode()}-all.html', ...e.toMap()})
+                  .toList(),
+              "pendingTask": msg.key
+                  .map((t) =>
+                      {'href': t.galleryurl!, 'name': t.dirName, 'gallery': t})
+                  .toList(),
+              "runningTask": msg.value.map((e) => e.toMap)
+            };
+            taskObserver.forEach((element) => element(data));
+          }
+        });
     _parser = ArgParser()
       ..addFlag('fix')
       ..addFlag('fixDb')
@@ -116,7 +141,6 @@ class TaskManager {
       ..addOption('artist', abbr: 'a')
       ..addOption('admark')
       ..addOption('group', abbr: 'g')
-      ..addFlag('list', abbr: 'l')
       ..addMultiOption('tags', abbr: 't');
     helper
         .querySql('select * from UserLog where type=?', [1 << 17])
@@ -454,7 +478,7 @@ class TaskManager {
         return false;
       } else if (result.wasParsed('admark')) {
         String hash = result["admark"];
-        logger.d('pause ${hash}');
+        logger.d('admark ${hash}');
         if (hash.length == 64) {
           return _api
               .fetchImageData(Image(
@@ -494,20 +518,6 @@ class TaskManager {
       } else if (result['continue']) {
         return remainTask().then((value) =>
             value.asyncMap((event) => _downLoader.addTask(event)).length);
-      } else if (result['list']) {
-        return <String, dynamic>{
-          "queryTask": _tasks
-              .map((e) => {'href': '/${e.urlEncode()}-all.html', ...e.toMap()})
-              .toList(),
-          "pendingTask": _downLoader.pendingTask
-              .map((t) => {
-                    'href': t.gallery.galleryurl!,
-                    'name': t.gallery.dirName,
-                    'gallery': t.gallery
-                  })
-              .toList(),
-          "runningTask": _downLoader.runningTask
-        };
       }
       if (hasError) {
         logger.e('$cmd error with ${args}');
