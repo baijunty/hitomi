@@ -339,9 +339,12 @@ Future<HttpServer> run_server(TaskManager manager) async {
     final Function(Map<String, dynamic>) observer = (msg) {
       webSocket.sink.add(json.encode(msg));
     };
+    manager.logger.d('income websocket');
     stream.listen((message) {
-      webSocket.sink.add('{success:true}');
-      manager.addTaskObserver(observer);
+      switch (message) {
+        case 'list':
+          manager.addTaskObserver(observer);
+      }
     })
       ..onDone(() => manager.removeTaskObserver(observer))
       ..onError((e) => manager.removeTaskObserver(observer));

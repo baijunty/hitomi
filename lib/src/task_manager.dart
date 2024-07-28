@@ -62,10 +62,12 @@ class TaskManager {
 
   void addTaskObserver(Function(Map<String, dynamic>) observer) {
     taskObserver.add(observer);
+    logger.d('add observer now length ${taskObserver.length}');
   }
 
   void removeTaskObserver(Function(Map<String, dynamic>) observer) {
     taskObserver.remove(observer);
+    logger.d('remove observer now length ${taskObserver.length}');
   }
 
   TaskManager(this.config) {
@@ -125,7 +127,7 @@ class TaskManager {
                   .map((t) =>
                       {'href': t.galleryurl!, 'name': t.dirName, 'gallery': t})
                   .toList(),
-              "runningTask": msg.value.map((e) => e.toMap)
+              "runningTask": msg.value.map((e) => e.toMap).toList()
             };
             taskObserver.forEach((element) => element(data));
           }
