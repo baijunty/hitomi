@@ -82,10 +82,7 @@ Future<MapEntry<Gallery, List<int>>> fetchGalleryHash(
           final fs = gallery.files
               .map((element) => File(join(dirPath, element.name)))
               .where((element) => element.existsSync())
-              .map((e) => e
-                      .readAsBytes()
-                      .then((value) => imageHash(value))
-                      .catchError((err) {
+              .map((e) => imageFileHash(e).catchError((err) {
                     logger?.e('${e.path} read bytes and hashimage $err');
                     return api
                         .fetchImageData(

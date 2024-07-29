@@ -201,10 +201,6 @@ class HitomiDir {
   final bool fixFromNet;
   HitomiDir(this.dir, this._downLoader, this.gallery, {this.fixFromNet = true});
 
-  Future<int> get coverHash => File('${dir.path}/${gallery?.files.first.name}')
-      .readAsBytes()
-      .then((value) => imageHash(value));
-
   Future<bool> _fixIllegalFiles() async {
     if (gallery != null) {
       var files = gallery!.files.map((e) => e.name).toList();
@@ -283,12 +279,10 @@ class HitomiDir {
 
   Future<bool> batchInsertImage(
       Iterable<Image> imgs, List<MapEntry<String, Map<String, dynamic>>> tags) {
-    return Future.wait(imgs.map((img) => File(path.join(dir.path, img.name))
-            .readAsBytes()
-            .then((data) =>
-                imageHash(data).catchError((e) => 0, test: (error) => true))
-            .then((hash) => _downLoader.helper.insertGalleryFile(gallery!, img,
-                hash, tags.firstWhereOrNull((e) => e.key == img.name)?.value))))
+    return Future.wait(imgs.map((img) =>
+            imageFileHash(File(path.join(dir.path, img.name))).then((hash) =>
+                _downLoader.helper.insertGalleryFile(gallery!, img, hash,
+                    tags.firstWhereOrNull((e) => e.key == img.name)?.value))))
         .then((vs) => vs.fold(true, (acc, i) => acc && i))
         .then((v) => v);
   }

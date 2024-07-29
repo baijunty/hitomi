@@ -147,6 +147,7 @@
     var remoteUrl = GM_getValue('hitomi_la_remote_url', '')
     async function fetchRemote({ path, data = null, get = true, baseHttp = remoteUrl }) {
         let url = baseHttp + path
+        console.log(url)
         return new Promise(function (resolve) {
             GM_xmlhttpRequest({
                 method: get ? 'GET' : 'POST',
@@ -404,14 +405,14 @@
         if (downTask) {
             document.querySelector(`#${labelName}`).innerText = `${showName}(${downTask.length})`
             downTask.forEach((task) => {
+                let gallery = JSON.parse(task['gallery'])
                 let item = document.createElement('li')
                 item.className = "item"
                 let href = document.createElement('a')
-                href.href = task.href
+                href.href = gallery.galleryurl
                 href.target = "_blank"
                 href.innerText = task.name
                 if (task['speed'] != null) {
-                    let gallery = JSON.parse(task['gallery'])
                     href.innerText = `${href.innerText}-(${task['current'] + 1}/${gallery.files.length})-${task['speed'].toFixed(2)}Kb/${(task['length'] / 1024).toFixed(2)}`
                 }
                 item.appendChild(href)
@@ -420,7 +421,7 @@
         }
     }
 
-    var intervalId = 0
+    var socket = null
 
     async function showTask() {
         let remoteTask = document.createElement('div')
@@ -459,13 +460,17 @@
     }
 
     async function listTaskContent() {
-        console.log('run list task')
-        let respData = await fetchRemote({ path: 'listTask', data: JSON.stringify({ auth: token }), get: false })
-        let resp = JSON.parse(respData)
-        appendQueryTask(resp['queryTask'], document.getElementById('queryTask'))
-        appendDwonTask(resp['pendingTask'], document.getElementById('pendingTask'), 'pendingTaskLabel', '等待列表')
-        appendDwonTask(resp['runningTask'], document.getElementById('runningTask'), 'runningTaskLabel', '下载列表')
-        intervalId = setTimeout(listTaskContent, 2000)
+        socket = new WebSocket('wss://baijunty.com/listTask');
+        socket.addEventListener("open", function (event) {
+            socket.send("list");
+        });
+        socket.addEventListener("message", function (event) {
+            var respData = event.data;
+            let resp = JSON.parse(respData)
+            appendQueryTask(resp['queryTask'], document.getElementById('queryTask'))
+            appendDwonTask(resp['pendingTask'], document.getElementById('pendingTask'), 'pendingTaskLabel', '等待列表')
+            appendDwonTask(resp['runningTask'], document.getElementById('runningTask'), 'runningTaskLabel', '下载列表')
+        });
     }
 
     async function listThumbImages() {
@@ -552,7 +557,7 @@
         let tags = document.getElementById('remote-tags')
         tags.value = saveExculdes
         document.getElementById('remote-confirm').addEventListener('click', async function (e) {
-            let resp = await fetchRemote({ path: '', baseHttp: input.value })
+            let resp = await fetchRemote({ path: 'test', baseHttp: input.value })
             if (resp == 'ok') {
                 GM_setValue('hitomi_la_remote_url', input.value)
                 GM_setValue('hitomi_la_remote_token', tokenInput.value)
@@ -638,9 +643,11 @@
         if (taskBar == null) {
             showTask()
         } else {
-            clearTimeout(intervalId)
             taskBar.classList.add('remove')
             setTimeout(() => document.body.removeChild(taskBar), 500)
+            if (socket != null) {
+                socket.close()
+            }
         }
         e.preventDefault()
     })
