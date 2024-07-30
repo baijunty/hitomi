@@ -390,64 +390,66 @@ class _HitomiImpl implements Hitomi {
       await _loopCallBack(DownLoadFinished(gallery, gallery, dir, false));
       return false;
     }
-    final referer = 'https://hitomi.la${Uri.encodeFull(gallery.galleryurl!)}';
     final missImages = <Image>[];
     for (var i = 0; i < gallery.files.length; i++) {
-      Image image = gallery.files[i];
-      final out = File(join(dir.path, image.name));
-      var b = await _loopCallBack(TaskStartMessage(gallery, out, image)) &&
-          (token?.isCancelled ?? false) == false;
-      if (b) {
-        for (var j = 0; j < 3; j++) {
-          try {
-            var startTime = DateTime.now().millisecondsSinceEpoch;
-            final url =
-                buildImageUrl(image, size: ThumbnaiSize.origin, id: gallery.id);
-            var writer = out.openWrite();
-            int lastTime = startTime;
-            await _dio
-                .httpInvoke<ResponseBody>(url,
-                    headers: buildRequestHeader(url, referer),
-                    onProcess: (now, total) async {
-                  final realTime = DateTime.now().millisecondsSinceEpoch;
-                  if ((realTime - lastTime) >= 500) {
-                    await _loopCallBack(
-                      DownLoadingMessage(
-                          gallery,
-                          i,
-                          now / 1024 / (realTime - startTime) * 1000,
-                          now,
-                          total),
-                    );
-                    lastTime = realTime;
-                  }
-                }, token: token)
-                .then((value) => value.stream.fold(
-                    writer, (previous, element) => previous..add(element)))
-                .then((value) async {
-                  await value.flush();
-                })
-                .whenComplete(() => writer.close());
-          } catch (e) {
-            logger?.e('down image faild $e');
-            await _loopCallBack(IlleagalGallery(gallery.id, e.toString(), i));
-            b = false;
-          }
-        }
-        b = out.existsSync() && out.lengthSync() > 0;
-        if (!b) {
-          if (out.existsSync() && out.lengthSync() == 0) {
-            out.delete();
-          }
-          missImages.add(image);
-        }
-        await _loopCallBack(DownLoadFinished(image, gallery, out, b));
+      var success = await _downLoadImage(dir, gallery, i, token);
+      if (!success) {
+        missImages.add(gallery.files[i]);
       }
     }
     var b = missImages.isEmpty;
     return await _loopCallBack(
             DownLoadFinished(missImages, gallery, dir, missImages.isEmpty)) &&
         b;
+  }
+
+  Future<bool> _downLoadImage(
+      Directory dir, Gallery gallery, int index, CancelToken? token) async {
+    bool b = false;
+    try {
+      final referer = 'https://hitomi.la${Uri.encodeFull(gallery.galleryurl!)}';
+      Image image = gallery.files[index];
+      final out = File(join(dir.path, image.name));
+      final url =
+          buildImageUrl(image, size: ThumbnaiSize.origin, id: gallery.id);
+      var startTime = DateTime.now().millisecondsSinceEpoch;
+      int lastTime = startTime;
+      var b = await _loopCallBack(TaskStartMessage(gallery, out, image)) &&
+          (token?.isCancelled ?? false) == false;
+      if (b) {
+        var writer = out.openWrite();
+        await _dio
+            .httpInvoke<ResponseBody>(url,
+                headers: buildRequestHeader(url, referer),
+                onProcess: (now, total) async {
+              final realTime = DateTime.now().millisecondsSinceEpoch;
+              if ((realTime - lastTime) >= 500) {
+                await _loopCallBack(
+                  DownLoadingMessage(gallery, index,
+                      now / 1024 / (realTime - startTime) * 1000, now, total),
+                );
+                lastTime = realTime;
+                logger?.t('image $index $now/$total ${now / total}');
+              }
+            }, token: token)
+            .then((value) => value.stream
+                .fold(writer, (previous, element) => previous..add(element)))
+            .then((value) async {
+              await value.flush();
+            })
+            .whenComplete(() => writer.close());
+        b = out.existsSync() && out.lengthSync() > 0;
+        if (!b && out.existsSync() && out.lengthSync() == 0) {
+          out.delete();
+        }
+        await _loopCallBack(DownLoadFinished(image, gallery, out, b));
+      }
+    } catch (e) {
+      logger?.e('down image faild $e');
+      await _loopCallBack(IlleagalGallery(gallery.id, e.toString(), index));
+      b = false;
+    }
+    return b;
   }
 
   @override
