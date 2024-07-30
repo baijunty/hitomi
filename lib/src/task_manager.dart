@@ -88,7 +88,10 @@ class TaskManager {
     }
     LogOutput outputEvent;
     if (config.logOutput.isNotEmpty) {
-      outputEvent = FileOutput(file: File(config.logOutput));
+      outputEvent = AdvancedFileOutput(
+        path: config.logOutput,
+        overrideExisting: true,
+      );
     } else {
       outputEvent = ConsoleOutput();
     }
@@ -500,6 +503,7 @@ class TaskManager {
                   return helper.insertUserLog(hash.hashCode.abs() * -1, 1 << 17,
                       mark: value, content: hash);
                 }
+                return false;
               });
         }
         return false;

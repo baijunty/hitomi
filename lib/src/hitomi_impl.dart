@@ -410,10 +410,14 @@ class _HitomiImpl implements Hitomi {
                     headers: buildRequestHeader(url, referer),
                     onProcess: (now, total) async {
                   final realTime = DateTime.now().millisecondsSinceEpoch;
-                  if ((realTime - lastTime) >= 250) {
+                  if ((realTime - lastTime) >= 500) {
                     await _loopCallBack(
-                      DownLoadingMessage(gallery, i,
-                          now / 1024 / (realTime - startTime) * 1000, total),
+                      DownLoadingMessage(
+                          gallery,
+                          i,
+                          now / 1024 / (realTime - startTime) * 1000,
+                          now,
+                          total),
                     );
                     lastTime = realTime;
                   }

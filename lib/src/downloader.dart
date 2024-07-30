@@ -330,8 +330,8 @@ class DownLoader {
       }
       token = token ?? _pendingTask.first;
       _pendingTask.remove(token);
-      _runningTask[token] =
-          DownLoadingMessage(token.gallery, 0, 0, token.gallery.files.length);
+      _runningTask[token] = DownLoadingMessage(
+          token.gallery, 0, 0, 0, token.gallery.files.length);
       taskObserver(MapEntry(_pendingTask.map((e) => e.gallery).toList(),
           _runningTask.values.toList()));
       logger?.d(

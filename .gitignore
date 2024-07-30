@@ -15,3 +15,4 @@ nohup.out
 *.log
 config.json
 web/
+hitomi.log

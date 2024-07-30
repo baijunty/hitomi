@@ -71,7 +71,9 @@ class DownLoadingMessage extends Message<int> {
   int current;
   double speed;
   int length;
-  DownLoadingMessage(this.gallery, this.current, this.speed, this.length)
+  int now;
+  DownLoadingMessage(
+      this.gallery, this.current, this.speed, this.now, this.length)
       : super(id: gallery.id);
   @override
   String toString() {
@@ -82,6 +84,7 @@ class DownLoadingMessage extends Message<int> {
         'gallery': this.gallery,
         'current': this.current,
         'speed': this.speed,
+        'now': this.now,
         'length': this.length
       };
 }
