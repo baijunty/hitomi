@@ -81,7 +81,6 @@ class DownLoadingMessage extends Message<int> {
   }
 
   Map<String, dynamic> get toMap => {
-        'gallery': this.gallery,
         'current': this.current,
         'speed': this.speed,
         'now': this.now,

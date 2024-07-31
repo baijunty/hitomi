@@ -341,9 +341,18 @@ Future<HttpServer> run_server(TaskManager manager) async {
     };
     manager.logger.d('income websocket');
     stream.listen((message) {
+      manager.logger.d('receive message $message');
       switch (message) {
         case 'list':
+          webSocket.sink.add(json.encode({
+            'type': 'list',
+            "queryTask": manager.queryTask,
+            ...manager.down.allTask
+          }));
           manager.addTaskObserver(observer);
+        case 'log':
+          webSocket.sink.add(json
+              .encode(manager.outputEvent.buffer.map((e) => e.lines).toList()));
       }
     })
       ..onDone(() => manager.removeTaskObserver(observer))

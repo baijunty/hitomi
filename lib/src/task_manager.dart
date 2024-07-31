@@ -40,7 +40,7 @@ class TaskManager {
   late Hitomi _webHitomi;
   late Logger logger;
   final Dio dio = Dio();
-  final Set<Label> _tasks = <Label>{};
+  final Set<Label> _queryTasks = <Label>{};
   final taskObserver = <Function(Map<String, dynamic>)>{};
   final Set<MapEntry<int, String>> _adImage = {};
   final _storage = InMemoryStorage<Label, Map<String, dynamic>>(1024);
@@ -48,7 +48,11 @@ class TaskManager {
       SimpleCache<Label, Map<String, dynamic>>(storage: _storage);
   final _reg = RegExp(r'!?\[(?<name>.*?)\]\(#*\s*\"?(?<url>\S+?)\"?\)');
   late IsolateManager<List<int>?, String> _manager;
+  late MemoryOutput outputEvent;
   DownLoader get down => _downLoader;
+  List<Map<String, dynamic>> get queryTask => _queryTasks
+      .map((e) => {'href': '/${e.urlEncode()}-all.html', ...e.toMap()})
+      .toList();
   Hitomi getApiDirect({bool local = false}) {
     return local ? _localApi : _api;
   }
@@ -86,14 +90,14 @@ class TaskManager {
       default:
         level = Level.fatal;
     }
-    LogOutput outputEvent;
     if (config.logOutput.isNotEmpty) {
-      outputEvent = AdvancedFileOutput(
+      outputEvent = MemoryOutput(
+          secondOutput: AdvancedFileOutput(
         path: config.logOutput,
         overrideExisting: true,
-      );
+      ));
     } else {
-      outputEvent = ConsoleOutput();
+      outputEvent = MemoryOutput(secondOutput: ConsoleOutput());
     }
     logger = Logger(
         filter: ProductionFilter(),
@@ -121,18 +125,7 @@ class TaskManager {
         adImage: this._adImage,
         taskObserver: (msg) {
           if (taskObserver.isNotEmpty) {
-            var data = <String, dynamic>{
-              "queryTask": _tasks
-                  .map((e) =>
-                      {'href': '/${e.urlEncode()}-all.html', ...e.toMap()})
-                  .toList(),
-              "pendingTask": msg.key
-                  .map((t) =>
-                      {'href': t.galleryurl!, 'name': t.dirName, 'gallery': t})
-                  .toList(),
-              "runningTask": msg.value.map((e) => e.toMap).toList()
-            };
-            taskObserver.forEach((element) => element(data));
+            taskObserver.forEach((element) => element(msg));
           }
         });
     _parser = ArgParser()
@@ -422,9 +415,9 @@ class TaskManager {
       } else if (result.wasParsed('artist')) {
         String? artist = result['artist'];
         hasError = artist == null || artist.isEmpty;
-        if (!hasError && _tasks.every((value) => value.name != artist)) {
+        if (!hasError && _queryTasks.every((value) => value.name != artist)) {
           final label = Artist(artist: artist);
-          _tasks.add(label);
+          _queryTasks.add(label);
           return _downLoader.downLoadByTag(<Label>[
             label,
             ...config.languages.map((e) => Language(name: e)),
@@ -432,7 +425,7 @@ class TaskManager {
             TypeLabel('manga')
           ], MapEntry('artist', artist), CancelToken(),
               onFinish: (success) async {
-            _tasks.remove(label);
+            _queryTasks.remove(label);
             _storage.remove(label);
             await translateLabel([label]);
           });
@@ -440,9 +433,9 @@ class TaskManager {
       } else if (result.wasParsed('group')) {
         String? group = result['group'];
         hasError = group == null || group.isEmpty;
-        if (!hasError && _tasks.every((value) => value.name != group)) {
+        if (!hasError && _queryTasks.every((value) => value.name != group)) {
           final label = Group(group: group);
-          _tasks.add(label);
+          _queryTasks.add(label);
           return _downLoader.downLoadByTag(<Label>[
             label,
             ...config.languages.map((e) => Language(name: e)),
@@ -450,7 +443,7 @@ class TaskManager {
             TypeLabel('manga')
           ], MapEntry('groupes', group), CancelToken(),
               onFinish: (success) async {
-            _tasks.remove(label);
+            _queryTasks.remove(label);
             _storage.remove(label);
             await translateLabel([label]);
           });
@@ -461,12 +454,12 @@ class TaskManager {
             .where((value) => value.length >= 2)
             .map((e) => fromString(e[0], e[1]))
             .toList();
-        _tasks.addAll(tags);
+        _queryTasks.addAll(tags);
         return _downLoader.downLoadByTag(
             tags..addAll(config.languages.map((e) => Language(name: e))),
             MapEntry(tags.first.type, tags.first.name),
             CancelToken(),
-            onFinish: (success) => _tasks.removeAll(tags));
+            onFinish: (success) => _queryTasks.removeAll(tags));
       } else if (result.wasParsed('delete')) {
         String deleteId = result["delete"];
         logger.d('delete ${deleteId}');
