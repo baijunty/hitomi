@@ -43,7 +43,9 @@ class DownLoader {
                   'gallery': t
                 })
             .toList(),
-        "runningTask": _runningTask.values.map((e) => {...e.toMap,'gallery':e.gallery}).toList()
+        "runningTask": _runningTask.values
+            .map((e) => {...e.toMap, 'gallery': e.gallery})
+            .toList()
       };
 
   DownLoader(
@@ -155,22 +157,23 @@ class DownLoader {
 
   Future<List<MapEntry<String, Map<String, dynamic>>>> autoTagImages(
       String tagPath, String workPath, String filePath) async {
-    return Isolate.run(() =>
-        Process.run(tagPath, workingDirectory: workPath, [filePath])
-            .then((r) => r.stdout as String)
-            .then((s) {
-          var r = s
-              .split('\n')
-              .where((s) => s.isNotEmpty)
-              .map((s) => json.decode(s) as Map<String, dynamic>)
-              .fold(
-                  <MapEntry<String, Map<String, dynamic>>>[],
-                  (list, m) => list
-                    ..add(MapEntry(
-                        m['filename'], m['tags'] as Map<String, dynamic>)));
+    return Isolate.run(() => Process.run('curl', [
+          'http://localhost:5000/evaluate',
+          '-X',
+          'POST',
+          '-F',
+          "file=@$filePath",
+          '-F',
+          'format=json'
+        ]).then((r) => json.decode(r.stdout) as List<dynamic>).then((s) {
+          var r = s.map((e) => e as Map<String, dynamic>).fold(
+              <MapEntry<String, Map<String, dynamic>>>[],
+              (list, m) => list
+                ..add(MapEntry(
+                    m['filename'], m['tags'] as Map<String, dynamic>)));
           return r;
         }).catchError((e) => <MapEntry<String, Map<String, dynamic>>>[],
-                test: (error) => true));
+            test: (error) => true));
   }
 
   Future<bool> _findUnCompleteGallery(Gallery gallery, Directory newDir) async {

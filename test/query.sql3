@@ -9,6 +9,6 @@ select COUNT(*) OVER() AS total_count,id from Gallery where  (  json_value_conta
 select * from ( select count(gid) as count,* from GalleryFile where fileHash=-1 group by gid ) as g where g.count>4 order by count desc
 SELECT * from Gallery where id=3000073
 select count(1),* from GalleryFile where  tag like '%missionary%' group by gid limit 20
-select * from GalleryFile where width<1000 order by gid desc LIMIT 20
+select * from GalleryFile where gid=3006056 order by gid desc LIMIT 20
 select * from UserLog where type= 1 << 17
 SELECT SUM("pgsize")/1024/1024,name FROM "dbstat" group by name 

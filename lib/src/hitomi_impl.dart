@@ -423,7 +423,7 @@ class _HitomiImpl implements Hitomi {
                 headers: buildRequestHeader(url, referer),
                 onProcess: (now, total) async {
               final realTime = DateTime.now().millisecondsSinceEpoch;
-              if ((realTime - lastTime) >= 500) {
+              if ((realTime - lastTime) >= 250) {
                 await _loopCallBack(
                   DownLoadingMessage(gallery, index,
                       now / 1024 / (realTime - startTime) * 1000, now, total),
@@ -438,12 +438,12 @@ class _HitomiImpl implements Hitomi {
               await value.flush();
             })
             .whenComplete(() => writer.close());
-        b = out.existsSync() && out.lengthSync() > 0;
-        if (!b && out.existsSync() && out.lengthSync() == 0) {
-          out.delete();
-        }
-        await _loopCallBack(DownLoadFinished(image, gallery, out, b));
       }
+      b = out.existsSync() && out.lengthSync() > 0;
+      if (!b && out.existsSync() && out.lengthSync() == 0) {
+        out.delete();
+      }
+      await _loopCallBack(DownLoadFinished(image, gallery, out, b));
     } catch (e) {
       logger?.e('down image faild $e');
       await _loopCallBack(IlleagalGallery(gallery.id, e.toString(), index));

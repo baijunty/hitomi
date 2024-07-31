@@ -45,6 +45,14 @@ void main(List<String> args) async {
   tasks?.forEach(
       (element) async => await (await task.parseCommandAndRun(element.trim())));
   run_server(task);
+  if (config.aiTagPath.isNotEmpty) {
+    await Process.start(
+        'python3',
+        [
+          'app.py',
+        ],
+        workingDirectory: config.aiTagPath);
+  }
   getUserInputId().forEach((element) async {
     print(
         '\x1b[47;31madd command ${element.trim()} return ${await task.parseCommandAndRun(element.trim())} \x1b[0m');

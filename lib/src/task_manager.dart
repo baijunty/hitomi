@@ -30,6 +30,22 @@ Future<List<int>?> _compressRunner(String imagePath) async {
       .catchError((e) => null, test: (error) => true);
 }
 
+class _MemoryOutputWrap extends MemoryOutput {
+  _MemoryOutputWrap({super.bufferSize = 100, super.secondOutput});
+
+  @override
+  Future<void> init() async {
+    await secondOutput?.init();
+    return super.init();
+  }
+
+  @override
+  Future<void> destroy() async {
+    await secondOutput?.destroy();
+    return super.destroy();
+  }
+}
+
 class TaskManager {
   final UserConfig config;
   late ArgParser _parser;
@@ -48,7 +64,7 @@ class TaskManager {
       SimpleCache<Label, Map<String, dynamic>>(storage: _storage);
   final _reg = RegExp(r'!?\[(?<name>.*?)\]\(#*\s*\"?(?<url>\S+?)\"?\)');
   late IsolateManager<List<int>?, String> _manager;
-  late MemoryOutput outputEvent;
+  late _MemoryOutputWrap outputEvent;
   DownLoader get down => _downLoader;
   List<Map<String, dynamic>> get queryTask => _queryTasks
       .map((e) => {'href': '/${e.urlEncode()}-all.html', ...e.toMap()})
@@ -91,13 +107,13 @@ class TaskManager {
         level = Level.fatal;
     }
     if (config.logOutput.isNotEmpty) {
-      outputEvent = MemoryOutput(
+      outputEvent = _MemoryOutputWrap(
           secondOutput: AdvancedFileOutput(
         path: config.logOutput,
         overrideExisting: true,
       ));
     } else {
-      outputEvent = MemoryOutput(secondOutput: ConsoleOutput());
+      outputEvent = _MemoryOutputWrap(secondOutput: ConsoleOutput());
     }
     logger = Logger(
         filter: ProductionFilter(),
