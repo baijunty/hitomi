@@ -192,7 +192,13 @@ class DownLoader {
                 .isNotEmpty;
       }).catchError((e) => true, test: (error) => true);
     } else {
-      check = findDuplicateGalleryIds(gallery, helper, api, logger: logger)
+      check = fetchGalleryHash(gallery, helper, api,
+              adHashes: adImage.map((e) => e.key).toList(), fullHash: false)
+          .then((v) => findDuplicateGalleryIds(
+              gallery: gallery,
+              helper: helper,
+              fileHashs: v.value,
+              logger: logger))
           .then((value) async {
         if (value.isNotEmpty) {
           logger?.i('${gallery.id} found duplicate with $value');
@@ -210,8 +216,14 @@ class DownLoader {
     }
     return check.then((value) async {
       if (value) {
-        await findDuplicateGalleryIds(gallery, helper, api,
-                logger: logger, reserved: true)
+        await fetchGalleryHash(gallery, helper, api,
+                adHashes: adImage.map((e) => e.key).toList(), fullHash: true)
+            .then((v) => findDuplicateGalleryIds(
+                gallery: gallery,
+                helper: helper,
+                fileHashs: v.value,
+                logger: logger,
+                reserved: true))
             .then((value) async {
           if (value.isNotEmpty) {
             logger?.w('found overWrite $value');
@@ -428,6 +440,7 @@ class DownLoader {
     return list
         .asStream()
         .asyncMap((event) => fetchGalleryHash(event, helper, api,
+                    adHashes: adImage.map((e) => e.key).toList(),
                     token: token,
                     fullHash: true,
                     outDir: config.output,

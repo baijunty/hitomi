@@ -64,10 +64,11 @@ Gallery compareGallerWithOther(
 }
 
 Future<MapEntry<Gallery, List<int>>> fetchGalleryHash(
-    Gallery gallery, SqliteHelper helper, Hitomi api,
+    Gallery gallery, SqliteHelper helper, Hitomi api, 
     {CancelToken? token,
     bool fullHash = false,
     String? outDir,
+    List<int> adHashes = const [],
     Logger? logger}) async {
   return helper
       .queryImageHashsById(gallery.id)
@@ -102,6 +103,13 @@ Future<MapEntry<Gallery, List<int>>> fetchGalleryHash(
       .then((value) async => value.value.length < 18
           ? await fetchGalleryHashFromNet(gallery, api, token, fullHash)
           : value)
+      .then((value) => MapEntry(
+          value.key,
+          value.value
+              .whereIndexed((index, hash) => adHashes.every((ad) =>
+                  (value.value.length - index) <= 6 &&
+                  compareHashDistance(hash, ad) > 3))
+              .toList()))
       .catchError((err) {
         logger?.e('fetchGalleryHash $err');
         return MapEntry(gallery, <int>[]);
@@ -204,11 +212,12 @@ bool chapterContains(List<int> chapters1, List<int> chapters2) {
 }
 
 Future<List<int>> findDuplicateGalleryIds(
-    Gallery gallery, SqliteHelper helper, Hitomi api,
-    {Logger? logger,
+    {required Gallery gallery,
+    required SqliteHelper helper,
+    required List<int> fileHashs,
+    Logger? logger,
     CancelToken? token,
-    bool reserved = false,
-    List<int>? fileHashs}) async {
+    bool reserved = false}) async {
   Map<int, List<int>> allFileHash = {};
   if (gallery.artists != null) {
     await gallery.artists!
@@ -225,25 +234,16 @@ Future<List<int>> findDuplicateGalleryIds(
         .fold(allFileHash, (previous, element) => previous..addAll(element));
   }
   if (allFileHash.isNotEmpty == true) {
-    return (fileHashs != null
-            ? Future.value(MapEntry(gallery.id, fileHashs))
-            : fetchGalleryHash(gallery, helper, api,
-                    token: token, fullHash: reserved)
-                .then((value) => MapEntry(value.key.id, value.value)))
-        .then((value) {
-      if (reserved) {
-        var map = {value.key: value.value};
-        return allFileHash.entries
-            .where(
-                (e) => searchSimilerGaller(e, map, logger: logger).isNotEmpty)
-            .fold(<int>[],
-                (previousValue, element) => previousValue..add(element.key));
-      }
-      return searchSimilerGaller(value, allFileHash, logger: logger);
-    }).catchError((err) {
-      logger?.e(err);
-      return <int>[];
-    }, test: (error) => true);
+    var value = MapEntry(gallery.id, fileHashs);
+    if (reserved) {
+      var map = {value.key: value.value};
+      var r = allFileHash.entries
+          .where((e) => searchSimilerGaller(e, map, logger: logger).isNotEmpty)
+          .fold(<int>[],
+              (previousValue, element) => previousValue..add(element.key));
+      return r;
+    }
+    return searchSimilerGaller(value, allFileHash, logger: logger);
   }
   return [];
 }

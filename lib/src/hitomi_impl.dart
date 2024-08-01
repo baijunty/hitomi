@@ -305,7 +305,10 @@ class _LocalHitomiImpl implements Hitomi {
   Future<DataResponse<List<Gallery>>> findSimilarGalleryBySearch(
       Gallery gallery,
       {CancelToken? token}) {
-    return findDuplicateGalleryIds(gallery, _manager.helper, _hitomiImpl)
+    return fetchGalleryHash(gallery, _manager.helper, _hitomiImpl,
+            adHashes: _manager.adHash)
+        .then((value) => findDuplicateGalleryIds(
+            gallery: gallery, helper: _manager.helper, fileHashs: value.value))
         .then((value) => Future.wait(value.map((e) => fetchGallery(e))))
         .then((value) => DataResponse(value, totalCount: value.length));
   }

@@ -79,6 +79,7 @@ class TaskManager {
 
   List<String> get adImage =>
       _adImage.map((e) => e.value).toList(growable: false);
+  List<int> get adHash => _adImage.map((e) => e.key).toList(growable: false);
 
   void addTaskObserver(Function(Map<String, dynamic>) observer) {
     taskObserver.add(observer);
@@ -233,7 +234,12 @@ class TaskManager {
             ? readGalleryFromPath(
                     value.createDir(config.output, createDir: false).path)
                 .then((value) => [value.id])
-            : findDuplicateGalleryIds(value, helper, _api, logger: logger));
+            : fetchGalleryHash(value, helper, _api, adHashes: adHash).then(
+                (v) => findDuplicateGalleryIds(
+                    gallery: value,
+                    helper: helper,
+                    fileHashs: v.value,
+                    logger: logger)));
   }
 
   Future<Map<Label, Map<String, dynamic>>> collectedInfo(List<Label> keys) {
