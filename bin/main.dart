@@ -45,19 +45,23 @@ void main(List<String> args) async {
   tasks?.forEach(
       (element) async => await (await task.parseCommandAndRun(element.trim())));
   run_server(task);
-  if (config.aiTagPath.isNotEmpty) {
-    await Process.start(
-        'python3',
-        [
-          'app.py',
-        ],
-        workingDirectory: config.aiTagPath);
-  }
   getUserInputId().forEach((element) async {
     print(
         '\x1b[47;31madd command ${element.trim()} return ${await task.parseCommandAndRun(element.trim())} \x1b[0m');
   });
   await task.parseCommandAndRun('-c');
+  if (config.aiTagPath.isNotEmpty) {
+    var p = await Process.start(
+        'python3',
+        [
+          'app.py',
+        ],
+        workingDirectory: config.aiTagPath);
+    ProcessSignal.sigint.watch().first.then((d) {
+      p.kill();
+      Process.killPid(pid);
+    });
+  }
   // var len = await readIdFromFile(pool)
   //     .asStream()
   //     .expand((element) => element)

@@ -40,7 +40,7 @@ class DownLoader {
             .map((t) => {
                   'href': t.gallery.galleryurl!,
                   'name': t.gallery.dirName,
-                  'gallery': t
+                  'gallery': t.gallery
                 })
             .toList(),
         "runningTask": _runningTask.values
@@ -367,6 +367,7 @@ class DownLoader {
         'id': token.gallery.id,
         'type': 'add',
         'target': 'running',
+        'gallery': token.gallery,
         ...msg.toMap
       });
       logger?.d(
