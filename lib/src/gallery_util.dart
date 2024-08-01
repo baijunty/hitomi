@@ -64,7 +64,7 @@ Gallery compareGallerWithOther(
 }
 
 Future<MapEntry<Gallery, List<int>>> fetchGalleryHash(
-    Gallery gallery, SqliteHelper helper, Hitomi api, 
+    Gallery gallery, SqliteHelper helper, Hitomi api,
     {CancelToken? token,
     bool fullHash = false,
     String? outDir,
@@ -106,9 +106,9 @@ Future<MapEntry<Gallery, List<int>>> fetchGalleryHash(
       .then((value) => MapEntry(
           value.key,
           value.value
-              .whereIndexed((index, hash) => adHashes.every((ad) =>
-                  (value.value.length - index) <= 6 &&
-                  compareHashDistance(hash, ad) > 3))
+              .whereIndexed((index, hash) =>
+                  (value.value.length - index) <= 8 ||
+                  adHashes.every((ad) => compareHashDistance(hash, ad) > 3))
               .toList()))
       .catchError((err) {
         logger?.e('fetchGalleryHash $err');
