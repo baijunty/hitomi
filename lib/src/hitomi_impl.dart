@@ -400,10 +400,9 @@ class _HitomiImpl implements Hitomi {
         missImages.add(gallery.files[i]);
       }
     }
-    var b = missImages.isEmpty;
     return await _loopCallBack(
             DownLoadFinished(missImages, gallery, dir, missImages.isEmpty)) &&
-        b;
+        missImages.isEmpty;
   }
 
   Future<bool> _downLoadImage(
@@ -443,6 +442,7 @@ class _HitomiImpl implements Hitomi {
             .whenComplete(() => writer.close());
       }
       b = out.existsSync() && out.lengthSync() > 0;
+      logger?.i('down image $index ${out.path} $b');
       if (!b && out.existsSync() && out.lengthSync() == 0) {
         out.delete();
       }

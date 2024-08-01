@@ -51,16 +51,13 @@ void main(List<String> args) async {
   });
   await task.parseCommandAndRun('-c');
   if (config.aiTagPath.isNotEmpty) {
-    var p = await Process.start(
+    await Process.start(
         'python3',
         [
           'app.py',
         ],
-        workingDirectory: config.aiTagPath);
-    ProcessSignal.sigint.watch().first.then((d) {
-      p.kill();
-      Process.killPid(pid);
-    });
+        workingDirectory: config.aiTagPath,
+        mode: ProcessStartMode.inheritStdio);
   }
   // var len = await readIdFromFile(pool)
   //     .asStream()
