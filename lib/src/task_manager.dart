@@ -124,6 +124,7 @@ class TaskManager {
             methodCount: 0,
             errorMethodCount: 10,
             printEmojis: false,
+            dateTimeFormat: DateTimeFormat.dateAndTime,
             noBoxingByDefault: true));
     _manager = IsolateManager<List<int>?, String>.create(_compressRunner,
         concurrent: config.maxTasks * 2);
@@ -156,6 +157,7 @@ class TaskManager {
       ..addOption('artist', abbr: 'a')
       ..addOption('admark')
       ..addOption('group', abbr: 'g')
+      ..addOption('sqlite3', abbr: 's')
       ..addMultiOption('tags', abbr: 't');
     helper
         .querySql('select * from UserLog where type=?', [1 << 17])
@@ -539,6 +541,9 @@ class TaskManager {
       } else if (result['continue']) {
         return remainTask().then((value) =>
             value.asyncMap((event) => _downLoader.addTask(event)).length);
+      } else if (result['sqlite3']) {
+        String command = result["sqlite3"];
+        return helper.querySql(command).then((value) => value.toList());
       }
       if (hasError) {
         logger.e('$cmd error with ${args}');

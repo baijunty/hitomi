@@ -342,17 +342,32 @@ Future<HttpServer> run_server(TaskManager manager) async {
     manager.logger.d('income websocket');
     stream.listen((message) {
       manager.logger.d('receive message $message');
-      switch (message) {
-        case 'list':
-          webSocket.sink.add(json.encode({
-            'type': 'list',
-            "queryTask": manager.queryTask,
-            ...manager.down.allTask
-          }));
-          manager.addTaskObserver(observer);
-        case 'log':
-          webSocket.sink.add(json
-              .encode(manager.outputEvent.buffer.map((e) => e.lines).toList()));
+      try {
+        var msg = json.decode(message) as Map<String, dynamic>;
+        if (msg['auth'] == manager.config.auth) {
+          switch (msg['type']) {
+            case 'list':
+              webSocket.sink.add(json.encode({
+                'type': 'list',
+                "queryTask": manager.queryTask,
+                ...manager.down.allTask
+              }));
+              manager.addTaskObserver(observer);
+            case 'log':
+              webSocket.sink.add(json.encode(
+                  manager.outputEvent.buffer.map((e) => e.lines).toList()));
+            default:
+              {
+                manager.parseCommandAndRun(msg['command']).then(
+                    (r) => webSocket.sink.add(json.encode({'result': r})));
+              }
+          }
+        } else {
+          webSocket.sink.add(json.encode({'success': false}));
+        }
+      } catch (e) {
+        manager.logger.e(e);
+        webSocket.sink.add(json.encode({'success': false}));
       }
     })
       ..onDone(() => manager.removeTaskObserver(observer))
