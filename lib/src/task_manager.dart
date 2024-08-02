@@ -31,7 +31,7 @@ Future<List<int>?> _compressRunner(String imagePath) async {
 }
 
 class _MemoryOutputWrap extends MemoryOutput {
-  _MemoryOutputWrap({super.bufferSize = 100, super.secondOutput});
+  _MemoryOutputWrap({super.secondOutput});
 
   @override
   Future<void> init() async {
@@ -541,7 +541,7 @@ class TaskManager {
       } else if (result['continue']) {
         return remainTask().then((value) =>
             value.asyncMap((event) => _downLoader.addTask(event)).length);
-      } else if (result['sqlite3']) {
+      } else if (result.wasParsed('sqlite3')) {
         String command = result["sqlite3"];
         return helper.querySql(command).then((value) => value.toList());
       }
@@ -549,8 +549,8 @@ class TaskManager {
         logger.e('$cmd error with ${args}');
       }
       return !hasError;
-    } catch (e) {
-      logger.e(e);
+    } catch (e, stack) {
+      logger.e('$e $stack');
       return false;
     }
   }
