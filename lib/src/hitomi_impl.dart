@@ -416,7 +416,7 @@ class _HitomiImpl implements Hitomi {
           buildImageUrl(image, size: ThumbnaiSize.origin, id: gallery.id);
       var startTime = DateTime.now().millisecondsSinceEpoch;
       int lastTime = startTime;
-      var b = await _loopCallBack(TaskStartMessage(gallery, out, image)) &&
+      b = await _loopCallBack(TaskStartMessage(gallery, out, image)) &&
           (token?.isCancelled ?? false) == false;
       if (b) {
         var writer = out.openWrite();

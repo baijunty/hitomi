@@ -313,6 +313,8 @@ class HitomiDir {
           if (value.isEmpty) {
             return Future.value(true);
           }
+          _downLoader.logger
+              ?.d('${gallery?.id}  need fix file  ${value.length}');
           List<MapEntry<String, Map<String, dynamic>>> autoTags =
               _downLoader.config.aiTagPath.isNotEmpty
                   ? await _downLoader.autoTagImages(
@@ -347,9 +349,8 @@ class HitomiDir {
           }
           return lost;
         });
-      }).catchError((e) async {
-        _downLoader.logger?.e('scan gallery faild $e');
-        await deleteGallery(reason: 'error $e');
+      }).catchError((e, stack) {
+        _downLoader.logger?.e('scan gallery faild $e $stack');
         return false;
       }, test: (error) => true);
     } else {

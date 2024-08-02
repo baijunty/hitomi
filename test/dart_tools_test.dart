@@ -37,7 +37,7 @@ void main() async {
                     fill..[e.key] = MapEntry((fill[e.key]?.key ?? 0) + e.value, (fill[e.key]?.value ?? [])..add(m.key)))));
     var result = list.entries
         .sortedByCompare((e) => e.value.key, (e1, e2) => e2.compareTo(e1))
-        .map((e) => '(${trans[e.key]??e.key}')
+        .map((e) => '(${trans[e.key] ?? e.key}')
         .toList();
     print('result ${result.toString()}');
   }, timeout: Timeout(Duration(minutes: 120)));

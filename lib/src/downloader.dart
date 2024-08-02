@@ -116,25 +116,43 @@ class DownLoader {
               logger?.w('illeagal gallery ${msg.id}');
               return await helper.removeTask(msg.id);
             } else if (msg.target is Image) {
-              return (config.aiTagPath.isNotEmpty
-                      ? autoTagImages('${config.aiTagPath}/autotag',
-                          config.aiTagPath, msg.file.path)
-                      : Future.value(
-                          <MapEntry<String, Map<String, dynamic>>>[]))
-                  .then((l) async {
-                var hashValue = await imageFileHash(msg.file as File);
-                if (adImage
-                    .map((e) => e.key)
-                    .toList()
-                    .any((hash) => compareHashDistance(hash, hashValue) < 4)) {
+              return helper.querySql(
+                  'select * from GalleryFile where gid=? and hash=?', [
+                msg.gallery.id,
+                (msg.target as Image).hash
+              ]).then((value) async {
+                bool needInsert = value.firstOrNull == null;
+                int hashValue = value.firstOrNull?['fileHash'] ??
+                    await imageFileHash(msg.file as File);
+                var autoTag = needInsert
+                    ? <MapEntry<String, Map<String, dynamic>>>[]
+                    : [
+                        MapEntry(
+                            value.first['name'],
+                            json.decode(value.first['tag'])
+                                as Map<String, dynamic>)
+                      ];
+                var needTag = config.aiTagPath.isNotEmpty &&
+                    (value.firstOrNull?['tag'] ?? '') == '';
+                if (needTag) {
+                  autoTag = await autoTagImages('${config.aiTagPath}/autotag',
+                      config.aiTagPath, msg.file.path);
+                }
+                if (msg.gallery.files.length -
+                            msg.gallery.files
+                                .indexWhere((f) => f.name == msg.target.name) <=
+                        8 &&
+                    adImage.map((e) => e.key).toList().any(
+                        (hash) => compareHashDistance(hash, hashValue) < 4)) {
                   logger?.w('fount ad image ${msg.file.path}');
                   msg.gallery.files
                       .removeWhere((f) => f.name == (msg.target as Image).name);
                   return msg.file.delete().then((_) => false);
-                } else {
-                  return helper.insertGalleryFile(
-                      msg.gallery, msg.target, hashValue, l.firstOrNull?.value);
+                } else if (needInsert || needTag) {
+                  return helper.insertGalleryFile(msg.gallery, msg.target,
+                      hashValue, autoTag.firstOrNull?.value);
                 }
+                return needInsert;
               });
             }
           }
@@ -255,6 +273,9 @@ class DownLoader {
 
   bool illeagalTagsCheck(Gallery gallery, List<FilterLabel> excludes) {
     final labels = gallery.labels();
+    if (labels.isEmpty) {
+      return true;
+    }
     var illeagalTags =
         excludes.where((element) => labels.contains(element)).toList();
     if (excludes.any(
