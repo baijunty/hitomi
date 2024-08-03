@@ -249,7 +249,12 @@ class HitomiDir {
   Future<bool> compareWithOther(List<HitomiDir> others) async {
     var left = compareGallerWithOther(
         this.gallery!,
-        others.map((e) => e.gallery!).toList(),
+        others
+            .map((e) => e.gallery!)
+            .where((e) => e
+                .createDir(_downLoader.config.output, createDir: false)
+                .existsSync())
+            .toList(),
         _downLoader.config.languages,
         _downLoader.logger);
     if (left.id == this.gallery!.id) {

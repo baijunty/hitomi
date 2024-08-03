@@ -44,6 +44,9 @@ double searchSimiler(List<int> hashes, List<int> other) {
 Gallery compareGallerWithOther(
     Gallery gallery, List<Gallery> others, List<String> languages,
     [Logger? logger]) {
+  if (others.isEmpty) {
+    return gallery;
+  }
   others.sort((g1, g2) => g1.files.length - g2.files.length);
   var max = others.last;
   var diff = gallery.files.length - max.files.length;
