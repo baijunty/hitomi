@@ -68,7 +68,6 @@ class DirScanner {
               var dir = Directory(
                   path.join(_downLoader.config.output, event['path']));
               return readGalleryFromPath(dir.path).then((value) async {
-                await HitomiDir(dir, _downLoader, value).fixGallery();
                 if (value.id.toString() != id.toString()) {
                   _downLoader.logger?.i('db id $id found id ${value.id}');
                   return await _helper.deleteGallery(id);
@@ -77,7 +76,9 @@ class DirScanner {
               }).catchError(
                   (e) => _downLoader.api
                       .fetchGallery(id, usePrefence: false)
-                      .then((value) => _downLoader.addTask(value))
+                      .then((value) => _downLoader.filter(value)
+                          ? _downLoader.addTask(value)
+                          : false)
                       .then((value) => _helper.deleteGallery(id))
                       .catchError((e) => false, test: (error) => true),
                   test: (error) => true);
@@ -101,7 +102,7 @@ class DirScanner {
   }
 
   Future<Map<int, List<int>>> _findDupByLaber(String type, String name) async {
-    var r = _helper
+    return _helper
         .queryImageHashsByLabel(type, name)
         .then((value) => value.entries.fold(
             <int, List<int>>{},
@@ -109,7 +110,6 @@ class DirScanner {
               ..[element.key] = searchSimilerGaller(element, value,
                   logger: _downLoader.logger)))
         .then((value) => value..removeWhere((key, value) => value.isEmpty));
-    return r;
   }
 
   Future<Map<HitomiDir, List<HitomiDir>>> _collectionFromMap(
@@ -277,12 +277,18 @@ class HitomiDir {
     }, test: (error) => true);
   }
 
-  Future<bool> batchInsertImage(
-      Iterable<Image> imgs, List<MapEntry<String, Map<String, dynamic>>> tags) {
-    return Future.wait(imgs.map((img) =>
-            imageFileHash(File(path.join(dir.path, img.name))).then((hash) =>
-                _downLoader.helper.insertGalleryFile(gallery!, img, hash,
-                    tags.firstWhereOrNull((e) => e.key == img.name)?.value))))
+  Future<bool> batchInsertImage(Iterable<Image> imgs, bool generateTag) {
+    return Future.wait(imgs.map((img) => imageFileHash(
+                File(path.join(dir.path, img.name)))
+            .then((hash) async => _downLoader.helper.insertGalleryFile(
+                gallery!,
+                img,
+                hash,
+                generateTag
+                    ? await _downLoader
+                        .autoTagImages(path.join(dir.path, img.name))
+                        .then((r) => r.firstOrNull?.value)
+                    : null))))
         .then((vs) => vs.fold(true, (acc, i) => acc && i))
         .then((v) => v);
   }
@@ -313,15 +319,6 @@ class HitomiDir {
           if (value.isEmpty) {
             return Future.value(true);
           }
-          _downLoader.logger
-              ?.d('${gallery?.id}  need fix file  ${value.length}');
-          List<MapEntry<String, Map<String, dynamic>>> autoTags =
-              _downLoader.config.aiTagPath.isNotEmpty
-                  ? await _downLoader.autoTagImages(
-                      '${_downLoader.config.aiTagPath}/autotag',
-                      _downLoader.config.aiTagPath,
-                      dir.path)
-                  : [];
           var missing = value
               .where((e) => e.value.firstOrNull == null)
               .map((element) =>
@@ -332,20 +329,22 @@ class HitomiDir {
           if (missing.isNotEmpty) {
             _downLoader.logger?.d(
                 '${gallery} fix file missing ${missing.map((e) => e.name).toList()}');
-            lost = await batchInsertImage(missing, autoTags);
+            lost = await batchInsertImage(missing, false);
           }
-          missing = value
-              .where((e) =>
-                  missing.every((miss) => miss.hash != e.key[1]) &&
-                  e.value.firstOrNull?['tag'] == 1)
-              .map((element) =>
-                  gallery!.files.firstWhere((e) => e.hash == element.key[1]))
-              .where((e) => File(path.join(dir.path, e.name)).existsSync())
-              .toList();
-          if (missing.isNotEmpty && autoTags.isNotEmpty) {
+          missing = _downLoader.config.aiTagPath.isNotEmpty
+              ? value
+                  .where((e) =>
+                      missing.every((miss) => miss.hash != e.key[1]) &&
+                      e.value.firstOrNull?['tag'] == 1)
+                  .map((element) => gallery!.files
+                      .firstWhere((e) => e.hash == element.key[1]))
+                  .where((e) => File(path.join(dir.path, e.name)).existsSync())
+                  .toList()
+              : [];
+          if (missing.isNotEmpty) {
             _downLoader.logger?.d(
                 '${gallery} fix tag missing ${missing.map((e) => e.name).toList()}');
-            lost = await batchInsertImage(missing, autoTags);
+            lost = await batchInsertImage(missing, true);
           }
           return lost;
         });

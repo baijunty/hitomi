@@ -123,20 +123,16 @@ class DownLoader {
               ]).then((value) async {
                 bool needInsert = value.firstOrNull == null;
                 int hashValue = value.firstOrNull?['fileHash'] ??
-                    await imageFileHash(msg.file as File);
-                var autoTag = needInsert
-                    ? <MapEntry<String, Map<String, dynamic>>>[]
-                    : [
-                        MapEntry(
-                            value.first['name'],
-                            json.decode(value.first['tag'])
-                                as Map<String, dynamic>)
-                      ];
+                    await imageFileHash(msg.file as File).catchError((e) {
+                      logger?.e('image file ${msg.file.path} hash error $e ');
+                      msg.file.deleteSync();
+                      return 0;
+                    }, test: (error) => true);
+                var autoTag = <MapEntry<String, Map<String, dynamic>>>[];
                 var needTag = config.aiTagPath.isNotEmpty &&
                     (value.firstOrNull?['tag'] ?? '') == '';
                 if (needTag) {
-                  autoTag = await autoTagImages('${config.aiTagPath}/autotag',
-                      config.aiTagPath, msg.file.path);
+                  autoTag = await autoTagImages(msg.file.path);
                 }
                 if (msg.gallery.files.length -
                             msg.gallery.files
@@ -174,7 +170,7 @@ class DownLoader {
   }
 
   Future<List<MapEntry<String, Map<String, dynamic>>>> autoTagImages(
-      String tagPath, String workPath, String filePath) async {
+      String filePath) async {
     return Isolate.run(() => Process.run('curl', [
           'http://localhost:5000/evaluate',
           '-X',
@@ -380,7 +376,8 @@ class DownLoader {
       }
       token = token ?? _pendingTask.first;
       _pendingTask.remove(token);
-      taskObserver({'id': id, 'type': 'remove', 'target': 'pending'});
+      taskObserver(
+          {'id': token.gallery.id, 'type': 'remove', 'target': 'pending'});
       var msg = DownLoadingMessage(
           token.gallery, 0, 0, 0, token.gallery.files.length);
       _runningTask[token] = msg;

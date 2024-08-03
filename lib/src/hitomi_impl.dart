@@ -359,10 +359,11 @@ class _HitomiImpl implements Hitomi {
     bool b = true;
     final calls = _calls.toList();
     for (var element in calls) {
-      b &= await element(msg).catchError((e) {
-        logger?.e('_loopCallBack $msg faild $e');
-        return true;
-      }, test: (error) => true);
+      try {
+        b &= await element(msg);
+      } catch (e, stack) {
+        logger?.e('_loopCallBack $msg faild $e stack $stack');
+      }
     }
     return b;
   }
@@ -397,6 +398,7 @@ class _HitomiImpl implements Hitomi {
     for (var i = 0; i < gallery.files.length; i++) {
       var success = await _downLoadImage(dir, gallery, i, token);
       if (!success) {
+        logger?.i('down image ${join(dir.path, gallery.files[i].name)} failed');
         missImages.add(gallery.files[i]);
       }
     }
@@ -442,7 +444,6 @@ class _HitomiImpl implements Hitomi {
             .whenComplete(() => writer.close());
       }
       b = out.existsSync() && out.lengthSync() > 0;
-      logger?.i('down image $index ${out.path} $b');
       if (!b && out.existsSync() && out.lengthSync() == 0) {
         out.delete();
       }

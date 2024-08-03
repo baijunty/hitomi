@@ -109,8 +109,8 @@ class TaskManager {
     }
     if (config.logOutput.isNotEmpty) {
       outputEvent = _MemoryOutputWrap(
-          secondOutput: AdvancedFileOutput(
-        path: config.logOutput,
+          secondOutput: FileOutput(
+        file: File(config.logOutput),
         overrideExisting: true,
       ));
     } else {
