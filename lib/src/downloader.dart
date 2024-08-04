@@ -375,7 +375,8 @@ class DownLoader {
             .firstWhereOrNull((element) => element.gallery.id == id);
       }
       token = token ?? _pendingTask.first;
-      _pendingTask.remove(token);
+      _pendingTask
+          .removeWhere((element) => element.gallery.id == token!.gallery.id);
       taskObserver(
           {'id': token.gallery.id, 'type': 'remove', 'target': 'pending'});
       var msg = DownLoadingMessage(
