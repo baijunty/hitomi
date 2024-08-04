@@ -100,17 +100,14 @@ Future<MapEntry<Gallery, List<int>>> fetchGalleryHash(
                   }, test: (err) => true));
           return Future.wait(fs).then((value) => MapEntry(gallery, value));
         } else {
-          return value;
+          return fetchGalleryHashFromNet(gallery, api, token, fullHash);
         }
       })
-      .then((value) async => value.value.length < 18
-          ? await fetchGalleryHashFromNet(gallery, api, token, fullHash)
-          : value)
       .then((value) => MapEntry(
           value.key,
           value.value
               .whereIndexed((index, hash) =>
-                  (value.value.length - index) <= 8 ||
+                  (value.key.files.length - index) <= 8 ||
                   adHashes.every((ad) => compareHashDistance(hash, ad) > 3))
               .toList()))
       .catchError((err) {
@@ -125,7 +122,8 @@ Future<MapEntry<Gallery, List<int>>> fetchGalleryHashFromNet(
   return (fullHash || gallery.files.length <= 18
           ? gallery.files
           : [
-              ...gallery.files.sublist(0, 6),
+              ...gallery.files.sublist(min(gallery.files.length ~/ 3 - 6, 10),
+                  min(gallery.files.length ~/ 3, 16)),
               ...gallery.files.sublist(
                   gallery.files.length ~/ 2 - 3, gallery.files.length ~/ 2 + 3),
               ...gallery.files.sublist(

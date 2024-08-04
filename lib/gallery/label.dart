@@ -101,7 +101,8 @@ class FilterLabel with Label {
       {required String type, required String name, required this.weight})
       : _type = type,
         _name = name;
-  Map<String, dynamic> toMap() => {'type': type, 'name': name, 'weigt': weight};
+  Map<String, dynamic> toMap() =>
+      {'type': type, 'name': name, 'weight': weight};
 
   factory FilterLabel.fromMap(Map<String, dynamic> data) => FilterLabel(
         type: data['type'] as String,
