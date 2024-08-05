@@ -236,12 +236,14 @@ class TaskManager {
             ? readGalleryFromPath(
                     value.createDir(config.output, createDir: false).path)
                 .then((value) => [value.id])
-            : fetchGalleryHash(value, helper, _api, adHashes: adHash).then(
-                (v) => findDuplicateGalleryIds(
-                    gallery: value,
-                    helper: helper,
-                    fileHashs: v.value,
-                    logger: logger)));
+            : (value.artists?.length ?? 0) + (value.groups?.length ?? 0) <= 0
+                ? Future.value([])
+                : fetchGalleryHash(value, helper, _api, adHashes: adHash).then(
+                    (v) => findDuplicateGalleryIds(
+                        gallery: value,
+                        helper: helper,
+                        fileHashs: v.value,
+                        logger: logger)));
   }
 
   Future<Map<Label, Map<String, dynamic>>> collectedInfo(List<Label> keys) {

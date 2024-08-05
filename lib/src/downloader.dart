@@ -191,9 +191,8 @@ class DownLoader {
   }
 
   Future<bool> _findUnCompleteGallery(Gallery gallery, Directory newDir) async {
-    Future<bool> check;
     if (newDir.listSync().isNotEmpty) {
-      check = readGalleryFromPath(newDir.path).then((value) async {
+      return readGalleryFromPath(newDir.path).then((value) async {
         logger?.d('${newDir.path} $gallery exists $value ');
         return (compareGallerWithOther(value, [gallery], config.languages).id !=
                 value.id) ||
@@ -205,8 +204,11 @@ class DownLoader {
                     !element.existsSync() || element.lengthSync() == 0)
                 .isNotEmpty;
       }).catchError((e) => true, test: (error) => true);
+    } else if ((gallery.artists?.length ?? 0) + (gallery.groups?.length ?? 0) <=
+        0) {
+      return true;
     } else {
-      check = fetchGalleryHash(gallery, helper, api,
+      return fetchGalleryHash(gallery, helper, api,
               adHashes: adImage.map((e) => e.key).toList(), fullHash: false)
           .then((v) => findDuplicateGalleryIds(
               gallery: gallery,
@@ -214,57 +216,42 @@ class DownLoader {
               fileHashs: v.value,
               logger: logger))
           .then((value) async {
-        if (value.isNotEmpty) {
-          logger?.i('${gallery.id} found duplicate with $value');
-          var v = await Future.wait(value.map((e) => helper.queryGalleryById(e).then(
-              (value) => readGalleryFromPath(join(config.output, value.first['path']))
-                  .catchError((e) => api.fetchGallery(value.first['id'], usePrefence: false),
-                      test: (error) => true)
-                  .then((value) =>
-                      value.createDir(config.output, createDir: false))))).then(
-              (value) => value.every((element) => !element.existsSync() || element.listSync().length < 18));
-          return v;
+        if (value.isEmpty&&gallery.files.length>=40) {
+          var exists = await fetchGalleryHash(gallery, helper, api, adHashes: adImage.map((e) => e.key).toList(), fullHash: true)
+              .then((v) => findDuplicateGalleryIds(
+                  gallery: gallery,
+                  helper: helper,
+                  fileHashs: v.value,
+                  logger: logger,
+                  reserved: true))
+              .then((value) => Future.wait(value.map((e) => helper
+                  .queryGalleryById(e)
+                  .then((value) => readGalleryFromPath(join(config.output, value.first['path'])).catchError(
+                      (e) => api.fetchGallery(value.first['id'], usePrefence: false),
+                      test: (error) => true)))));
+          logger?.i('${gallery.id} found duplicate with ${exists.map((g)=>g.id).toList()}');
+          var chapterDown = chapter(gallery.name);
+          if (chapterDown.isNotEmpty &&
+              exists.length == 1 &&
+              chapterContains(chapterDown, chapter(exists[0].name))) {
+            logger?.w('exist ${exists[0]} chapter upgrade to $gallery');
+            newDir.deleteSync(recursive: true);
+            exists[0].createDir(config.output).renameSync(newDir.path);
+            return true;
+          }
+          await exists
+              .map((e) => HitomiDir(e.createDir(config.output), this, e,
+                  fixFromNet: false))
+              .asStream()
+              .asyncMap((event) => event.deleteGallery(
+                  reason:
+                      'new collection ${gallery.id} contails exists gallery ${event.gallery?.id}'))
+              .length;
+          return true;
         }
         return value.isEmpty;
       });
     }
-    return check.then((value) async {
-      if (value) {
-        await fetchGalleryHash(gallery, helper, api,
-                adHashes: adImage.map((e) => e.key).toList(), fullHash: true)
-            .then((v) => findDuplicateGalleryIds(
-                gallery: gallery,
-                helper: helper,
-                fileHashs: v.value,
-                logger: logger,
-                reserved: true))
-            .then((value) async {
-          if (value.isNotEmpty) {
-            logger?.w('found overWrite $value');
-            var exists = await Future.wait(value.map((e) => helper
-                .queryGalleryById(e)
-                .then((value) => Gallery.fromRow(value.first))));
-            var chapterDown = chapter(gallery.name);
-            if (chapterDown.isNotEmpty &&
-                exists.length == 1 &&
-                chapterContains(chapterDown, chapter(exists[0].name))) {
-              newDir.deleteSync(recursive: true);
-              exists[0].createDir(config.output).renameSync(newDir.path);
-            } else {
-              await exists
-                  .map((e) => HitomiDir(e.createDir(config.output), this, e,
-                      fixFromNet: false))
-                  .asStream()
-                  .asyncMap((event) => event.deleteGallery(
-                      reason:
-                          'new collection ${gallery.id} contails exists gallery'))
-                  .length;
-            }
-          }
-        });
-      }
-      return value;
-    });
   }
 
   bool illeagalTagsCheck(Gallery gallery, List<FilterLabel> excludes) {
