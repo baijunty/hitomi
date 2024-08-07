@@ -171,12 +171,15 @@ class DownLoader {
 
   Future<List<MapEntry<String, Map<String, dynamic>>>> autoTagImages(
       String filePath) async {
+    final path = config.aiTagPath;
     return Isolate.run(() => Process.run('curl', [
-          'http://localhost:5000/evaluate',
+          path,
           '-X',
           'POST',
           '-F',
           "file=@$filePath",
+          '-F',
+          "threshold=0.2",
           '-F',
           'format=json'
         ]).then((r) => json.decode(r.stdout) as List<dynamic>).then((s) {
@@ -216,7 +219,7 @@ class DownLoader {
               fileHashs: v.value,
               logger: logger))
           .then((value) async {
-        if (value.isEmpty&&gallery.files.length>=40) {
+        if (value.isEmpty && gallery.files.length >= 40) {
           var exists = await fetchGalleryHash(gallery, helper, api, adHashes: adImage.map((e) => e.key).toList(), fullHash: true)
               .then((v) => findDuplicateGalleryIds(
                   gallery: gallery,
@@ -229,7 +232,8 @@ class DownLoader {
                   .then((value) => readGalleryFromPath(join(config.output, value.first['path'])).catchError(
                       (e) => api.fetchGallery(value.first['id'], usePrefence: false),
                       test: (error) => true)))));
-          logger?.i('${gallery.id} found duplicate with ${exists.map((g)=>g.id).toList()}');
+          logger?.i(
+              '${gallery.id} found duplicate with ${exists.map((g) => g.id).toList()}');
           var chapterDown = chapter(gallery.name);
           if (chapterDown.isNotEmpty &&
               exists.length == 1 &&

@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
 import 'package:hitomi/gallery/artist.dart';
 import 'package:hitomi/gallery/gallery.dart';
@@ -16,31 +15,23 @@ var config = UserConfig.fromStr(File('config.json').readAsStringSync());
 var task = TaskManager(config);
 void main() async {
   test('chapter', () async {
-    var trans = await File('danbooru-0-zh.csv').readAsLines().then((s) => s
-        .map((line) => line.split(','))
-        .where((words) => words.length == 3)
-        .fold(<String, String>{}, (acc, words) => acc..[words[0]] = words[2]));
-    var list = await task.helper
-        .querySql("select tag,name from GalleryFile where  gid=? and name=?",
-            [3000073, '012.jpg'])
-        .then((value) => value
-            .map((element) => MapEntry(
-                element['name'] as String,
-                (json.decode(element['tag']) as Map<String, dynamic>)
-                    .map((k, v) => MapEntry(k, v as double))))
-            .toList())
-        .then((l) => l.fold(
-            <String, MapEntry<double, List<String>>>{},
-            (acc, m) => m.value.entries.fold(
-                acc,
-                (fill, e) =>
-                    fill..[e.key] = MapEntry((fill[e.key]?.key ?? 0) + e.value, (fill[e.key]?.value ?? [])..add(m.key)))));
-    var result = list.entries
-        .sortedByCompare((e) => e.value.key, (e1, e2) => e2.compareTo(e1))
-        .map((e) => '(${trans[e.key] ?? e.key}')
-        .toList();
-    print('result ${result.toString()}');
+    final tags = await task.helper.querySql(
+        'select tag from GalleryFile where gid=? order by name', [
+      1340882
+    ]).then((r) => r
+        .map((row) => json.decode(row['tag']) as Map<String, dynamic>)
+        .toList());
+    var keys = tags
+        .map((e) => e.keys)
+        .fold(<String>{}, (acc, ks) => acc..addAll(ks)).toList();
+    print(keys);
   }, timeout: Timeout(Duration(minutes: 120)));
+
+  test('autoTag', () async {
+    var r = await task.down
+        .autoTagImages('/home/bai/ssd/manga/(2no.)新婚カノジョ2//01.jpg');
+    print(r.first.value.keys.toList());
+  });
 }
 
 Future readIdFromFile() async {

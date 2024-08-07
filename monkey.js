@@ -408,10 +408,11 @@
                 let gallery = JSON.parse(task['gallery'])
                 let item = document.createElement('li')
                 item.className = "item"
+                item.id=gallery.id
                 let href = document.createElement('a')
                 href.href = gallery.galleryurl
                 href.target = "_blank"
-                href.innerText = task.name
+                href.innerText = task.title
                 if (task['speed'] != null) {
                     href.innerText = `${href.innerText}-(${task['current'] + 1}/${gallery.files.length})-${task['speed'].toFixed(2)}Kb/${(task['length'] / 1024).toFixed(2)}`
                 }
@@ -462,14 +463,59 @@
     async function listTaskContent() {
         socket = new WebSocket('wss://baijunty.com/listTask');
         socket.addEventListener("open", function (event) {
-            socket.send("list");
+            socket.send(JSON.stringify({ auth: token,'type':'list'}));
         });
         socket.addEventListener("message", function (event) {
             var respData = event.data;
             let resp = JSON.parse(respData)
-            appendQueryTask(resp['queryTask'], document.getElementById('queryTask'))
-            appendDwonTask(resp['pendingTask'], document.getElementById('pendingTask'), 'pendingTaskLabel', '等待列表')
-            appendDwonTask(resp['runningTask'], document.getElementById('runningTask'), 'runningTaskLabel', '下载列表')
+            switch(resp['type']){
+                case 'list':{
+                    appendQueryTask(resp['queryTask'], document.getElementById('queryTask'))
+                    appendDwonTask(resp['pendingTask'], document.getElementById('pendingTask'), 'pendingTaskLabel', '等待列表')
+                    appendDwonTask(resp['runningTask'], document.getElementById('runningTask'), 'runningTaskLabel', '下载列表')
+                    break;
+                }
+                case 'add':{
+                    let target=resp['target'];
+                    var parent=document.getElementById('pendingTask')
+                    if (target =='running'){
+                        parent=document.getElementById('runningTask')
+                    }
+                    let gallery = JSON.parse(resp['gallery'])
+                    let item = document.createElement('li')
+                    item.className = "item"
+                    item.id=gallery.id
+                    let href = document.createElement('a')
+                    href.href = gallery.galleryurl
+                    href.target = "_blank"
+                    let name = document.createElement('h')
+                    name.innerText = `${gallery.title}`
+                    href.appendChild(name)
+                    item.appendChild(href)
+                    parent.appendChild(item)
+                }
+                case 'remove':{
+                    let item=document.getElementById(resp['id'])
+                    if (item!=null){
+                        item.remove()
+                    }
+                    break;
+                }
+                case 'update':{
+                    let task=resp
+                    let item=document.getElementById(resp['id'])
+                    let href= item.querySelector('a')
+                    if(href!=null){
+                        var speed =  href.querySelector('p')
+                        if(speed!=null){
+                            speed.remove()
+                        }
+                        speed=document.createElement('p')
+                        speed.innerText = `(${task['current'] + 1}/${task.length})-${task['speed'].toFixed(2)}Kb/${(task['length'] / 1024).toFixed(2)}`
+                        href.appendChild(speed)
+                    }
+                }
+            }
         });
     }
 

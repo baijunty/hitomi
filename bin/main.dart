@@ -50,15 +50,6 @@ void main(List<String> args) async {
         '\x1b[47;31madd command ${element.trim()} return ${await task.parseCommandAndRun(element.trim())} \x1b[0m');
   });
   await task.parseCommandAndRun('-c');
-  if (config.aiTagPath.isNotEmpty) {
-    await Process.start(
-        'python3',
-        [
-          'app.py',
-        ],
-        workingDirectory: config.aiTagPath,
-        mode: ProcessStartMode.inheritStdio);
-  }
   // var len = await readIdFromFile(pool)
   //     .asStream()
   //     .expand((element) => element)
