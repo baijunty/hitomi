@@ -185,10 +185,6 @@ class TaskManager {
   }
 
   Future<List<List<dynamic>>> _fetchTagsFromNet({CancelToken? token}) async {
-    // var rows = _db.select(
-    //     'select intro from Tags where type=? by intro desc', ['author']);
-    // Map<String, dynamic> author =
-    //     (data['head'] as Map<String, dynamic>)['author'];
     final Map<String, dynamic> data = await dio
         .httpInvoke<String>(
             'https://github.com/EhTagTranslation/Database/releases/latest/download/db.raw.json',

@@ -11,26 +11,49 @@ import 'package:hitomi/src/multi_paltform.dart';
 import 'package:test/test.dart';
 
 int count = 10000;
-var config = UserConfig.fromStr(File('config.json').readAsStringSync());
+var config = UserConfig.fromStr(File('config.json').readAsStringSync())
+    .copyWith(logOutput: "");
 var task = TaskManager(config);
 void main() async {
   test('chapter', () async {
+    var dio = task.dio;
     final tags = await task.helper.querySql(
         'select tag from GalleryFile where gid=? order by name', [
-      1340882
+      3018438
     ]).then((r) => r
         .map((row) => json.decode(row['tag']) as Map<String, dynamic>)
         .toList());
-    var keys = tags
-        .map((e) => e.keys)
-        .fold(<String>{}, (acc, ks) => acc..addAll(ks)).toList();
-    print(keys);
+    // var keys = tags
+    //     .map((e) => e.keys)
+    //     .fold(<String>{}, (acc, ks) => acc..addAll(ks)).toList();
+    var emb = await dio
+        .post<Map<String, dynamic>>('http://localhost:11434/api/embed', data: {
+      "model": "qwen2",
+      "input": json.encode(tags)
+    }).then((d) => d.data!);
+    await dio.post<Map<String, dynamic>>('http://localhost:11434/api/embed',
+        data: {"model": "qwen2", "input": '总结'}).then((d) => d.data!);
+    print(emb['embeddings'].length);
+    var resp = await dio
+        .post<Map<String, dynamic>>('http://localhost:11434/api/chat', data: {
+      "model": "qwen2",
+      "stream": false,
+      "system": "你是一个Ai数据分析师，请使用中文回答",
+      "messages": [
+        {
+          "role": "user",
+          "content":
+              "已知系列图片的tag,格式为名称以及准确率，例如:[{tag1:0.1,tag2:0.2},{tag1:0.2,tag2:0.5}],数据为:$tags。根据角色,服饰,动作,性相关几个方面对高频高权重tag进行总结图片的内容"
+        }
+      ]
+    }).then((d) => d.data!);
+    print(resp['message']['content']);
   }, timeout: Timeout(Duration(minutes: 120)));
 
   test('autoTag', () async {
     var r = await task.down
         .autoTagImages('/home/bai/ssd/manga/(2no.)新婚カノジョ2//01.jpg');
-    print(r.first.value.keys.toList());
+    print(r.first.value);
   });
 }
 

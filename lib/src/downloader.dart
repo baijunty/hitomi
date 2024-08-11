@@ -179,15 +179,20 @@ class DownLoader {
           '-F',
           "file=@$filePath",
           '-F',
-          "threshold=0.2",
-          '-F',
-          'format=json'
-        ]).then((r) => json.decode(r.stdout) as List<dynamic>).then((s) {
+          "top_k=50"
+        ]).then((r) {
+          print(r.stdout);
+          return json.decode(r.stdout) as List<dynamic>;
+        }).then((s) {
           var r = s.map((e) => e as Map<String, dynamic>).fold(
               <MapEntry<String, Map<String, dynamic>>>[],
               (list, m) => list
                 ..add(MapEntry(
-                    m['filename'], m['tags'] as Map<String, dynamic>)));
+                    m['filename'],
+                    (m['tags'] as List<dynamic>)
+                        .map((d) => d as Map<String, dynamic>)
+                        .fold(
+                            {}, (acc, d) => acc..[d['label']] = d['score']))));
           return r;
         }).catchError((e) => <MapEntry<String, Map<String, dynamic>>>[],
             test: (error) => true));
@@ -207,6 +212,17 @@ class DownLoader {
                     !element.existsSync() || element.lengthSync() == 0)
                 .isNotEmpty;
       }).catchError((e) => true, test: (error) => true);
+    } else if (gallery.artists?.isNotEmpty == true &&
+        gallery
+            .createDir(config.output, createDir: false, withArtist: false)
+            .existsSync()) {
+      var dir =
+          gallery.createDir(config.output, createDir: false, withArtist: false);
+      return newDir
+          .delete(recursive: true)
+          .then((_) => dir.rename(newDir.path))
+          .then((_) => true)
+          .catchError((e) => true, test: (error) => true);
     } else if ((gallery.artists?.length ?? 0) + (gallery.groups?.length ?? 0) <=
         0) {
       return true;

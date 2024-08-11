@@ -269,11 +269,12 @@ class Gallery with Label {
     return '${(artists?.isNotEmpty ?? false) ? '(${artists!.first.name})' : ''}${name}';
   }
 
-  Directory createDir(String outPath, {bool createDir = true}) {
+  Directory createDir(String outPath,
+      {bool createDir = true, bool withArtist = true}) {
     String fullName = join(
         outPath,
         illegalCode.entries.fold(
-            dirName,
+            withArtist ? dirName : name,
             (previousValue, element) =>
                 previousValue!.replaceAll(element.key, element.value)));
     var userName = fullName.substring(0, min(fullName.length, 256)).trim();
