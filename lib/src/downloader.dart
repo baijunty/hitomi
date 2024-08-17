@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:isolate';
 import 'dart:math';
 
 import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
 import 'package:hitomi/lib.dart';
+import 'package:hitomi/src/imagetagfeature.dart';
 import 'package:isolate_manager/isolate_manager.dart';
 import 'package:logger/logger.dart';
 import 'package:path/path.dart';
@@ -128,11 +128,13 @@ class DownLoader {
                       msg.file.deleteSync();
                       return 0;
                     }, test: (error) => true);
-                var autoTag = <MapEntry<String, Map<String, dynamic>>>[];
+                ImageTagFeature? imageFeature = null;
                 var needTag = config.aiTagPath.isNotEmpty &&
                     (value.firstOrNull?['tag'] ?? '') == '';
                 if (needTag) {
-                  autoTag = await autoTagImages(msg.file.path);
+                  imageFeature = await autoTagImages(msg.file.path,
+                          feature: msg.target == msg.gallery.files.first)
+                      .then((l) => l.firstOrNull);
                 }
                 if (msg.gallery.files.length -
                             msg.gallery.files
@@ -145,8 +147,12 @@ class DownLoader {
                       .removeWhere((f) => f.name == (msg.target as Image).name);
                   return msg.file.delete().then((_) => false);
                 } else if (needInsert || needTag) {
-                  return helper.insertGalleryFile(msg.gallery, msg.target,
-                      hashValue, autoTag.firstOrNull?.value);
+                  if (needTag && imageFeature?.data?.isNotEmpty == true) {
+                    await helper.updateGalleryFeatureById(
+                        msg.gallery.id, imageFeature!.data!);
+                  }
+                  return helper.insertGalleryFile(
+                      msg.gallery, msg.target, hashValue, imageFeature?.tags);
                 }
                 return needInsert;
               });
@@ -169,39 +175,45 @@ class DownLoader {
     api.registerCallBack(handle);
   }
 
-  Future<List<MapEntry<String, Map<String, dynamic>>>> autoTagImages(
-      String filePath) async {
-    final path = config.aiTagPath;
-    return Isolate.run(() => Process.run('curl', [
-          path,
-          '-X',
-          'POST',
-          '-F',
-          "file=@$filePath",
-          '-F',
-          "top_k=50"
-        ]).then((r) {
-          print(r.stdout);
-          return json.decode(r.stdout) as List<dynamic>;
-        }).then((s) {
-          var r = s.map((e) => e as Map<String, dynamic>).fold(
-              <MapEntry<String, Map<String, dynamic>>>[],
-              (list, m) => list
-                ..add(MapEntry(
-                    m['filename'],
-                    (m['tags'] as List<dynamic>)
-                        .map((d) => d as Map<String, dynamic>)
-                        .fold(
-                            {}, (acc, d) => acc..[d['label']] = d['score']))));
-          return r;
-        }).catchError((e) => <MapEntry<String, Map<String, dynamic>>>[],
-            test: (error) => true));
+  Future<List<ImageTagFeature>> autoTagImages(String filePath,
+      {int limit = 50, bool feature = false}) async {
+    File file = File(filePath);
+    if (file.existsSync()) {
+      var files = <MultipartFile>[];
+      if (file.statSync().type == FileSystemEntityType.directory) {
+        Directory(filePath).listSync().fold(
+            files,
+            (acc, f) => acc
+              ..add(MultipartFile.fromFileSync(
+                f.path,
+              )));
+      } else {
+        files.add(MultipartFile.fromFileSync(
+          filePath,
+        ));
+      }
+      final formData =
+          FormData.fromMap({'file': files, "limit": limit,'threshold':0.2, 'feature': feature});
+      return dio
+          .post<List<dynamic>>(config.aiTagPath,
+              data: formData, options: Options(responseType: ResponseType.json))
+          .then((resp) => resp.data!)
+          .then((l) => l.map((t) => ImageTagFeature.fromJson(t)).toList())
+          .catchError((e)=><ImageTagFeature>[],test: (error) => true);
+    }
+    return [];
   }
 
   Future<bool> _findUnCompleteGallery(Gallery gallery, Directory newDir) async {
     if (newDir.listSync().isNotEmpty) {
       return readGalleryFromPath(newDir.path).then((value) async {
         logger?.d('${newDir.path} $gallery exists $value ');
+        if (value.id == gallery.id &&
+            gallery.labels().length != value.labels().length) {
+          File(join(newDir.path, 'meta.json'))
+              .writeAsStringSync(json.encode(gallery), flush: true);
+          await helper.insertGallery(gallery, newDir);
+        }
         return (compareGallerWithOther(value, [gallery], config.languages).id !=
                 value.id) ||
             (newDir.listSync().length - 1) < gallery.files.length ||

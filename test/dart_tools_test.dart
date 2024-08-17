@@ -3,11 +3,14 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:hitomi/gallery/artist.dart';
+import 'package:hitomi/gallery/character.dart';
 import 'package:hitomi/gallery/gallery.dart';
 import 'package:hitomi/gallery/label.dart';
 import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/gallery_util.dart';
 import 'package:hitomi/src/multi_paltform.dart';
+import 'package:ml_linalg/linalg.dart';
+import 'package:path/path.dart';
 import 'package:test/test.dart';
 
 int count = 10000;
@@ -16,45 +19,59 @@ var config = UserConfig.fromStr(File('config.json').readAsStringSync())
 var task = TaskManager(config);
 void main() async {
   test('chapter', () async {
-    var dio = task.dio;
-    final tags = await task.helper.querySql(
-        'select tag from GalleryFile where gid=? order by name', [
-      3018438
-    ]).then((r) => r
-        .map((row) => json.decode(row['tag']) as Map<String, dynamic>)
-        .toList());
-    // var keys = tags
-    //     .map((e) => e.keys)
-    //     .fold(<String>{}, (acc, ks) => acc..addAll(ks)).toList();
-    var emb = await dio
-        .post<Map<String, dynamic>>('http://localhost:11434/api/embed', data: {
-      "model": "qwen2",
-      "input": json.encode(tags)
-    }).then((d) => d.data!);
-    await dio.post<Map<String, dynamic>>('http://localhost:11434/api/embed',
-        data: {"model": "qwen2", "input": '总结'}).then((d) => d.data!);
-    print(emb['embeddings'].length);
-    var resp = await dio
-        .post<Map<String, dynamic>>('http://localhost:11434/api/chat', data: {
-      "model": "qwen2",
-      "stream": false,
-      "system": "你是一个Ai数据分析师，请使用中文回答",
-      "messages": [
-        {
-          "role": "user",
-          "content":
-              "已知系列图片的tag,格式为名称以及准确率，例如:[{tag1:0.1,tag2:0.2},{tag1:0.2,tag2:0.5}],数据为:$tags。根据角色,服饰,动作,性相关几个方面对高频高权重tag进行总结图片的内容"
-        }
-      ]
-    }).then((d) => d.data!);
-    print(resp['message']['content']);
+    final covers = await task.helper
+        .queryGalleryByLabel('character', Character(character: 'asuna yuuki'))
+        .then((set) async {
+      var r = <MapEntry<String, Vector>>[];
+      for (var element in set) {
+        var g = await readGalleryFromPath(join(config.output, element['path']));
+        r.add(await genarateFuture(
+            join(g.createDir(config.output).path, g.files.first.name)));
+      }
+      return r;
+    });
+    var target = covers.first.value;
+    covers.sort((e1, e2) =>
+        target.distanceTo(e1.value).compareTo(target.distanceTo(e2.value)));
+    covers.forEach(
+        (c) => print('${c.key} distance ${target.distanceTo(c.value)}'));
   }, timeout: Timeout(Duration(minutes: 120)));
+}
 
-  test('autoTag', () async {
-    var r = await task.down
-        .autoTagImages('/home/bai/ssd/manga/(2no.)新婚カノジョ2//01.jpg');
-    print(r.first.value);
-  });
+Future<Map<String, dynamic>> genarateTag(String path) {
+  return task.down.autoTagImages(path).then((r) => r.first.tags);
+}
+
+Future<MapEntry<String, Vector>> genarateFuture(String path) {
+  print('generate $path');
+  return task.down
+      .autoTagImages(path, feature: true)
+      .then((r) => MapEntry(r.first.fileName, Vector.fromList(r.first.data!)));
+}
+
+Future<Vector> generateVector(String content,
+    {String model = 'mxbai-embed-large'}) async {
+  print('generate $content');
+  var emb = await task.dio
+      .post<Map<String, dynamic>>('http://localhost:11434/api/embed',
+          data: {"model": model, "input": content})
+      .then((d) => d.data!)
+      .then((d) => d['embeddings'] as List<dynamic>);
+  var data = (emb[0] as List<dynamic>).map((e) => e as double).toList();
+  return Vector.fromList(data);
+}
+
+// This part of the code will be rewritten to use LLaVA to describe images.
+Future<String> generateImageDescription(String imagePath) async {
+  return task.dio
+      .post<Map<String, dynamic>>('http://localhost:11434/api/generate', data: {
+        "model": 'llava:13b',
+        "prompt": 'what is this?',
+        "stream": false,
+        'images': [base64.encode(File(imagePath).readAsBytesSync())]
+      })
+      .then((d) => d.data!)
+      .then((r) => r['response']);
 }
 
 Future readIdFromFile() async {
@@ -70,6 +87,17 @@ Future readIdFromFile() async {
   var writer = value.fold(File('artist.txt').openWrite(),
       (previousValue, element) => previousValue..writeln(element));
   await writer.flush();
+}
+
+// Using ID to read Tag from the database for GalleryFile
+Future<List<Map<String, dynamic>>> getTagsByGalleryId(int galleryId) async {
+  final result = await task.helper.querySql(
+    'SELECT tag FROM GalleryFile WHERE gid=?',
+    [galleryId],
+  );
+  return result
+      .map((row) => json.decode(row['tag']) as Map<String, dynamic>)
+      .toList();
 }
 
 Future<void> testLocalDb(bool local) async {

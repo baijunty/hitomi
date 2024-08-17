@@ -119,6 +119,8 @@ Future<MapEntry<Gallery, List<int>>> fetchGalleryHash(
 Future<MapEntry<Gallery, List<int>>> fetchGalleryHashFromNet(
     Gallery gallery, Hitomi api,
     [CancelToken? token, bool fullHash = false]) async {
+  // This function fetches image hashes from the network for a given gallery.
+  // It handles cases where the local hashing is not sufficient or desired.
   return (fullHash || gallery.files.length <= 18
           ? gallery.files
           : [
@@ -132,8 +134,8 @@ Future<MapEntry<Gallery, List<int>>> fetchGalleryHashFromNet(
                           gallery.files.length ~/ 3 * 2) +
                       6)
             ])
-      .asStream()
-      .slices(5)
+      .asStream() // Convert the list of files to a stream for processing asynchronously.
+      .slices(5) // Split the stream into chunks of 5 files each.
       .asyncMap((list) => Future.wait(list.map((event) => api
           .fetchImageData(event,
               refererUrl:
@@ -142,9 +144,9 @@ Future<MapEntry<Gallery, List<int>>> fetchGalleryHashFromNet(
               id: gallery.id)
           .fold(<int>[], (acc, l) => acc..addAll(l))
           .then((value) => imageHash(Uint8List.fromList(value)))
-          .catchError((e) => 0, test: (error) => true))))
+          .catchError((e) => 0, test: (error) => true)))) // Fetch image data for each file in the chunk asynchronously.
       .fold(<int>[], (previous, element) => previous..addAll(element)).then(
-          (value) => MapEntry<Gallery, List<int>>(gallery, value));
+          (value) => MapEntry<Gallery, List<int>>(gallery, value)); // Combine the results of fetching hashes from the network into a single list and return it as a map entry with the gallery.
 }
 
 String titleFixed(String title) {
@@ -159,6 +161,7 @@ String titleFixed(String title) {
   return title;
 }
 
+/// Generates a list of chapter numbers from the given chapter name using regex matching.
 List<int> chapter(String name) {
   final matcher = chapterRex.allMatches(name).toList();
   if (matcher.isNotEmpty) {
@@ -197,6 +200,7 @@ List<int> chapter(String name) {
   return [];
 }
 
+/// Checks if one list of chapter numbers contains another list of chapter numbers.
 bool chapterContains(List<int> chapters1, List<int> chapters2) {
   if (chapters1.equals(chapters2)) {
     return false;

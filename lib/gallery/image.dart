@@ -77,8 +77,7 @@ class Image {
   bool operator ==(Object other) {
     if (identical(other, this)) return true;
     if (other is! Image) return false;
-    final mapEquals = const DeepCollectionEquality().equals;
-    return mapEquals(other.toMap(), toMap());
+    return name == other.name && hash == other.hash;
   }
 
   @override

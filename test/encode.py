@@ -4,17 +4,20 @@ import os
 import sys
 import json
 from concurrent.futures import ThreadPoolExecutor
+from transformers import ViTFeatureExtractor, ViTModel
 import torch
-from torchvision import transforms
-from torchvision.transforms import InterpolationMode
 from PIL import Image
+
+model = ViTModel.from_pretrained('microsoft/resnet-50')
+feature_extractor = ViTFeatureExtractor.from_pretrained('microsoft/resnet-50')
+model.eval()
+
 def main():
     """general image hash by path"""
     parser = ArgumentParser(description='Process some integers.')
     parser.add_argument('path', metavar='p', type=str,help='an path')
     args = parser.parse_args()
     path=args.path
-    torch.device("cuda" if torch.cuda.is_available() else "cpu")
     result= {}
     if os.path.isdir(path):
         pools = ThreadPoolExecutor(8)
@@ -29,23 +32,18 @@ def check_file(path):
     """list image file"""
     extension=os.path.splitext(path)
     if (extension[1] in ['.jpg','.png','.webp','jpeg']):
-        return {os.path.basename(path):hash_image(path)}
+        return {os.path.basename(path):extract_vit_features(path)}
     return {}
 
-def hash_image(path,interpolation:InterpolationMode=InterpolationMode.BICUBIC)->int:
-    """general image hash"""
-    image = Image.open(path)
-    gray = transforms.Grayscale()
-    image=gray(image)
-    trans = transforms.Resize(size = (8,8),interpolation=interpolation)
-    image = trans(image)
-    pixels = list(image.getdata())
-    acc=sum(pixels)
-    avg=acc/64
-    h=0
-    for (i,v) in enumerate(pixels):
-        h|= 1<<(63-i) if(v>=avg) else 0
-    return h
+def extract_vit_features(path):
+    img = Image.open(path)
+    inputs = feature_extractor(images=img, return_tensors="pt")
+
+    with torch.no_grad():
+        outputs = model(**inputs)
+        # 获取最后一层的[CLS] token特征作为图像特征
+        features = outputs.last_hidden_state[:, 0, :].numpy()
+    return features.tolist()
 
 if __name__ == '__main__':
     sys.exit(main())

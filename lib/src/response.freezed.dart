@@ -24,9 +24,13 @@ mixin _$DataResponse<T> {
   T get data => throw _privateConstructorUsedError;
   int get totalCount => throw _privateConstructorUsedError;
 
+  /// Serializes this DataResponse to a JSON map.
   Map<String, dynamic> toJson(Object? Function(T) toJsonT) =>
       throw _privateConstructorUsedError;
-  @JsonKey(ignore: true)
+
+  /// Create a copy of DataResponse
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   $DataResponseCopyWith<T, DataResponse<T>> get copyWith =>
       throw _privateConstructorUsedError;
 }
@@ -50,6 +54,8 @@ class _$DataResponseCopyWithImpl<T, $Res, $Val extends DataResponse<T>>
   // ignore: unused_field
   final $Res Function($Val) _then;
 
+  /// Create a copy of DataResponse
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -88,6 +94,8 @@ class __$$DataResponseImplCopyWithImpl<T, $Res>
       _$DataResponseImpl<T> _value, $Res Function(_$DataResponseImpl<T>) _then)
       : super(_value, _then);
 
+  /// Create a copy of DataResponse
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -137,12 +145,14 @@ class _$DataResponseImpl<T> implements _DataResponse<T> {
                 other.totalCount == totalCount));
   }
 
-  @JsonKey(ignore: true)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   int get hashCode => Object.hash(
       runtimeType, const DeepCollectionEquality().hash(data), totalCount);
 
-  @JsonKey(ignore: true)
+  /// Create a copy of DataResponse
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   @pragma('vm:prefer-inline')
   _$$DataResponseImplCopyWith<T, _$DataResponseImpl<T>> get copyWith =>
@@ -167,8 +177,11 @@ abstract class _DataResponse<T> implements DataResponse<T> {
   T get data;
   @override
   int get totalCount;
+
+  /// Create a copy of DataResponse
+  /// with the given fields replaced by the non-null parameter values.
   @override
-  @JsonKey(ignore: true)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   _$$DataResponseImplCopyWith<T, _$DataResponseImpl<T>> get copyWith =>
       throw _privateConstructorUsedError;
 }

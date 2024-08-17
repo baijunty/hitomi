@@ -283,19 +283,22 @@ class HitomiDir {
   }
 
   Future<bool> batchInsertImage(Iterable<Image> imgs, bool generateTag) {
-    return Future.wait(imgs.map((img) => imageFileHash(
-                File(path.join(dir.path, img.name)))
-            .then((hash) async => _downLoader.helper.insertGalleryFile(
-                gallery!,
-                img,
-                hash,
-                generateTag
-                    ? await _downLoader
-                        .autoTagImages(path.join(dir.path, img.name))
-                        .then((r) => r.firstOrNull?.value)
-                    : null))))
-        .then((vs) => vs.fold(true, (acc, i) => acc && i))
-        .then((v) => v);
+    return Future.wait(imgs.map((img) =>
+        imageFileHash(File(path.join(dir.path, img.name))).then((hash) async {
+          var feature = img == gallery!.files.first;
+          var imageFeature = generateTag
+              ? await _downLoader
+                  .autoTagImages(path.join(dir.path, img.name),
+                      feature: feature)
+                  .then((r) => r.firstOrNull)
+              : null;
+          if (feature && imageFeature != null) {
+            await _downLoader.helper
+                .updateGalleryFeatureById(gallery!.id, imageFeature.data!);
+          }
+          return _downLoader.helper
+              .insertGalleryFile(gallery!, img, hash, imageFeature?.tags);
+        }))).then((vs) => vs.fold(true, (acc, i) => acc && i)).then((v) => v);
   }
 
   Future<bool> fixGallery() async {

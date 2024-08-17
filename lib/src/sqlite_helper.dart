@@ -14,7 +14,7 @@ import 'multi_paltform.dart' show openSqliteDb;
 
 class SqliteHelper {
   final String _dirPath;
-  static final _version = 9;
+  static final _version = 10;
   Logger? _logger = null;
   late CommonDatabase _db;
   CommonDatabase? __db;
@@ -156,7 +156,8 @@ class SqliteHelper {
       type Text,
       date INTEGER,
       mark INTEGER default 0,
-      length integer
+      length integer,
+      feature Text default null
       )''');
     db.execute('''create table if not exists GalleryFile(
       gid INTEGER,
@@ -241,7 +242,7 @@ class SqliteHelper {
         }
       case 6:
         {
-          db.execute("drop table if exists   TagsTemp ");
+          db.execute("drop table if exists TagsTemp ");
           db.execute("ALTER table Tags rename to TagsTemp");
           createTables(db);
           db.execute(
@@ -265,6 +266,16 @@ class SqliteHelper {
           db.execute(
               """insert into GalleryFile(gid,hash,name,width,height,fileHash,tag) select gid,hash,name,width,height,fileHash,null from GalleryFileTemp""");
           db.execute("drop table GalleryFileTemp");
+        }
+      case 9:
+        {
+          db.execute("drop table if exists GalleryTemp ");
+          db.execute("ALTER table Gallery rename to GalleryTemp");
+          createTables(db);
+          db.execute(
+              """insert into  Gallery(id,path,artist,groupes,series,character,language,title,tag,createDate,type,date,mark,length,feature) 
+              select id,path,artist,groupes,series,character,language,title,tag,createDate,type,date,mark,length,null from GalleryTemp""");
+          db.execute("drop table GalleryTemp");
         }
     }
   }
@@ -344,9 +355,10 @@ class SqliteHelper {
     return true;
   }
 
-  Future<bool> insertGallery(Gallery gallery, FileSystemEntity path) async {
+  Future<bool> insertGallery(Gallery gallery, FileSystemEntity path,
+      [List<double>? feature = null]) async {
     return await excuteSqlAsync(
-        'replace into Gallery(id,path,artist,groupes,series,character,language,title,tag,createDate,type,date,mark,length) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        'replace into Gallery(id,path,artist,groupes,series,character,language,title,tag,createDate,type,date,mark,length,feature) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
         [
           gallery.id,
           basename(path.path),
@@ -374,8 +386,15 @@ class SqliteHelper {
           gallery.type,
           path.statSync().modified.millisecondsSinceEpoch,
           0,
-          gallery.files.length
+          gallery.files.length,
+          feature ?? json.encode(feature)
         ]);
+  }
+
+  //通过id更新Gallery表的feature
+  Future<bool> updateGalleryFeatureById(int id, List<double> feature) async {
+    return await excuteSqlAsync('UPDATE Gallery SET feature = ? WHERE id = ?',
+        [json.encode(feature), id]);
   }
 
   Future<ResultSet> queryGalleryByLabel(String type, Label label) async {
