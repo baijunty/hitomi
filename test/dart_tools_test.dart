@@ -7,6 +7,7 @@ import 'package:hitomi/gallery/character.dart';
 import 'package:hitomi/gallery/gallery.dart';
 import 'package:hitomi/gallery/label.dart';
 import 'package:hitomi/lib.dart';
+import 'package:hitomi/src/dir_scanner.dart';
 import 'package:hitomi/src/gallery_util.dart';
 import 'package:hitomi/src/multi_paltform.dart';
 import 'package:ml_linalg/linalg.dart';
@@ -35,6 +36,16 @@ void main() async {
         target.distanceTo(e1.value).compareTo(target.distanceTo(e2.value)));
     covers.forEach(
         (c) => print('${c.key} distance ${target.distanceTo(c.value)}'));
+  }, timeout: Timeout(Duration(minutes: 120)));
+
+  test('fix', () async {
+    await task.helper
+        .queryGalleryById(1798542)
+        .then((value) =>
+            readGalleryFromPath(join(config.output, value.first['path'])))
+        .then((g) =>
+            HitomiDir(g.createDir(config.output), task.down, g).fixGallery())
+        .then((r) => print(r));
   }, timeout: Timeout(Duration(minutes: 120)));
 }
 

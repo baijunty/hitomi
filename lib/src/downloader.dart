@@ -144,7 +144,7 @@ class DownLoader {
                         (hash) => compareHashDistance(hash, hashValue) < 4)) {
                   logger?.w('fount ad image ${msg.file.path}');
                   msg.gallery.files
-                      .removeWhere((f) => f.name == (msg.target as Image).name);
+                      .removeWhere((f) => f == msg.target);
                   return msg.file.delete().then((_) => false);
                 } else if (needInsert || needTag) {
                   if (needTag && imageFeature?.data?.isNotEmpty == true) {
@@ -176,11 +176,12 @@ class DownLoader {
   }
 
   Future<List<ImageTagFeature>> autoTagImages(String filePath,
-      {int limit = 50, bool feature = false}) async {
+      {int limit = 40, bool feature = false}) async {
     File file = File(filePath);
     if (file.existsSync()) {
       var files = <MultipartFile>[];
       if (file.statSync().type == FileSystemEntityType.directory) {
+        logger?.d('taggger image from directory $filePath');
         Directory(filePath).listSync().fold(
             files,
             (acc, f) => acc
@@ -192,14 +193,18 @@ class DownLoader {
           filePath,
         ));
       }
-      final formData =
-          FormData.fromMap({'file': files, "limit": limit,'threshold':0.2, 'feature': feature});
+      final formData = FormData.fromMap({
+        'file': files,
+        "limit": limit,
+        'threshold': 0.2,
+        'feature': feature
+      });
       return dio
           .post<List<dynamic>>(config.aiTagPath,
               data: formData, options: Options(responseType: ResponseType.json))
           .then((resp) => resp.data!)
           .then((l) => l.map((t) => ImageTagFeature.fromJson(t)).toList())
-          .catchError((e)=><ImageTagFeature>[],test: (error) => true);
+          .catchError((e) => <ImageTagFeature>[], test: (error) => true);
     }
     return [];
   }
@@ -277,7 +282,7 @@ class DownLoader {
               .asStream()
               .asyncMap((event) => event.deleteGallery(
                   reason:
-                      'new collection ${gallery.id} contails exists gallery ${event.gallery?.id}'))
+                      'new collection ${gallery.id} contails exists gallery ${event.gallery.id}'))
               .length;
           return true;
         }

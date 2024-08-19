@@ -416,6 +416,13 @@ class SqliteHelper {
         '''select * from GalleryFile where gid=? order by name''', [id]);
   }
 
+  //通过gid查询GalleryFile表并转换为Image List后返回
+  Future<List<Image>> getImageListByGid(int gid) async {
+    return querySql('''
+        select * from GalleryFile where gid=? order by name
+    ''', [gid]).then((set) => set.map((r) => Image.fromRow(r)).toList());
+  }
+
   Future<Map<int, List<int>>> queryImageHashsByLabel(String type, String name) {
     return querySqlByCursor(
         'select gf.gid,gf.fileHash,gf.name,g.path,g.length from Gallery g,json_each(g.${type}) ja left join GalleryFile gf on g.id=gf.gid where (json_valid(g.${type})=1 and ja.value = ? and gf.gid is not null) order by gf.gid,gf.name',

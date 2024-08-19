@@ -265,30 +265,13 @@ class _LocalHitomiImpl implements Hitomi {
               }
               return previous..add(Gallery.fromRow(element));
             }))
-        .then((galleries) => _helper
-                .selectSqlMultiResultAsync(
-                    'select hash,width,name,height,fileHash from GalleryFile where gid=? order by name',
-                    galleries.map((e) => [e.id]).toList())
-                .then((value) {
-              for (var gallery in galleries) {
-                var v = value.entries
-                    .firstWhere((element) => element.key[0] == gallery.id);
-                var images = v.value.fold(
-                    <Image>[],
-                    (previousValue, element) => previousValue
-                      ..add(Image(
-                          hash: element['hash'],
-                          hasavif: 0,
-                          width: element['width'],
-                          haswebp: 0,
-                          name: element['name'],
-                          height: element['height'],
-                          fileHash: element['fileHash'])));
-                gallery.files.addAll(images);
-              }
-              return galleries;
-            }))
-        .then((data) => DataResponse(data, totalCount: count));
+        .then((galleries) async {
+      for (var gallery in galleries) {
+        var images = await _helper.getImageListByGid(gallery.id);
+        gallery.files.addAll(images);
+      }
+      return galleries;
+    }).then((data) => DataResponse(data, totalCount: count));
   }
 
   @override
@@ -374,6 +357,7 @@ class _HitomiImpl implements Hitomi {
     await checkInit();
     final id = gallery.id;
     final outPath = outPut;
+    final preLength = gallery.files.length;
     Directory dir = gallery.createDir(outPath);
     bool allow = await _loopCallBack(TaskStartMessage(gallery, dir, gallery))
         .catchError((e) => false, test: (error) => true);
@@ -401,6 +385,11 @@ class _HitomiImpl implements Hitomi {
         logger?.i('down image ${join(dir.path, gallery.files[i].name)} failed');
         missImages.add(gallery.files[i]);
       }
+    }
+    if (gallery.files.length != preLength) {
+      logger?.w('${id} remove ${preLength - gallery.files.length} ad images');
+      File(join(dir.path, 'meta.json'))
+          .writeAsStringSync(json.encode(gallery), flush: true);
     }
     return await _loopCallBack(
             DownLoadFinished(missImages, gallery, dir, missImages.isEmpty)) &&

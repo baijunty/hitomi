@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:sqlite3/common.dart';
 
 @immutable
 class Image {
@@ -28,6 +29,14 @@ class Image {
         name: data['name'] as String,
         height: data['height'] as int,
       );
+  factory Image.fromRow(Row row) => Image(
+      hash: row['hash'] as String,
+      hasavif: 0,
+      width: row['width'] as int,
+      haswebp: 0,
+      name: row['name'] as String,
+      height: row['height'] as int,
+      fileHash: row['fileHash'] as int?);
 
   Map<String, dynamic> toMap() => {
         'hash': hash,

@@ -343,19 +343,11 @@ class TaskManager {
     final count = await DirScanner(config, helper, _downLoader, _manager)
         .listDirs()
         .filterNonNull()
-        .where((event) {
-          var b = event.gallery != null;
-          if (!b) {
-            logger.w('delete empty floder ${event.dir}');
-            event.dir.deleteSync(recursive: true);
-          }
-          return b;
-        })
         .fold(
             <String, List<HitomiDir>>{},
             (previous, element) => previous
-              ..[element.gallery!.id.toString()] =
-                  ((previous[element.gallery!.id.toString()] ?? [])
+              ..[element.gallery.id.toString()] =
+                  ((previous[element.gallery.id.toString()] ?? [])
                     ..add(element)))
         .then((value) => value.values.toList())
         .asStream()
@@ -368,11 +360,11 @@ class TaskManager {
                   .sublist(1)
                   .where((element) => element.dir.existsSync())
                   .forEach((e) {
-                logger.d('delete duplication ${e.gallery?.id} with ${e.dir}');
+                logger.d('delete duplication ${e.gallery.id} with ${e.dir}');
                 try {
                   e.dir.deleteSync(recursive: true);
                 } catch (err) {
-                  logger.e('delete ${e.gallery?.id} err ${err}');
+                  logger.e('delete ${e.gallery.id} err ${err}');
                 }
               });
             }
