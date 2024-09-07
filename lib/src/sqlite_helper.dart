@@ -157,7 +157,7 @@ class SqliteHelper {
       date INTEGER,
       mark INTEGER default 0,
       length integer,
-      feature Text default null
+      feature Text
       )''');
     db.execute('''create table if not exists GalleryFile(
       gid INTEGER,

@@ -48,6 +48,118 @@ class DownLoader {
             .toList()
       };
 
+  /// Handles messages for task management and updates.
+  Future<bool> messageHandle(Message msg) async {
+    var useHandle = await _runningTask.keys
+        .firstWhereOrNull((e) => msg.id == e.gallery.id)
+        ?.handle
+        ?.call(msg);
+    switch (msg) {
+      case TaskStartMessage():
+        {
+          var target = msg.target;
+          if (target is Gallery) {
+            return _findUnCompleteGallery(msg.gallery, msg.file as Directory)
+                .catchError((e) {
+              logger?.e(e);
+              return true;
+            }, test: (error) => true).then((value) {
+              if (value) {
+                return helper
+                    .updateTask(msg.gallery.id, msg.gallery.dirName,
+                        msg.file.path, false)
+                    .then(
+                        (value) => helper.insertGallery(msg.gallery, msg.file));
+              }
+              return false;
+            });
+          } else if (target is Image) {
+            return !msg.file.existsSync() ||
+                (msg.file as File).lengthSync() == 0;
+          }
+          return illeagalTagsCheck(msg.gallery, config.excludes);
+        }
+
+      /// Handles the completion of a download task and updates the database accordingly.
+      case DownLoadFinished():
+        {
+          if (msg.target is List) {
+            if (msg.success) {
+              await helper.removeTask(msg.id);
+            } else {
+              await helper.updateTask(msg.gallery.id, msg.gallery.dirName,
+                  msg.file.path, (msg.target as List<Image>).length/msg.gallery.files.length>0.1);
+            }
+            logger?.i('down finish ${msg.gallery}');
+            if ((_runningTask.keys
+                        .firstWhereOrNull((e) => msg.id == e.gallery.id)
+                        ?.isCancelled ??
+                    false) ==
+                false) {
+              return HitomiDir(msg.file as Directory, this, msg.gallery,
+                      fixFromNet: false)
+                  .fixGallery();
+            }
+          } else if (msg.target is Gallery) {
+            logger?.w('illeagal gallery ${msg}');
+            return await helper.removeTask(msg.id);
+          } else if (msg.target is Image) {
+            return helper.querySql(
+                'select * from GalleryFile where gid=? and hash=?', [
+              msg.gallery.id,
+              (msg.target as Image).hash
+            ]).then((value) async {
+              bool needInsert = value.firstOrNull == null;
+              int hashValue = value.firstOrNull?['fileHash'] ??
+                  await imageFileHash(msg.file as File).catchError((e) {
+                    logger?.e('image file ${msg.file.path} hash error $e ');
+                    msg.file.deleteSync();
+                    return 0;
+                  }, test: (error) => true);
+              ImageTagFeature? imageFeature = null;
+              var needTag = config.aiTagPath.isNotEmpty &&
+                  (value.firstOrNull?['tag'] ?? '') == '';
+              if (needTag) {
+                imageFeature = await autoTagImages(msg.file.path,
+                        feature: msg.target == msg.gallery.files.first)
+                    .then((l) => l.firstOrNull);
+              }
+              if (msg.gallery.files.length -
+                          msg.gallery.files
+                              .indexWhere((f) => f.name == msg.target.name) <=
+                      8 &&
+                  adImage.map((e) => e.key).toList().any(
+                      (hash) => compareHashDistance(hash, hashValue) < 4)) {
+                logger?.w('fount ad image ${msg.file.path}');
+                msg.gallery.files.removeWhere((f) => f == msg.target);
+                return msg.file.delete().then((_) => false);
+              } else if (needInsert || needTag) {
+                if (needTag && imageFeature?.data?.isNotEmpty == true) {
+                  await helper.updateGalleryFeatureById(
+                      msg.gallery.id, imageFeature!.data!);
+                }
+                return helper.insertGalleryFile(
+                    msg.gallery, msg.target, hashValue, imageFeature?.tags);
+              }
+              return needInsert;
+            });
+          }
+        }
+      case DownLoadingMessage():
+        {
+          var key = _runningTask.keys
+              .firstWhereOrNull((element) => element.gallery.id == msg.id);
+          if ((key != null)) {
+            _runningTask[key] = msg;
+            taskObserver({'id': msg.id, ...msg.toMap, 'type': 'update'});
+          }
+        }
+      default:
+        break;
+    }
+    return useHandle ?? true;
+  }
+
   DownLoader(
       {required this.config,
       required this.api,
@@ -63,118 +175,13 @@ class DownLoader {
         DateTime.parse(gallery.date).compareTo(limit) > 0 &&
         (gallery.artists?.length ?? 0) <= 2 &&
         gallery.files.length >= 18;
-    final Future<bool> Function(Message msg) handle = (msg) async {
-      var useHandle = await _runningTask.keys
-          .firstWhereOrNull((e) => msg.id == e.gallery.id)
-          ?.handle
-          ?.call(msg);
-      switch (msg) {
-        case TaskStartMessage():
-          {
-            var target = msg.target;
-            if (target is Gallery) {
-              return _findUnCompleteGallery(msg.gallery, msg.file as Directory)
-                  .catchError((e) {
-                logger?.e(e);
-                return true;
-              }, test: (error) => true).then((value) {
-                if (value) {
-                  return helper
-                      .updateTask(msg.gallery.id, msg.gallery.dirName,
-                          msg.file.path, false)
-                      .then((value) =>
-                          helper.insertGallery(msg.gallery, msg.file));
-                }
-                return false;
-              });
-            } else if (target is Image) {
-              return !msg.file.existsSync() ||
-                  (msg.file as File).lengthSync() == 0;
-            }
-            return illeagalTagsCheck(msg.gallery, config.excludes);
-          }
-        case DownLoadFinished():
-          {
-            if (msg.target is List) {
-              if (msg.success) {
-                await helper.removeTask(msg.id);
-              } else {
-                await helper.updateTask(
-                    msg.gallery.id, msg.gallery.dirName, msg.file.path, true);
-              }
-              logger?.i('down finish ${msg}');
-              if ((_runningTask.keys
-                          .firstWhereOrNull((e) => msg.id == e.gallery.id)
-                          ?.isCancelled ??
-                      false) ==
-                  false) {
-                return HitomiDir(msg.file as Directory, this, msg.gallery,
-                        fixFromNet: false)
-                    .fixGallery();
-              }
-            } else if (msg.target is Gallery) {
-              logger?.w('illeagal gallery ${msg.id}');
-              return await helper.removeTask(msg.id);
-            } else if (msg.target is Image) {
-              return helper.querySql(
-                  'select * from GalleryFile where gid=? and hash=?', [
-                msg.gallery.id,
-                (msg.target as Image).hash
-              ]).then((value) async {
-                bool needInsert = value.firstOrNull == null;
-                int hashValue = value.firstOrNull?['fileHash'] ??
-                    await imageFileHash(msg.file as File).catchError((e) {
-                      logger?.e('image file ${msg.file.path} hash error $e ');
-                      msg.file.deleteSync();
-                      return 0;
-                    }, test: (error) => true);
-                ImageTagFeature? imageFeature = null;
-                var needTag = config.aiTagPath.isNotEmpty &&
-                    (value.firstOrNull?['tag'] ?? '') == '';
-                if (needTag) {
-                  imageFeature = await autoTagImages(msg.file.path,
-                          feature: msg.target == msg.gallery.files.first)
-                      .then((l) => l.firstOrNull);
-                }
-                if (msg.gallery.files.length -
-                            msg.gallery.files
-                                .indexWhere((f) => f.name == msg.target.name) <=
-                        8 &&
-                    adImage.map((e) => e.key).toList().any(
-                        (hash) => compareHashDistance(hash, hashValue) < 4)) {
-                  logger?.w('fount ad image ${msg.file.path}');
-                  msg.gallery.files
-                      .removeWhere((f) => f == msg.target);
-                  return msg.file.delete().then((_) => false);
-                } else if (needInsert || needTag) {
-                  if (needTag && imageFeature?.data?.isNotEmpty == true) {
-                    await helper.updateGalleryFeatureById(
-                        msg.gallery.id, imageFeature!.data!);
-                  }
-                  return helper.insertGalleryFile(
-                      msg.gallery, msg.target, hashValue, imageFeature?.tags);
-                }
-                return needInsert;
-              });
-            }
-          }
-        case DownLoadingMessage():
-          {
-            var key = _runningTask.keys
-                .firstWhereOrNull((element) => element.gallery.id == msg.id);
-            if ((key != null)) {
-              _runningTask[key] = msg;
-              taskObserver({'id': msg.id, ...msg.toMap, 'type': 'update'});
-            }
-          }
-        default:
-          break;
-      }
-      return useHandle ?? true;
-    };
-    api.registerCallBack(handle);
+    api.registerCallBack(messageHandle);
   }
 
+  /// Generates image tags using a deep learning model based on the provided file path.
+  /// It supports both single images and directories containing multiple images.
+  /// The function sends an HTTP POST request to the AI tagger API endpoint specified in [config.aiTagPath].
+  /// If successful, it returns a list of `ImageTagFeature` objects parsed from the response data.
   Future<List<ImageTagFeature>> autoTagImages(String filePath,
       {int limit = 40, bool feature = false}) async {
     File file = File(filePath);
@@ -209,6 +216,8 @@ class DownLoader {
     return [];
   }
 
+  /// Finds and completes an incomplete gallery by comparing it with existing galleries in the specified directory.
+  /// It checks if a new directory contains an incomplete or duplicate gallery compared to the provided gallery.
   Future<bool> _findUnCompleteGallery(Gallery gallery, Directory newDir) async {
     if (newDir.listSync().isNotEmpty) {
       return readGalleryFromPath(newDir.path).then((value) async {
@@ -343,6 +352,11 @@ class DownLoader {
     return token;
   }
 
+  /// Cancels a task by its ID.
+  ///
+  /// This method searches for the task with the given [id] in the running tasks list.
+  /// If found, it cancels the task and waits until the task is completely removed from the running tasks list.
+  /// It then updates the task status to reflect that the task has been cancelled.
   Future<bool> cancelById(int id) async {
     var target = _runningTask.keys
         .firstWhereOrNull((element) => element.gallery.id == id);
@@ -359,28 +373,29 @@ class DownLoader {
   }
 
   Future<bool> deleteById(int id) async {
-    await cancelById(id);
+    await cancelById(id); // 取消任务
     var target = _pendingTask
         .firstWhereOrNull((element) => element.gallery.id == id)
-        ?.gallery;
+        ?.gallery; // 查找待处理的任务
     if (target != null) {
-      _pendingTask.removeWhere((element) => element.gallery.id == id);
-      taskObserver({'id': id, 'type': 'remove', 'target': 'pending'});
+      _pendingTask.removeWhere((element) => element.gallery.id == id); // 移除任务
+      taskObserver({'id': id, 'type': 'remove', 'target': 'pending'}); // 更新任务状态
     }
     if (target == null) {
-      var path = await helper.readlData<String>('Gallery', 'path', {'id': id});
+      var path = await helper
+          .readlData<String>('Gallery', 'path', {'id': id}); // 读取路径数据
       if (path != null) {
         target = await readGalleryFromPath(join(config.output, path))
             .catchError((e) => api.fetchGallery(id, usePrefence: false),
-                test: (error) => true);
+                test: (error) => true); // 尝试从路径读取画廊
       }
     }
     if (target != null && target.id == id) {
       await HitomiDir(
               target.createDir(config.output, createDir: false), this, target)
-          .deleteGallery(reason: 'user delete');
+          .deleteGallery(reason: 'user delete'); // 删除画廊
     }
-    await helper.removeTask(id, withGaller: true);
+    await helper.removeTask(id, withGaller: true); // 移除任务记录
     return target != null;
   }
 
@@ -390,6 +405,7 @@ class DownLoader {
     });
   }
 
+  /// Starts a task by moving the first pending task to the running list and notifying observers.
   Future<bool> notifyTaskChange({int? id}) async {
     if (_runningTask.length < min(5, config.maxTasks) &&
         _pendingTask.isNotEmpty) {
@@ -423,6 +439,9 @@ class DownLoader {
     return false;
   }
 
+  /// Fetches a list of galleries from the given IDs, filtering based on the provided condition function.
+  /// The method queries the database for gallery paths and fetches them from the network if necessary,
+  /// then filters the results based on the specified condition before returning the list of galleries.
   Future<List<Gallery>> _fetchGalleryFromIds(
       List<int> ids, bool where(Gallery gallery), CancelToken token) async {
     if (ids.isNotEmpty) {
@@ -474,63 +493,76 @@ class DownLoader {
     return [];
   }
 
+  /// Fetches a list of galleries from the given IDs, filtering based on similar image hashes.
+  /// The method queries for gallery paths and fetches them from the network if necessary,
+  /// then filters out galleries that have similar images to previously fetched galleries.
   Future<List<Gallery>> _filterGalleryByImageHash(List<Gallery> list,
       CancelToken token, MapEntry<String, String>? entry) async {
-    Map<int, List<int>> allHash = entry != null
-        ? await helper.queryImageHashsByLabel(entry.key, entry.value)
-        : {};
-    logger?.d('ids ${list.length} $entry found ${allHash.keys.toList()} in db');
-    list.sort((e1, e2) => e2.files.length - e1.files.length);
-    return list
-        .asStream()
-        .asyncMap((event) => fetchGalleryHash(event, helper, api,
-                    adHashes: adImage.map((e) => e.key).toList(),
-                    token: token,
-                    fullHash: true,
-                    outDir: config.output,
-                    logger: logger)
-                .catchError((err) {
-              logger?.e('fetchGalleryHash $err');
-              return MapEntry(event, <int>[]);
-            }, test: (error) => true))
-        .where((event) => searchSimilerGaller(
-                MapEntry(event.key.id, event.value), allHash, logger: logger)
-            .isEmpty)
-        .fold(<int, List<int>>{}, (previous, element) {
-          var duplicate = searchSimilerGaller(
-              MapEntry(element.key.id, element.value), previous,
-              logger: logger);
-          if (duplicate.isEmpty) {
-            previous[element.key.id] = element.value;
-          } else {
-            var compare = duplicate
-                .map((event) =>
-                    list.firstWhere((element) => element.id == event))
-                .toList();
-            var useGallery = compareGallerWithOther(
-                element.key, compare, config.languages, logger);
-            if (useGallery.id == element.key.id) {
-              previous[useGallery.id] = element.value;
-              previous.removeWhere((key, value) => duplicate.contains(key));
+    if (entry != null) {
+      logger?.d(
+          'fetching image hashes for label: ${entry.key} and value: ${entry.value}');
+      var allHash = await helper.queryImageHashsByLabel(entry.key, entry.value);
+      logger?.d('found ${allHash.keys} in db');
+      list.sort((e1, e2) => e2.files.length - e1.files.length);
+      return list
+          .asStream()
+          .asyncMap((event) => fetchGalleryHash(event, helper, api,
+                      adHashes: adImage.map((e) => e.key).toList(),
+                      token: token,
+                      fullHash: true,
+                      outDir: config.output,
+                      logger: logger)
+                  .catchError((err) {
+                logger?.e('fetchGalleryHash $err');
+                return MapEntry(event, <int>[]);
+              }, test: (error) => true))
+          .where((event) => searchSimilerGaller(
+                  MapEntry(event.key.id, event.value), allHash, logger: logger)
+              .isEmpty)
+          .fold(<int, List<int>>{}, (previous, element) {
+            var duplicate = searchSimilerGaller(
+                MapEntry(element.key.id, element.value), previous,
+                logger: logger);
+            if (duplicate.isEmpty) {
+              previous[element.key.id] = element.value;
+            } else {
+              var compare = duplicate
+                  .map((event) =>
+                      list.firstWhere((element) => element.id == event))
+                  .toList();
+              var useGallery = compareGallerWithOther(
+                  element.key, compare, config.languages, logger);
+              if (useGallery.id == element.key.id) {
+                previous[useGallery.id] = element.value;
+                previous.removeWhere((key, value) => duplicate.contains(key));
+              }
+              logger?.d(
+                  '${element.key} found ${duplicate} use ${useGallery} count ${previous.length}');
             }
             logger?.d(
-                '${element.key} found ${duplicate} use ${useGallery} count ${previous.length}');
-          }
-          logger?.d('${entry} scan ${element.key.id} count ${previous.length}');
-          return previous;
-        })
-        .then((downHash) {
-          logger?.d('${downHash.length} not in local');
-          return downHash.keys;
-        })
-        .then((value) => value
-            .map((event) => list.firstWhere((element) => element.id == event))
-            .toList())
-        .catchError((err) {
-          return <Gallery>[];
-        }, test: (error) => true);
+                'scanning for duplicates with entry $entry: count ${previous.length}');
+            return previous;
+          })
+          .then((downHash) {
+            logger?.d('${downHash.length} not in local');
+            return downHash.keys;
+          })
+          .then((value) => value
+              .map((event) => list.firstWhere((element) => element.id == event))
+              .toList())
+          .catchError((err) {
+            logger?.e('error fetching galleries: $err');
+            return <Gallery>[];
+          }, test: (error) => true);
+    } else {
+      logger?.d('no entry provided for image hash filtering');
+      return Future.value(list);
+    }
   }
 
+  /// Downloads galleries based on a list of tags and a filter condition, handling completion callbacks.
+  /// The function takes a list of `Label` representing the tags, a map entry for image hashes, a cancel token,
+  /// an optional callback for finishing the download process, and a where clause to filter galleries.
   Future<bool> downLoadByTag(
       List<Label> tags, MapEntry<String, String> entry, CancelToken token,
       {void Function(bool success)? onFinish,
@@ -540,7 +572,7 @@ class DownLoader {
     }
     final results = await fetchGallerysByTags(tags, where, token, entry)
         .then((value) async {
-      logger?.d('usefull result length ${value.length}');
+      logger?.d('useful result length ${value.length}');
       Map<List<dynamic>, ResultSet> map = value.isNotEmpty
           ? await helper.selectSqlMultiResultAsync(
               'select id from Gallery where id =?',
@@ -593,9 +625,12 @@ class DownLoader {
     return results.isNotEmpty;
   }
 
+  /// Fetches galleries based on a list of tags, an optional where clause to filter galleries, and a cancel token.
+  /// The function takes a list of `Label` representing the tags, a bool function to filter galleries, a cancel token,
+  /// and an optional map entry for image hashes.
   Future<List<Gallery>> fetchGallerysByTags(
       List<Label> tags,
-      bool where(Gallery gallery),
+      bool Function(Gallery gallery) where,
       CancelToken token,
       MapEntry<String, String>? entry) async {
     logger?.d('fetch tags ${tags}');

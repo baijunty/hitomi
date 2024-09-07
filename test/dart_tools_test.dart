@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:hitomi/gallery/artist.dart';
-import 'package:hitomi/gallery/character.dart';
 import 'package:hitomi/gallery/gallery.dart';
 import 'package:hitomi/gallery/label.dart';
 import 'package:hitomi/lib.dart';
@@ -14,28 +13,17 @@ import 'package:ml_linalg/linalg.dart';
 import 'package:path/path.dart';
 import 'package:test/test.dart';
 
-int count = 10000;
 var config = UserConfig.fromStr(File('config.json').readAsStringSync())
     .copyWith(logOutput: "");
 var task = TaskManager(config);
 void main() async {
   test('chapter', () async {
-    final covers = await task.helper
-        .queryGalleryByLabel('character', Character(character: 'asuna yuuki'))
-        .then((set) async {
-      var r = <MapEntry<String, Vector>>[];
-      for (var element in set) {
-        var g = await readGalleryFromPath(join(config.output, element['path']));
-        r.add(await genarateFuture(
-            join(g.createDir(config.output).path, g.files.first.name)));
-      }
-      return r;
-    });
-    var target = covers.first.value;
-    covers.sort((e1, e2) =>
-        target.distanceTo(e1.value).compareTo(target.distanceTo(e2.value)));
-    covers.forEach(
-        (c) => print('${c.key} distance ${target.distanceTo(c.value)}'));
+    await task
+        .getApiDirect()
+        .fetchGallery(2983627)
+        .then((g) => HitomiDir(g.createDir(config.output), task.down, g))
+        .then((r) => r.fixGallery())
+        .then((r) => print(r));
   }, timeout: Timeout(Duration(minutes: 120)));
 
   test('fix', () async {
@@ -59,16 +47,19 @@ Future<MapEntry<String, Vector>> genarateFuture(String path) {
       .autoTagImages(path, feature: true)
       .then((r) => MapEntry(r.first.fileName, Vector.fromList(r.first.data!)));
 }
-
+// Function to generate a vector for a given content
 Future<Vector> generateVector(String content,
     {String model = 'mxbai-embed-large'}) async {
   print('generate $content');
+  // Send a POST request to the API endpoint
   var emb = await task.dio
       .post<Map<String, dynamic>>('http://localhost:11434/api/embed',
           data: {"model": model, "input": content})
       .then((d) => d.data!)
       .then((d) => d['embeddings'] as List<dynamic>);
+  // Extract the data from the response
   var data = (emb[0] as List<dynamic>).map((e) => e as double).toList();
+  // Return a Vector object from the data
   return Vector.fromList(data);
 }
 
