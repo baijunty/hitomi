@@ -20,17 +20,15 @@ void main() async {
   test('chapter', () async {
     await task
         .getApiDirect()
-        .fetchGallery(2983627)
-        .then((g) => HitomiDir(g.createDir(config.output), task.down, g))
-        .then((r) => r.fixGallery())
-        .then((r) => print(r));
+        .fetchGallery(2998892, usePrefence: false)
+        .then((r) => print(r.createDir(config.output, createDir: false).path));
   }, timeout: Timeout(Duration(minutes: 120)));
 
   test('fix', () async {
     await task.helper
         .queryGalleryById(1798542)
-        .then((value) =>
-            readGalleryFromPath(join(config.output, value.first['path'])))
+        .then((value) => readGalleryFromPath(
+            join(config.output, value.first['path']), task.logger))
         .then((g) =>
             HitomiDir(g.createDir(config.output), task.down, g).fixGallery())
         .then((r) => print(r));
@@ -47,6 +45,7 @@ Future<MapEntry<String, Vector>> genarateFuture(String path) {
       .autoTagImages(path, feature: true)
       .then((r) => MapEntry(r.first.fileName, Vector.fromList(r.first.data!)));
 }
+
 // Function to generate a vector for a given content
 Future<Vector> generateVector(String content,
     {String model = 'mxbai-embed-large'}) async {

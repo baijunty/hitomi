@@ -220,7 +220,7 @@ class DownLoader {
   /// It checks if a new directory contains an incomplete or duplicate gallery compared to the provided gallery.
   Future<bool> _findUnCompleteGallery(Gallery gallery, Directory newDir) async {
     if (newDir.listSync().isNotEmpty) {
-      return readGalleryFromPath(newDir.path).then((value) async {
+      return readGalleryFromPath(newDir.path,logger).then((value) async {
         logger?.d('${newDir.path} $gallery exists $value ');
         if (value.id == gallery.id &&
             gallery.labels().length != value.labels().length) {
@@ -271,7 +271,7 @@ class DownLoader {
                   reserved: true))
               .then((value) => Future.wait(value.map((e) => helper
                   .queryGalleryById(e)
-                  .then((value) => readGalleryFromPath(join(config.output, value.first['path'])).catchError(
+                  .then((value) => readGalleryFromPath(join(config.output, value.first['path']),logger).catchError(
                       (e) => api.fetchGallery(value.first['id'], usePrefence: false),
                       test: (error) => true)))));
           logger?.i(
@@ -385,7 +385,7 @@ class DownLoader {
       var path = await helper
           .readlData<String>('Gallery', 'path', {'id': id}); // 读取路径数据
       if (path != null) {
-        target = await readGalleryFromPath(join(config.output, path))
+        target = await readGalleryFromPath(join(config.output, path),logger)
             .catchError((e) => api.fetchGallery(id, usePrefence: false),
                 test: (error) => true); // 尝试从路径读取画廊
       }
@@ -456,7 +456,7 @@ class DownLoader {
                   var fromNet = api.fetchGallery(event.key[0],
                       usePrefence: false, token: token);
                   var gallery = path != null
-                      ? await readGalleryFromPath(join(config.output, path))
+                      ? await readGalleryFromPath(join(config.output, path),logger)
                           .catchError((e) async {
                           var g = await fromNet;
                           logger?.e('read json $e from net $g');

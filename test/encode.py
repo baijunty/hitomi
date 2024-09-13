@@ -4,13 +4,9 @@ import os
 import sys
 import json
 from concurrent.futures import ThreadPoolExecutor
-from transformers import ViTFeatureExtractor, ViTModel
-import torch
 from PIL import Image
-
-model = ViTModel.from_pretrained('microsoft/resnet-50')
-feature_extractor = ViTFeatureExtractor.from_pretrained('microsoft/resnet-50')
-model.eval()
+from ultralytics import YOLO
+model = YOLO("../wd-swinv2-tagger-v3-hf/yolov10b.pt")
 
 def main():
     """general image hash by path"""
@@ -36,14 +32,8 @@ def check_file(path):
     return {}
 
 def extract_vit_features(path):
-    img = Image.open(path)
-    inputs = feature_extractor(images=img, return_tensors="pt")
-
-    with torch.no_grad():
-        outputs = model(**inputs)
-        # 获取最后一层的[CLS] token特征作为图像特征
-        features = outputs.last_hidden_state[:, 0, :].numpy()
-    return features.tolist()
+    results = model(path)
+    return [r.names for r in results]
 
 if __name__ == '__main__':
     sys.exit(main())

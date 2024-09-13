@@ -227,19 +227,20 @@ class TaskManager {
     if (row != null) {
       return [id];
     }
-    return _api.fetchGallery(id, usePrefence: false).then((value) =>
-        value.createDir(config.output, createDir: false).existsSync()
-            ? readGalleryFromPath(
-                    value.createDir(config.output, createDir: false).path)
-                .then((value) => [value.id])
-            : (value.artists?.length ?? 0) + (value.groups?.length ?? 0) <= 0
-                ? Future.value([])
-                : fetchGalleryHash(value, helper, _api, adHashes: adHash).then(
-                    (v) => findDuplicateGalleryIds(
-                        gallery: value,
-                        helper: helper,
-                        fileHashs: v.value,
-                        logger: logger)));
+    return _api.fetchGallery(id, usePrefence: false).then((value) => value
+            .createDir(config.output, createDir: false)
+            .existsSync()
+        ? readGalleryFromPath(
+                value.createDir(config.output, createDir: false).path, logger)
+            .then((value) => [value.id])
+        : (value.artists?.length ?? 0) + (value.groups?.length ?? 0) <= 0
+            ? Future.value([])
+            : fetchGalleryHash(value, helper, _api, adHashes: adHash).then(
+                (v) => findDuplicateGalleryIds(
+                    gallery: value,
+                    helper: helper,
+                    fileHashs: v.value,
+                    logger: logger)));
   }
 
   Future<Map<Label, Map<String, dynamic>>> collectedInfo(List<Label> keys) {
@@ -355,12 +356,16 @@ class TaskManager {
         .slices(5)
         .asyncMap((list) {
           return Future.wait(list.map((event) {
-            if (event.length > 1) {
-              event
-                  .sublist(1)
-                  .where((element) => element.dir.existsSync())
-                  .forEach((e) {
-                logger.d('delete duplication ${e.gallery.id} with ${e.dir}');
+            var left = event.firstWhereOrNull((g) =>
+                    ((g.gallery.artists?.length ?? 0) +
+                        (g.gallery.groups?.length ?? 0)) >
+                    0) ??
+                event.first;
+            event.remove(left);
+            if (event.isNotEmpty) {
+              event.forEach((e) {
+                logger.d(
+                    'delete duplication ${e.gallery.id} with ${e.dir} left ${left.dir}');
                 try {
                   e.dir.deleteSync(recursive: true);
                 } catch (err) {
@@ -368,7 +373,7 @@ class TaskManager {
                 }
               });
             }
-            return event.first.fixGallery();
+            return left.fixGallery();
           })).then((value) => value.length);
         })
         .fold(0, (previous, element) => previous + element);

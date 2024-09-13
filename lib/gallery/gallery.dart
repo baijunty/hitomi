@@ -305,7 +305,15 @@ class Gallery with Label {
   int get hashCode => artists.hashCode ^ name.hashCode;
 
   @override
-  String get name => (japaneseTitle ?? title).replaceAll("(Decensored)", '');
+  String get name {
+    var realName = (japaneseTitle ?? title)
+        .replaceAll("(Decensored)", '')
+        .split('|')
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty);
+    return realName.where((s) => zhAndJpCodeExp.matchAsPrefix(s)!=null).firstOrNull ??
+        realName.first;
+  }
 
   String get nameFixed {
     return titleFixed(name);
