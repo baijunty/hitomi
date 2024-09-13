@@ -316,6 +316,7 @@ class _HitomiImpl implements Hitomi {
   late List<String> languages;
   late Dio _dio;
   final TaskManager manager;
+  final allowCodeExp = RegExp(r'[\u0800-\u4e00|\u4e00-\u9fa5|30A0-30FF|\w]+');
   _HitomiImpl(this.manager) {
     this.outPut = manager.config.output;
     this.languages = manager.config.languages;
@@ -541,7 +542,7 @@ class _HitomiImpl implements Hitomi {
     List<Label> keys = gallery.title
         .toLowerCase()
         .split(_blank)
-        .where((element) => zhAndJpCodeExp.hasMatch(element))
+        .where((element) => allowCodeExp.hasMatch(element))
         .where((element) => element.isNotEmpty)
         .takeWhile((value) => value != '|')
         .map((e) => QueryText(e))

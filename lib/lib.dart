@@ -78,10 +78,14 @@ extension CursorCover on IteratingCursor {
   }
 }
 
-Future<Gallery> readGalleryFromPath(String path) {
+Future<Gallery> readGalleryFromPath(String path, Logger? logger) {
   return File(p.join(path, 'meta.json'))
       .readAsString()
-      .then((value) => Gallery.fromJson(value));
+      .then((value) => Gallery.fromJson(value))
+      .catchError((e) {
+    logger?.e('open meta.json error $e');
+    throw e;
+  }, test: (error) => true);
 }
 
 extension StreamConvert<E> on Iterable<E> {
@@ -166,7 +170,7 @@ Map<String, String> buildRequestHeader(String url, String referer,
   return headers;
 }
 
-final zhAndJpCodeExp = RegExp(r'[\u0800-\u4e00|\u4e00-\u9fa5|30A0-30FF|\w]+');
+final zhAndJpCodeExp = RegExp(r'[\u0800-\u4e00|\u4e00-\u9fa5|30A0-30FF]+');
 final blankExp = RegExp(r'\s+');
 final numberExp = RegExp(r'^\d+$');
 final imageExtension = [

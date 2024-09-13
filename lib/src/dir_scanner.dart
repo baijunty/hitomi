@@ -30,13 +30,14 @@ class DirScanner {
         .list()
         .where((event) => event is Directory)
         .asyncMap((event) async {
-      return readGalleryFromPath(event.path).then((value) async {
-        if (value.labels().isEmpty ||
-            ((value.artists?.length ?? 0) + (value.groups?.length ?? 0)) == 0) {
+      return readGalleryFromPath(event.path, _downLoader.logger)
+          .then((value) async {
+        if (((value.artists?.length ?? 0) + (value.groups?.length ?? 0)) == 0) {
           var newGallery =
               await _downLoader.api.fetchGallery(value.id, usePrefence: false);
-          if (value.labels().length != newGallery.labels().length) {
-            _downLoader.logger?.d('fix ${value} label ');
+          if (newGallery.labels().isNotEmpty) {
+            _downLoader.logger?.d(
+                'fix ${value} label with path ${newGallery.createDir(_config.output).path} ');
             value = newGallery;
             File(path.join(
                     newGallery.createDir(_config.output).path, 'meta.json'))
@@ -44,27 +45,29 @@ class DirScanner {
             await _downLoader.helper.insertGallery(newGallery, event);
           }
         }
-        final useDir = value.createDir(_config.output);
+        final useDir = value.createDir(_config.output, createDir: false);
         if (!path
             .basename(useDir.path)
             .toLowerCase()
             .endsWith(path.basename(event.path).toLowerCase())) {
-          if (useDir.existsSync() && useDir.listSync().isNotEmpty) {
+          if (useDir.existsSync() &&
+              useDir.listSync().length - 1 >= value.files.length) {
             _downLoader.logger?.w(
                 'delete ${value.id} path ${event.path} because exists $value');
             event.deleteSync(recursive: true);
             return null;
-          } else {
+          } else if (!useDir.existsSync()) {
             _downLoader.logger?.d(
                 'rename ${value.id} path ${event.path} from ${path.basename(event.path)} to ${path.basename(useDir.path)}');
-            event.rename(useDir.path);
+            await event.rename(useDir.path);
+            await _downLoader.helper.insertGallery(value, useDir);
           }
           return HitomiDir(useDir, _downLoader, value);
         }
         return HitomiDir(event as Directory, _downLoader, value);
       }).catchError((e) {
-        _downLoader.logger?.e('$event error $e');
         var dir = event as Directory;
+        _downLoader.logger?.e('$event error $e');
         // if (dir.listSync().isEmpty) {
         //   return HitomiDir(dir, _downLoader, null, manager);
         // }
@@ -89,21 +92,22 @@ class DirScanner {
               var id = event['id'];
               var dir = Directory(
                   path.join(_downLoader.config.output, event['path']));
-              return readGalleryFromPath(dir.path).then((value) async {
+              return readGalleryFromPath(dir.path, _downLoader.logger)
+                  .then((value) async {
                 if (value.id.toString() != id.toString()) {
                   _downLoader.logger?.i('db id $id found id ${value.id}');
                   return await _helper.deleteGallery(id);
                 }
                 return true;
               }).catchError(
-                  (e) => _downLoader.api
-                      .fetchGallery(id, usePrefence: false)
-                      .then((value) => _downLoader.filter(value)
-                          ? _downLoader.addTask(value)
-                          : false)
-                      .then((value) => _helper.deleteGallery(id))
-                      .catchError((e) => false, test: (error) => true),
-                  test: (error) => true);
+                      (e) => _downLoader.api
+                          .fetchGallery(id, usePrefence: false)
+                          .then((value) => _downLoader.filter(value)
+                              ? _downLoader.addTask(value)
+                              : false)
+                          .then((value) => _helper.deleteGallery(id))
+                          .catchError((e) => false, test: (error) => true),
+                      test: (error) => true);
             }).fold(
                 <bool, int>{},
                 (previous, element) =>
@@ -157,7 +161,7 @@ class DirScanner {
             Directory(path.join(_config.output, event.value['path']))))
         .where((event) => event.value.existsSync())
         .asyncMap((event) async {
-      return readGalleryFromPath(event.value.path)
+      return readGalleryFromPath(event.value.path, _downLoader.logger)
           .then((value) => HitomiDir(event.value, _downLoader, value))
           .then((value) => MapEntry(event.key, value));
     }).fold(<int, HitomiDir>{},
@@ -353,13 +357,14 @@ class HitomiDir {
     return _removeIllegalFiles(files, images)
         .then((value) => _tryFixMissingFile(files))
         .then((value) => _downLoader.helper.querySql(
-            'select feature from Gallery where id=? and length!=0',
+            'select feature,title from Gallery where id=? and length!=0',
             [gallery.id]))
         .then((set) async {
+      if (set.firstOrNull == null ||
+          set.firstOrNull?['title'] != gallery.name) {
+        await _downLoader.helper.insertGallery(gallery, dir);
+      }
       if (set.firstOrNull?['feature'] == null) {
-        if (set.firstOrNull == null) {
-          await _downLoader.helper.insertGallery(gallery, dir);
-        }
         await batchInsertImage([gallery.files.first], true);
       }
       var missing = gallery.files
