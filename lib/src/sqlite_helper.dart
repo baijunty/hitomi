@@ -8,6 +8,8 @@ import 'package:hitomi/gallery/label.dart';
 import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/gallery_util.dart';
 import 'package:logger/logger.dart';
+import 'package:ml_linalg/distance.dart';
+import 'package:ml_linalg/vector.dart';
 import 'package:path/path.dart';
 import 'package:sqlite3/common.dart';
 import 'multi_paltform.dart' show openSqliteDb;
@@ -48,6 +50,26 @@ class SqliteHelper {
     return false;
   }
 
+  double vectorDistance(List<Object?> arguments) {
+    if (arguments.length == 2 && arguments.every((args) => args != null)) {
+      try {
+        var v1 = Vector.fromList(
+            (json.decode(arguments[0].toString()) as List<dynamic>)
+                .map((d) => d as double)
+                .toList());
+        var v2 = Vector.fromList(
+            (json.decode(arguments[1].toString()) as List<dynamic>)
+                .map((d) => d as double)
+                .toList());
+        return v1.distanceTo(v2, distance: Distance.cosine);
+      } catch (e) {
+        _logger?.e('args ${arguments.sublist(2)} occus $e');
+        return 100.0;
+      }
+    }
+    return 100.0;
+  }
+
   bool jsonValueContains(List<Object?> arguments) {
     if (arguments.length > 1 && (arguments[0]?.toString() ?? '').isNotEmpty) {
       try {
@@ -73,8 +95,7 @@ class SqliteHelper {
   }
 
   int hashDistance(List<Object?> arguments) {
-    if (arguments.length == 2 &&
-        arguments.every((element) => element! is int)) {
+    if (arguments.length == 2 && arguments.every((element) => element is int)) {
       return compareHashDistance(arguments[0] as int, arguments[1] as int);
     }
     return 64;
@@ -88,6 +109,10 @@ class SqliteHelper {
         functionName: 'json_key_contains',
         function: jsonKeyContains,
         argumentCount: AllowedArgumentCount(2));
+    _db.createFunction(
+        functionName: 'vector_distance',
+        function: vectorDistance,
+        argumentCount: AllowedArgumentCount.any());
     _db.createFunction(
         functionName: 'title_fixed',
         function: pureTitle,
@@ -122,7 +147,7 @@ class SqliteHelper {
       stam = _db.prepare(sql);
       return operate(stam);
     } catch (e, stack) {
-      _logger?.e('excel sql faild ${stack}');
+      _logger?.e('excel sql $e faild ${stack}');
       return Future.error('$sql error', stack);
     } finally {
       if (releaseOnce) {
@@ -355,8 +380,7 @@ class SqliteHelper {
     return true;
   }
 
-  Future<bool> insertGallery(Gallery gallery, FileSystemEntity path,
-      [List<double>? feature = null]) async {
+  Future<bool> insertGallery(Gallery gallery, FileSystemEntity path) async {
     return await excuteSqlAsync(
         'replace into Gallery(id,path,artist,groupes,series,character,language,title,tag,createDate,type,date,mark,length,feature) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
         [
@@ -387,7 +411,7 @@ class SqliteHelper {
           path.statSync().modified.millisecondsSinceEpoch,
           0,
           gallery.files.length,
-          feature ?? json.encode(feature)
+          null
         ]);
   }
 

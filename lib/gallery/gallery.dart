@@ -86,7 +86,7 @@ class Gallery with Label {
 
   @override
   String toString() {
-    return 'Gallery(type: $type, title: ${dirName}, language: $language, date: $date, id: $id length:${files.length})';
+    return 'Gallery(type: $type, title: ${dirName}, language: $language, date: $date, id: $id length:${files.length} artist:${artists?.firstOrNull} group:${groups?.firstOrNull})';
   }
 
   factory Gallery.fromRow(Row row) {
@@ -269,6 +269,8 @@ class Gallery with Label {
     return '${(artists?.isNotEmpty ?? false) ? '(${artists!.first.name})' : ''}${name}';
   }
 
+  bool get hasAuthor => (artists?.length ?? 0) + (groups?.length ?? 0) > 0;
+
   Directory createDir(String outPath,
       {bool createDir = true, bool withArtist = true}) {
     String fullName = join(
@@ -311,7 +313,9 @@ class Gallery with Label {
         .split('|')
         .map((s) => s.trim())
         .where((s) => s.isNotEmpty);
-    return realName.where((s) => zhAndJpCodeExp.matchAsPrefix(s)!=null).firstOrNull ??
+    return realName
+            .where((s) => zhAndJpCodeExp.matchAsPrefix(s) != null)
+            .firstOrNull ??
         realName.first;
   }
 

@@ -32,15 +32,14 @@ class DirScanner {
         .asyncMap((event) async {
       return readGalleryFromPath(event.path, _downLoader.logger)
           .then((value) async {
-        if (((value.artists?.length ?? 0) + (value.groups?.length ?? 0)) == 0) {
+        if (!value.hasAuthor) {
           var newGallery =
               await _downLoader.api.fetchGallery(value.id, usePrefence: false);
-          if (newGallery.labels().isNotEmpty) {
+          if (newGallery.hasAuthor) {
             _downLoader.logger?.d(
                 'fix ${value} label with path ${newGallery.createDir(_config.output).path} ');
             value = newGallery;
-            File(path.join(
-                    newGallery.createDir(_config.output).path, 'meta.json'))
+            File(path.join(event.path, 'meta.json'))
                 .writeAsStringSync(json.encode(newGallery), flush: true);
             await _downLoader.helper.insertGallery(newGallery, event);
           }
@@ -61,10 +60,12 @@ class DirScanner {
                 'rename ${value.id} path ${event.path} from ${path.basename(event.path)} to ${path.basename(useDir.path)}');
             await event.rename(useDir.path);
             await _downLoader.helper.insertGallery(value, useDir);
+            event.deleteSync(recursive: true);
           }
           return HitomiDir(useDir, _downLoader, value);
+        } else {
+          return HitomiDir(event as Directory, _downLoader, value);
         }
-        return HitomiDir(event as Directory, _downLoader, value);
       }).catchError((e) {
         var dir = event as Directory;
         _downLoader.logger?.e('$event error $e');
@@ -87,8 +88,9 @@ class DirScanner {
   }
 
   Future<Map<bool, int>> fixMissDbRow() {
-    return _helper.querySqlByCursor('select path,id from Gallery').then(
-        (value) => value.asyncMap((event) {
+    return _helper
+        .querySqlByCursor('select path,id,feature is null as feat from Gallery')
+        .then((value) => value.asyncMap((event) {
               var id = event['id'];
               var dir = Directory(
                   path.join(_downLoader.config.output, event['path']));
@@ -98,16 +100,24 @@ class DirScanner {
                   _downLoader.logger?.i('db id $id found id ${value.id}');
                   return await _helper.deleteGallery(id);
                 }
+                if (event['feat'] == 1) {
+                  await HitomiDir(dir, _downLoader, value)
+                      .batchInsertImage([value.files.first], true);
+                }
                 return true;
-              }).catchError(
-                      (e) => _downLoader.api
-                          .fetchGallery(id, usePrefence: false)
-                          .then((value) => _downLoader.filter(value)
-                              ? _downLoader.addTask(value)
-                              : false)
-                          .then((value) => _helper.deleteGallery(id))
-                          .catchError((e) => false, test: (error) => true),
-                      test: (error) => true);
+              }).catchError((e) {
+                _downLoader.logger?.e(' fix row $event error $e');
+                return _downLoader.api
+                    .fetchGallery(id, usePrefence: false)
+                    .then((value) => _downLoader.filter(value)
+                        ? _downLoader.addTask(value)
+                        : false)
+                    .then((value) => _helper.deleteGallery(id))
+                    .catchError((e) async {
+                  await _helper.deleteGallery(id);
+                  return false;
+                }, test: (error) => true);
+              }, test: (error) => true);
             }).fold(
                 <bool, int>{},
                 (previous, element) =>
@@ -227,9 +237,9 @@ class HitomiDir {
   final bool fixFromNet;
   HitomiDir(this.dir, this._downLoader, this.gallery, {this.fixFromNet = true});
 
-  Future<bool> _tryFixMissingFile(List<String> files) async {
-    var fileLost = files
-        .map((e) => File(path.join(dir.path, e)))
+  Future<bool> _tryFixMissingFile() async {
+    var fileLost = gallery.files
+        .map((e) => File(path.join(dir.path, e.name)))
         .where((element) => !element.existsSync() || element.lengthSync() == 0)
         .toList();
     if (fileLost.isNotEmpty && fixFromNet) {
@@ -255,25 +265,34 @@ class HitomiDir {
     return true;
   }
 
-  Future<bool> _removeIllegalFiles(
-      List<String> files, List<Image> dbImages) async {
+  Future<bool> _removeIllegalFiles(List<Image> dbImages) async {
+    final len = dbImages.length;
     await dbImages
-        .where((img) => !gallery.files.any((f) => f == img))
+        .whereIndexed((index, img) =>
+            !gallery.files.any((f) => f == img) ||
+            (len - index) < 8 &&
+                _downLoader.adImage.any((entry) =>
+                    compareHashDistance(entry.key, img.fileHash ?? 0) < 3))
         .asStream()
         .asyncMap((img) {
-      _downLoader.logger?.w('${gallery.id} remove db illegal file ${img}');
+      _downLoader.logger?.w(' ${gallery.id} remove db illegal file ${img}');
+      gallery.files.removeWhere((s) => s == img);
       return _downLoader.helper.deleteGalleryFile(gallery.id, img.hash);
     }).fold(true, (pre, r) => pre && r);
+    if (len != dbImages.length) {
+      File(path.join(dir.path, 'meta.json'))
+          .writeAsStringSync(json.encode(gallery), flush: true);
+    }
     return dir
         .list()
         .map((e) => path.basename(e.path))
         .takeWhile(
             (element) => imageExtension.contains(path.extension(element)))
-        .where((element) => !files.any((f) => f.endsWith(element)))
+        .where((element) => !gallery.files.any((f) => f.name.endsWith(element)))
         .fold(<String>[], (previous, element) => previous..add(element)).then(
             (value) async {
       if ((value.isNotEmpty)) {
-        _downLoader.logger?.w('del ${dir.path} files ${value} from ${files}');
+        _downLoader.logger?.w('del ${dir.path} files ${value} from ${gallery}');
         value.map((e) => File(path.join(dir.path, e))).forEach((element) {
           element.deleteSync();
         });
@@ -353,9 +372,8 @@ class HitomiDir {
       return deleteGallery(reason: 'filter failed');
     }
     var images = await _downLoader.helper.getImageListByGid(gallery.id);
-    var files = gallery.files.map((e) => e.name).toList();
-    return _removeIllegalFiles(files, images)
-        .then((value) => _tryFixMissingFile(files))
+    return _removeIllegalFiles(images)
+        .then((value) => _tryFixMissingFile())
         .then((value) => _downLoader.helper.querySql(
             'select feature,title from Gallery where id=? and length!=0',
             [gallery.id]))

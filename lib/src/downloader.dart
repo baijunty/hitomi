@@ -249,8 +249,7 @@ class DownLoader {
           .then((_) => dir.rename(newDir.path))
           .then((_) => true)
           .catchError((e) => true, test: (error) => true);
-    } else if ((gallery.artists?.length ?? 0) + (gallery.groups?.length ?? 0) <=
-        0) {
+    } else if (!gallery.hasAuthor) {
       return true;
     } else {
       return fetchGalleryHash(gallery, helper, api,

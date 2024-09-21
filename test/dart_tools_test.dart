@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:hitomi/gallery/artist.dart';
 import 'package:hitomi/gallery/gallery.dart';
@@ -20,46 +21,88 @@ void main() async {
   test('chapter', () async {
     await task
         .getApiDirect()
-        .fetchGallery(2998892, usePrefence: false)
-        .then((r) => print(r.createDir(config.output, createDir: false).path));
+        .fetchGallery(554098)
+        .then((r) => HitomiDir(r.createDir(config.output), task.down, r))
+        .then((r) => r.fixGallery())
+        .then((r) => print(r));
   }, timeout: Timeout(Duration(minutes: 120)));
 
-  test('fix', () async {
+  test('vector', () async {
     await task.helper
-        .queryGalleryById(1798542)
-        .then((value) => readGalleryFromPath(
-            join(config.output, value.first['path']), task.logger))
-        .then((g) =>
-            HitomiDir(g.createDir(config.output), task.down, g).fixGallery())
+        .querySql(
+            'select g.id,vector_distance(g1.feature,g.feature) as distance from Gallery g left join Gallery g1 on g1.id=? where g.id!=? and vector_distance(g1.feature,g.feature)<0.1 order by vector_distance(g1.feature,g.feature) limit 20',
+            [
+              580529,
+              580529
+            ])
+        .then((d) => d
+            .map((r) => MapEntry(r['id'] as int, r['distance'] as double))
+            .toList())
+        .then((l) => print(l));
+  }, timeout: Timeout(Duration(minutes: 120)));
+
+  test('ai stable', () async {
+    var count =
+        await Iterable.generate(100, (i) => i).asStream().asyncMap((v) async {
+      print('fuck $v');
+      return await task.down.autoTagImages(
+          '/mnt/ssd/manga/(2no.)Himitsu no Hokenshitsu/01_000.png',
+          feature: true);
+    }).fold(0, (acc, v) => acc + v.length);
+    print('count ${count}');
+  }, timeout: Timeout(Duration(minutes: 120)));
+
+  test('image vit', () async {
+    var list = await task.helper
+        .queryGalleryByLabel('artist', Artist(artist: 'makoto'))
+        .then((d) => d.map((r) => r['id'] as int).toList());
+    await sordByVector(2352700, list);
+  }, timeout: Timeout(Duration(minutes: 120)));
+  test('image search', () async {
+    await task
+        .getApiDirect()
+        .fetchGallery(2648486)
+        .then((value) => task
+            .getApiDirect()
+            .fetchImageData(value.files.first)
+            .fold(<int>[], (acc, d) => acc..addAll(d))
+            .then((d) => imageHash(Uint8List.fromList(d)))
+            .then((hash) {
+              return task.helper.querySql(
+                  '''SELECT gid, name,hash_distance(fileHash,?) as distance FROM (SELECT gid, name, fileHash, ROW_NUMBER() OVER (PARTITION BY gid ORDER BY name) AS rn FROM GalleryFile where gid!=?) sub WHERE rn < 3 and hash_distance(fileHash,?) <5 limit 1''',
+                  [hash, 2648486, hash]);
+            }))
         .then((r) => print(r));
   }, timeout: Timeout(Duration(minutes: 120)));
 }
 
-Future<Map<String, dynamic>> genarateTag(String path) {
-  return task.down.autoTagImages(path).then((r) => r.first.tags);
-}
-
-Future<MapEntry<String, Vector>> genarateFuture(String path) {
-  print('generate $path');
-  return task.down
-      .autoTagImages(path, feature: true)
-      .then((r) => MapEntry(r.first.fileName, Vector.fromList(r.first.data!)));
-}
-
-// Function to generate a vector for a given content
-Future<Vector> generateVector(String content,
-    {String model = 'mxbai-embed-large'}) async {
-  print('generate $content');
-  // Send a POST request to the API endpoint
-  var emb = await task.dio
-      .post<Map<String, dynamic>>('http://localhost:11434/api/embed',
-          data: {"model": model, "input": content})
-      .then((d) => d.data!)
-      .then((d) => d['embeddings'] as List<dynamic>);
-  // Extract the data from the response
-  var data = (emb[0] as List<dynamic>).map((e) => e as double).toList();
-  // Return a Vector object from the data
-  return Vector.fromList(data);
+Future<bool> sordByVector(int target, List<int> ids) async {
+  ids.remove(target);
+  var api = task.getApiDirect(local: true);
+  print('compare $target list $ids');
+  var v1 = await api
+      .fetchGallery(target)
+      .then((g) => task.down
+          .autoTagImages(
+              join(g.createDir(config.output).path, g.files.first.name),
+              feature: true)
+          .then((f) => f.first.data))
+      .then((d) => Vector.fromList(d!));
+  var vList = await ids
+      .asStream()
+      .asyncMap((id) => api.fetchGallery(id))
+      .asyncMap((g) async {
+    var f = await task.down
+        .autoTagImages(
+            join(g.createDir(config.output).path, g.files.first.name),
+            feature: true)
+        .then((f) => f.first.data);
+    return MapEntry(
+        g.id, v1.distanceTo(Vector.fromList(f!), distance: Distance.cosine));
+  }).fold(<MapEntry<int, double>>[], (acc, d) => acc..add(d));
+  vList.sort((d1, d2) => d1.value.compareTo(d2.value));
+  print('sort $vList');
+  return true;
 }
 
 // This part of the code will be rewritten to use LLaVA to describe images.

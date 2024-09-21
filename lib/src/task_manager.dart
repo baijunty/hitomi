@@ -227,20 +227,30 @@ class TaskManager {
     if (row != null) {
       return [id];
     }
-    return _api.fetchGallery(id, usePrefence: false).then((value) => value
-            .createDir(config.output, createDir: false)
-            .existsSync()
+    var value = await _api.fetchGallery(id, usePrefence: false);
+    return value.createDir(config.output, createDir: false).existsSync()
         ? readGalleryFromPath(
                 value.createDir(config.output, createDir: false).path, logger)
             .then((value) => [value.id])
-        : (value.artists?.length ?? 0) + (value.groups?.length ?? 0) <= 0
-            ? Future.value([])
+        : !value.hasAuthor
+            ? _api
+                .fetchImageData(value.files.first)
+                .fold(<int>[], (acc, d) => acc..addAll(d))
+                .then((d) => imageHash(Uint8List.fromList(d)))
+                .then((hash) {
+                  return helper.querySql(
+                      '''SELECT gid FROM (SELECT gid, fileHash, ROW_NUMBER() OVER (PARTITION BY gid ORDER BY name) AS rn FROM GalleryFile where gid!=?) sub WHERE rn < 3 and hash_distance(fileHash,?) <5 limit 1''',
+                      [
+                        hash,
+                        value.id
+                      ]).then((d) => d.map((r) => r['gid'] as int).toList());
+                })
             : fetchGalleryHash(value, helper, _api, adHashes: adHash).then(
                 (v) => findDuplicateGalleryIds(
                     gallery: value,
                     helper: helper,
                     fileHashs: v.value,
-                    logger: logger)));
+                    logger: logger));
   }
 
   Future<Map<Label, Map<String, dynamic>>> collectedInfo(List<Label> keys) {
@@ -356,16 +366,13 @@ class TaskManager {
         .slices(5)
         .asyncMap((list) {
           return Future.wait(list.map((event) {
-            var left = event.firstWhereOrNull((g) =>
-                    ((g.gallery.artists?.length ?? 0) +
-                        (g.gallery.groups?.length ?? 0)) >
-                    0) ??
+            var left = event.firstWhereOrNull((g) => g.gallery.hasAuthor) ??
                 event.first;
-            event.remove(left);
+            event.removeWhere((g) => g == left);
             if (event.isNotEmpty) {
-              event.forEach((e) {
+              event.where((g) => g.dir.path != left.dir.path).forEach((e) {
                 logger.d(
-                    'delete duplication ${e.gallery.id} with ${e.dir} left ${left.dir}');
+                    'delete duplication ${e.gallery.id} with ${e.dir} left ${left.gallery}');
                 try {
                   e.dir.deleteSync(recursive: true);
                 } catch (err) {
