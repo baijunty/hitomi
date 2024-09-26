@@ -50,23 +50,25 @@ class _LocalHitomiImpl implements Hitomi {
         var length = f.lengthSync();
         var count = 0;
         if (translate) {
-          return _manager.dio
+          await _manager.dio
               .post<ResponseBody>(_manager.config.aiTagPath,
                   data: FormData.fromMap({
-                    'file': MultipartFile.fromFile(f.path),
+                    'file':
+                        MultipartFile.fromFileSync(value, filename: image.name),
                     'lang': lang,
                     'process': 'translate'
                   }),
                   options: Options(responseType: ResponseType.stream),
                   onReceiveProgress: onProcess)
               .then((resp) => stream.addStream(resp.data!.stream));
+        } else {
+          await f.openRead().fold(stream, (previous, element) {
+            previous.add(element);
+            count += element.length;
+            onProcess?.call(count, length);
+            return previous;
+          });
         }
-        await f.openRead().fold(stream, (previous, element) {
-          previous.add(element);
-          count += element.length;
-          onProcess?.call(count, length);
-          return previous;
-        });
         stream.close();
       }).catchError((e) {
         stream.addError(e);

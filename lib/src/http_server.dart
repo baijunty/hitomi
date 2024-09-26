@@ -220,16 +220,15 @@ class _TaskWarp {
             lang: lang,
             translate: translate,
             id: int.parse(id))
-        .fold(<int>[], (acc, l) => acc..addAll(l)).then((data) {
-      return data;
-    }).then((value) => Response.ok(Stream.value(value), headers: {
-              ...defaultRespHeader,
-              HttpHeaders.cacheControlHeader: 'public, max-age=259200',
-              HttpHeaders.etagHeader: hash,
-              HttpHeaders.contentTypeHeader:
-                  'image/${extension(name).substring(1)}',
-              HttpHeaders.contentLengthHeader: value.length.toString(),
-            }));
+        .fold(<int>[], (acc, l) => acc..addAll(l)).then(
+            (value) => Response.ok(Stream.value(value), headers: {
+                  ...defaultRespHeader,
+                  HttpHeaders.cacheControlHeader: 'public, max-age=259200',
+                  HttpHeaders.etagHeader: hash,
+                  HttpHeaders.contentTypeHeader:
+                      'image/${extension(name).substring(1)}',
+                  HttpHeaders.contentLengthHeader: value.length.toString(),
+                }));
   }
 
   Future<Response> _translate(Request req) async {
