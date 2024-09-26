@@ -13,7 +13,7 @@ _$ImageTagFeatureImpl _$$ImageTagFeatureImplFromJson(
       (json['data'] as List<dynamic>?)
           ?.map((e) => (e as num).toDouble())
           .toList(),
-      (json['tags'] as Map<String, dynamic>).map(
+      (json['tags'] as Map<String, dynamic>?)?.map(
         (k, e) => MapEntry(k, (e as num).toDouble()),
       ),
     );

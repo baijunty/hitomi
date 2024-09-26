@@ -87,8 +87,13 @@ class DownLoader {
             if (msg.success) {
               await helper.removeTask(msg.id);
             } else {
-              await helper.updateTask(msg.gallery.id, msg.gallery.dirName,
-                  msg.file.path, (msg.target as List<Image>).length/msg.gallery.files.length>0.1);
+              await helper.updateTask(
+                  msg.gallery.id,
+                  msg.gallery.dirName,
+                  msg.file.path,
+                  (msg.target as List<Image>).length /
+                          msg.gallery.files.length >
+                      0.1);
             }
             logger?.i('down finish ${msg.gallery}');
             if ((_runningTask.keys
@@ -116,14 +121,6 @@ class DownLoader {
                     msg.file.deleteSync();
                     return 0;
                   }, test: (error) => true);
-              ImageTagFeature? imageFeature = null;
-              var needTag = config.aiTagPath.isNotEmpty &&
-                  (value.firstOrNull?['tag'] ?? '') == '';
-              if (needTag) {
-                imageFeature = await autoTagImages(msg.file.path,
-                        feature: msg.target == msg.gallery.files.first)
-                    .then((l) => l.firstOrNull);
-              }
               if (msg.gallery.files.length -
                           msg.gallery.files
                               .indexWhere((f) => f.name == msg.target.name) <=
@@ -133,13 +130,16 @@ class DownLoader {
                 logger?.w('fount ad image ${msg.file.path}');
                 msg.gallery.files.removeWhere((f) => f == msg.target);
                 return msg.file.delete().then((_) => false);
-              } else if (needInsert || needTag) {
-                if (needTag && imageFeature?.data?.isNotEmpty == true) {
-                  await helper.updateGalleryFeatureById(
-                      msg.gallery.id, imageFeature!.data!);
+              } else if (needInsert) {
+                if (msg.target == msg.gallery.files.first) {
+                  await autoTagImages(msg.file.path, feature: true)
+                      .then((l) => l.firstOrNull)
+                      .then((imageFeature) => helper.updateGalleryFeatureById(
+                          msg.gallery.id, imageFeature!.data!))
+                      .catchError((e) => true, test: (error) => true);
                 }
                 return helper.insertGalleryFile(
-                    msg.gallery, msg.target, hashValue, imageFeature?.tags);
+                    msg.gallery, msg.target, hashValue);
               }
               return needInsert;
             });
@@ -204,7 +204,7 @@ class DownLoader {
         'file': files,
         "limit": limit,
         'threshold': 0.2,
-        'feature': feature
+        'process': feature ? 'feature' : 'tagger'
       });
       return dio
           .post<List<dynamic>>(config.aiTagPath,
@@ -220,7 +220,7 @@ class DownLoader {
   /// It checks if a new directory contains an incomplete or duplicate gallery compared to the provided gallery.
   Future<bool> _findUnCompleteGallery(Gallery gallery, Directory newDir) async {
     if (newDir.listSync().isNotEmpty) {
-      return readGalleryFromPath(newDir.path,logger).then((value) async {
+      return readGalleryFromPath(newDir.path, logger).then((value) async {
         logger?.d('${newDir.path} $gallery exists $value ');
         if (value.id == gallery.id &&
             gallery.labels().length != value.labels().length) {
@@ -270,9 +270,9 @@ class DownLoader {
                   reserved: true))
               .then((value) => Future.wait(value.map((e) => helper
                   .queryGalleryById(e)
-                  .then((value) => readGalleryFromPath(join(config.output, value.first['path']),logger).catchError(
-                      (e) => api.fetchGallery(value.first['id'], usePrefence: false),
-                      test: (error) => true)))));
+                  .then((value) =>
+                      readGalleryFromPath(join(config.output, value.first['path']), logger)
+                          .catchError((e) => api.fetchGallery(value.first['id'], usePrefence: false), test: (error) => true)))));
           logger?.i(
               '${gallery.id} found duplicate with ${exists.map((g) => g.id).toList()}');
           var chapterDown = chapter(gallery.name);
@@ -384,7 +384,7 @@ class DownLoader {
       var path = await helper
           .readlData<String>('Gallery', 'path', {'id': id}); // 读取路径数据
       if (path != null) {
-        target = await readGalleryFromPath(join(config.output, path),logger)
+        target = await readGalleryFromPath(join(config.output, path), logger)
             .catchError((e) => api.fetchGallery(id, usePrefence: false),
                 test: (error) => true); // 尝试从路径读取画廊
       }
@@ -455,7 +455,8 @@ class DownLoader {
                   var fromNet = api.fetchGallery(event.key[0],
                       usePrefence: false, token: token);
                   var gallery = path != null
-                      ? await readGalleryFromPath(join(config.output, path),logger)
+                      ? await readGalleryFromPath(
+                              join(config.output, path), logger)
                           .catchError((e) async {
                           var g = await fromNet;
                           logger?.e('read json $e from net $g');

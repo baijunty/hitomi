@@ -30,10 +30,10 @@ void main() async {
   test('vector', () async {
     await task.helper
         .querySql(
-            'select g.id,vector_distance(g1.feature,g.feature) as distance from Gallery g left join Gallery g1 on g1.id=? where g.id!=? and vector_distance(g1.feature,g.feature)<0.1 order by vector_distance(g1.feature,g.feature) limit 20',
+            'select g.id,vector_distance(g1.feature,g.feature) as distance from Gallery g left join Gallery g1 on g1.id=? where g.id!=? and vector_distance(g1.feature,g.feature)<0.3 order by vector_distance(g1.feature,g.feature) limit 20',
             [
-              580529,
-              580529
+              844089,
+              844089
             ])
         .then((d) => d
             .map((r) => MapEntry(r['id'] as int, r['distance'] as double))
@@ -55,7 +55,29 @@ void main() async {
   test('image vit', () async {
     var list = await task.helper
         .queryGalleryByLabel('artist', Artist(artist: 'makoto'))
-        .then((d) => d.map((r) => r['id'] as int).toList());
+        .then((d) => d.map((r) => r['id'] as int).toList())
+      ..addAll([
+        3022224,
+        1018859,
+        1180143,
+        1945700,
+        1547051,
+        866949,
+        1072149,
+        2746651,
+        1146830,
+        989211,
+        1002431,
+        2692390,
+        921586,
+        1658366,
+        862625,
+        1679162,
+        2492214,
+        2517199,
+        1647974,
+        1538015
+      ]);
     await sordByVector(2352700, list);
   }, timeout: Timeout(Duration(minutes: 120)));
   test('image search', () async {

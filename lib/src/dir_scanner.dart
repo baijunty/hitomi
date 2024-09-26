@@ -361,8 +361,7 @@ class HitomiDir {
                 await _downLoader.helper
                     .updateGalleryFeatureById(gallery.id, imageFeature.data!);
               }
-              return _downLoader.helper
-                  .insertGalleryFile(gallery, img, hash, imageFeature?.tags);
+              return _downLoader.helper.insertGalleryFile(gallery, img, hash);
             }))).then((l) => l.fold(true, (acc, i) => acc && i)))
         .fold(true, (acc, i) => acc && i);
   }

@@ -16,7 +16,7 @@ import 'multi_paltform.dart' show openSqliteDb;
 
 class SqliteHelper {
   final String _dirPath;
-  static final _version = 10;
+  static final _version = 11;
   Logger? _logger = null;
   late CommonDatabase _db;
   CommonDatabase? __db;
@@ -191,7 +191,6 @@ class SqliteHelper {
       width integer,
       height integer,
       fileHash integer,
-      tag TEXT,
       PRIMARY KEY(gid,hash),
       FOREIGN KEY(gid) REFERENCES Gallery(id)  ON DELETE CASCADE
       )''');
@@ -301,6 +300,15 @@ class SqliteHelper {
               """insert into  Gallery(id,path,artist,groupes,series,character,language,title,tag,createDate,type,date,mark,length,feature) 
               select id,path,artist,groupes,series,character,language,title,tag,createDate,type,date,mark,length,null from GalleryTemp""");
           db.execute("drop table GalleryTemp");
+        }
+      case 10:
+        {
+          db.execute("drop table if exists GalleryFileTemp ");
+          db.execute("ALTER table GalleryFile rename to GalleryFileTemp");
+          createTables(db);
+          db.execute(
+              """insert into GalleryFile(gid,hash,name,width,height,fileHash) select gid,hash,name,width,height,fileHash from GalleryFileTemp""");
+          db.execute("drop table GalleryFileTemp");
         }
     }
   }
@@ -459,22 +467,10 @@ class SqliteHelper {
         }));
   }
 
-  Future<bool> insertGalleryFile(
-      Gallery gallery, Image image, int hash, Map<String, dynamic>? tag) async {
+  Future<bool> insertGalleryFile(Gallery gallery, Image image, int hash) async {
     return excuteSqlAsync(
-        'replace into GalleryFile(gid,hash,name,width,height,fileHash,tag) values(?,?,?,?,?,?,?)',
-        [
-          gallery.id,
-          image.hash,
-          image.name,
-          image.width,
-          image.height,
-          hash,
-          tag == null
-              ? null
-              : json.encode(tag.map((k, v) =>
-                  MapEntry(k, double.parse((v as double).toStringAsFixed(2)))))
-        ]);
+        'replace into GalleryFile(gid,hash,name,width,height,fileHash) values(?,?,?,?,?,?)',
+        [gallery.id, image.hash, image.name, image.width, image.height, hash]);
   }
 
   Future<void> updateTask(

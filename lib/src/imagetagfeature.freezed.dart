@@ -22,7 +22,7 @@ ImageTagFeature _$ImageTagFeatureFromJson(Map<String, dynamic> json) {
 mixin _$ImageTagFeature {
   String get fileName => throw _privateConstructorUsedError;
   List<double>? get data => throw _privateConstructorUsedError;
-  Map<String, double> get tags => throw _privateConstructorUsedError;
+  Map<String, double>? get tags => throw _privateConstructorUsedError;
 
   /// Serializes this ImageTagFeature to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -40,7 +40,7 @@ abstract class $ImageTagFeatureCopyWith<$Res> {
           ImageTagFeature value, $Res Function(ImageTagFeature) then) =
       _$ImageTagFeatureCopyWithImpl<$Res, ImageTagFeature>;
   @useResult
-  $Res call({String fileName, List<double>? data, Map<String, double> tags});
+  $Res call({String fileName, List<double>? data, Map<String, double>? tags});
 }
 
 /// @nodoc
@@ -60,7 +60,7 @@ class _$ImageTagFeatureCopyWithImpl<$Res, $Val extends ImageTagFeature>
   $Res call({
     Object? fileName = null,
     Object? data = freezed,
-    Object? tags = null,
+    Object? tags = freezed,
   }) {
     return _then(_value.copyWith(
       fileName: null == fileName
@@ -71,10 +71,10 @@ class _$ImageTagFeatureCopyWithImpl<$Res, $Val extends ImageTagFeature>
           ? _value.data
           : data // ignore: cast_nullable_to_non_nullable
               as List<double>?,
-      tags: null == tags
+      tags: freezed == tags
           ? _value.tags
           : tags // ignore: cast_nullable_to_non_nullable
-              as Map<String, double>,
+              as Map<String, double>?,
     ) as $Val);
   }
 }
@@ -87,7 +87,7 @@ abstract class _$$ImageTagFeatureImplCopyWith<$Res>
       __$$ImageTagFeatureImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call({String fileName, List<double>? data, Map<String, double> tags});
+  $Res call({String fileName, List<double>? data, Map<String, double>? tags});
 }
 
 /// @nodoc
@@ -105,7 +105,7 @@ class __$$ImageTagFeatureImplCopyWithImpl<$Res>
   $Res call({
     Object? fileName = null,
     Object? data = freezed,
-    Object? tags = null,
+    Object? tags = freezed,
   }) {
     return _then(_$ImageTagFeatureImpl(
       null == fileName
@@ -116,10 +116,10 @@ class __$$ImageTagFeatureImplCopyWithImpl<$Res>
           ? _value._data
           : data // ignore: cast_nullable_to_non_nullable
               as List<double>?,
-      null == tags
+      freezed == tags
           ? _value._tags
           : tags // ignore: cast_nullable_to_non_nullable
-              as Map<String, double>,
+              as Map<String, double>?,
     ));
   }
 }
@@ -128,7 +128,7 @@ class __$$ImageTagFeatureImplCopyWithImpl<$Res>
 @JsonSerializable()
 class _$ImageTagFeatureImpl implements _ImageTagFeature {
   _$ImageTagFeatureImpl(
-      this.fileName, final List<double>? data, final Map<String, double> tags)
+      this.fileName, final List<double>? data, final Map<String, double>? tags)
       : _data = data,
         _tags = tags;
 
@@ -147,12 +147,14 @@ class _$ImageTagFeatureImpl implements _ImageTagFeature {
     return EqualUnmodifiableListView(value);
   }
 
-  final Map<String, double> _tags;
+  final Map<String, double>? _tags;
   @override
-  Map<String, double> get tags {
+  Map<String, double>? get tags {
+    final value = _tags;
+    if (value == null) return null;
     if (_tags is EqualUnmodifiableMapView) return _tags;
     // ignore: implicit_dynamic_type
-    return EqualUnmodifiableMapView(_tags);
+    return EqualUnmodifiableMapView(value);
   }
 
   @override
@@ -198,7 +200,7 @@ class _$ImageTagFeatureImpl implements _ImageTagFeature {
 
 abstract class _ImageTagFeature implements ImageTagFeature {
   factory _ImageTagFeature(final String fileName, final List<double>? data,
-      final Map<String, double> tags) = _$ImageTagFeatureImpl;
+      final Map<String, double>? tags) = _$ImageTagFeatureImpl;
 
   factory _ImageTagFeature.fromJson(Map<String, dynamic> json) =
       _$ImageTagFeatureImpl.fromJson;
@@ -208,7 +210,7 @@ abstract class _ImageTagFeature implements ImageTagFeature {
   @override
   List<double>? get data;
   @override
-  Map<String, double> get tags;
+  Map<String, double>? get tags;
 
   /// Create a copy of ImageTagFeature
   /// with the given fields replaced by the non-null parameter values.
