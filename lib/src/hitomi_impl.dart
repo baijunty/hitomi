@@ -32,6 +32,8 @@ class _LocalHitomiImpl implements Hitomi {
       {String refererUrl = 'https://hitomi.la',
       CancelToken? token,
       int id = 0,
+      bool translate = false,
+      String lang = 'ja',
       ThumbnaiSize size = ThumbnaiSize.smaill,
       void Function(int now, int total)? onProcess}) {
     var origin = _helper.querySql(
@@ -47,6 +49,18 @@ class _LocalHitomiImpl implements Hitomi {
         var f = File(value);
         var length = f.lengthSync();
         var count = 0;
+        if (translate) {
+          return _manager.dio
+              .post<ResponseBody>(_manager.config.aiTagPath,
+                  data: FormData.fromMap({
+                    'file': MultipartFile.fromFile(f.path),
+                    'lang': lang,
+                    'process': 'translate'
+                  }),
+                  options: Options(responseType: ResponseType.stream),
+                  onReceiveProgress: onProcess)
+              .then((resp) => stream.addStream(resp.data!.stream));
+        }
         await f.openRead().fold(stream, (previous, element) {
           previous.add(element);
           count += element.length;
@@ -451,17 +465,38 @@ class _HitomiImpl implements Hitomi {
       {String refererUrl = 'https://hitomi.la',
       CancelToken? token,
       int id = 0,
+      bool translate = false,
+      String lang = 'ja',
       ThumbnaiSize size = ThumbnaiSize.smaill,
       void Function(int now, int total)? onProcess}) {
     final stream = StreamController<List<int>>();
     checkInit()
         .then((d) => buildImageUrl(image, size: size, id: id))
-        .then((url) => _dio
-            .httpInvoke<ResponseBody>(url,
-                headers: buildRequestHeader(url, refererUrl),
-                onProcess: onProcess,
-                token: token)
-            .then((resp) => stream.addStream(resp.stream)))
+        .then((url) async {
+          var request = _dio
+              .httpInvoke<ResponseBody>(url,
+                  headers: buildRequestHeader(url, refererUrl),
+                  onProcess: onProcess,
+                  token: token)
+              .then((resp) => resp.stream);
+          if (translate) {
+            var data = await request.then((resp) => resp.toList());
+            return _dio
+                .post<ResponseBody>(manager.config.aiTagPath,
+                    data: FormData.fromMap({
+                      'file': MultipartFile.fromBytes(
+                          data.fold(<int>[], (acc, l) => acc..addAll(l)),
+                          filename: image.name,
+                          contentType: DioMediaType.parse('image/*')),
+                      'lang': lang,
+                      'process': 'translate'
+                    }),
+                    options: Options(responseType: ResponseType.stream),
+                    onReceiveProgress: onProcess)
+                .then((resp) => stream.addStream(resp.data!.stream));
+          }
+          return request.then((resp) => stream.addStream(resp));
+        })
         .catchError((e) => stream.addError(e), test: (error) => true)
         .whenComplete(() => stream.close());
     return stream.stream;
@@ -1016,6 +1051,8 @@ class WebHitomi implements Hitomi {
       {String refererUrl = 'https://hitomi.la',
       CancelToken? token,
       int id = 0,
+      bool translate = false,
+      String lang = 'ja',
       ThumbnaiSize size = ThumbnaiSize.smaill,
       void Function(int now, int total)? onProcess}) {
     final stream = StreamController<List<int>>();
@@ -1027,6 +1064,8 @@ class WebHitomi implements Hitomi {
               'referer': refererUrl,
               'size': size.name,
               'id': id,
+              'translate': translate,
+              'lang': lang,
               'local': localDb
             },
             options: Options(responseType: ResponseType.stream),

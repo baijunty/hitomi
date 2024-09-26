@@ -29,6 +29,8 @@ abstract class Hitomi {
       {String refererUrl,
       CancelToken? token,
       int id = 0,
+      bool translate = false,
+      String lang = 'ja',
       ThumbnaiSize size = ThumbnaiSize.smaill,
       void Function(int now, int total)? onProcess});
   Future<DataResponse<List<Gallery>>> viewByTag(Label tag,

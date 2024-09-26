@@ -30,7 +30,14 @@ class _TaskWarp {
     router
       ..get('/', (req) => Response.movedPermanently('/index.html'))
       ..post('/translate', _translate)
-      ..get('/test', (req) => Response.ok('ok'))
+      ..get(
+          '/test',
+          (req) => Response.ok(
+              json.encode({
+                'success': true,
+                'feature': _manager.config.aiTagPath.isNotEmpty
+              }),
+              headers: defaultRespHeader))
       ..options('/translate', _optionsOk)
       ..post('/addTask', _addTask)
       ..options('/addTask', _optionsOk)
@@ -184,6 +191,8 @@ class _TaskWarp {
     var name = req.url.queryParameters['name'];
     var size = req.url.queryParameters['size'];
     var local = req.url.queryParameters['local'] == 'true';
+    var translate = req.url.queryParameters['translate'] == 'true';
+    var lang = req.url.queryParameters['lang'] ?? 'ja';
     if (id == null ||
         (hash?.length ?? 0) != 64 ||
         size == null ||
@@ -208,16 +217,19 @@ class _TaskWarp {
             refererUrl: req.url.queryParameters['referer'] ?? '',
             size: ThumbnaiSize.values
                 .firstWhere((element) => element.name == size),
+            lang: lang,
+            translate: translate,
             id: int.parse(id))
-        .fold(<int>[], (acc, l) => acc..addAll(l)).then(
-            (value) => Response.ok(Stream.value(value), headers: {
-                  ...defaultRespHeader,
-                  HttpHeaders.cacheControlHeader: 'public, max-age=259200',
-                  HttpHeaders.etagHeader: hash,
-                  HttpHeaders.contentTypeHeader:
-                      'image/${extension(name).substring(1)}',
-                  HttpHeaders.contentLengthHeader: value.length.toString(),
-                }));
+        .fold(<int>[], (acc, l) => acc..addAll(l)).then((data) {
+      return data;
+    }).then((value) => Response.ok(Stream.value(value), headers: {
+              ...defaultRespHeader,
+              HttpHeaders.cacheControlHeader: 'public, max-age=259200',
+              HttpHeaders.etagHeader: hash,
+              HttpHeaders.contentTypeHeader:
+                  'image/${extension(name).substring(1)}',
+              HttpHeaders.contentLengthHeader: value.length.toString(),
+            }));
   }
 
   Future<Response> _translate(Request req) async {
