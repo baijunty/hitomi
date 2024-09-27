@@ -53,8 +53,8 @@ class _LocalHitomiImpl implements Hitomi {
           await _manager.dio
               .post<ResponseBody>(_manager.config.aiTagPath,
                   data: FormData.fromMap({
-                    'file':
-                        MultipartFile.fromFileSync(value, filename: image.name),
+                    'file': MultipartFile.fromStream(() => f.openRead(), length,
+                        filename: image.name),
                     'lang': lang,
                     'process': 'translate'
                   }),
@@ -63,9 +63,9 @@ class _LocalHitomiImpl implements Hitomi {
               .then((resp) => stream.addStream(resp.data!.stream));
         } else {
           await f.openRead().fold(stream, (previous, element) {
-            previous.add(element);
             count += element.length;
             onProcess?.call(count, length);
+            previous.add(element);
             return previous;
           });
         }
@@ -472,33 +472,32 @@ class _HitomiImpl implements Hitomi {
       ThumbnaiSize size = ThumbnaiSize.smaill,
       void Function(int now, int total)? onProcess}) {
     final stream = StreamController<List<int>>();
+    var length = 0;
     checkInit()
         .then((d) => buildImageUrl(image, size: size, id: id))
-        .then((url) async {
-          var request = _dio
-              .httpInvoke<ResponseBody>(url,
-                  headers: buildRequestHeader(url, refererUrl),
-                  onProcess: onProcess,
-                  token: token)
-              .then((resp) => resp.stream);
-          if (translate) {
-            var data = await request.then((resp) => resp.toList());
-            return _dio
-                .post<ResponseBody>(manager.config.aiTagPath,
-                    data: FormData.fromMap({
-                      'file': MultipartFile.fromBytes(
-                          data.fold(<int>[], (acc, l) => acc..addAll(l)),
-                          filename: image.name,
-                          contentType: DioMediaType.parse('image/*')),
-                      'lang': lang,
-                      'process': 'translate'
-                    }),
-                    options: Options(responseType: ResponseType.stream),
-                    onReceiveProgress: onProcess)
-                .then((resp) => stream.addStream(resp.data!.stream));
-          }
-          return request.then((resp) => stream.addStream(resp));
-        })
+        .then((url) => _dio
+                .httpInvoke<ResponseBody>(url,
+                    headers: buildRequestHeader(url, refererUrl),
+                    onProcess: translate ? (i, t) => length = t : onProcess,
+                    token: token)
+                .then((resp) => resp.stream)
+                .then((resp) async {
+              if (translate) {
+                return await _dio
+                    .post<ResponseBody>(manager.config.aiTagPath,
+                        data: FormData.fromMap({
+                          'file': MultipartFile.fromStream(() => resp, length,
+                              filename: image.name,
+                              contentType: DioMediaType.parse('image/*')),
+                          'lang': lang,
+                          'process': 'translate'
+                        }),
+                        options: Options(responseType: ResponseType.stream),
+                        onReceiveProgress: onProcess)
+                    .then((resp) => resp.data!.stream);
+              }
+              return resp;
+            }).then((resp) => stream.addStream(resp)))
         .catchError((e) => stream.addError(e), test: (error) => true)
         .whenComplete(() => stream.close());
     return stream.stream;
