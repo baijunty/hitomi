@@ -33,10 +33,8 @@ class _TaskWarp {
       ..get(
           '/test',
           (req) => Response.ok(
-              json.encode({
-                'success': true,
-                'feature': _manager.config.aiTagPath.isNotEmpty
-              }),
+              json.encode(
+                  {'success': true, 'feature': _manager.config.aiTagPath}),
               headers: defaultRespHeader))
       ..options('/translate', _optionsOk)
       ..post('/addTask', _addTask)
