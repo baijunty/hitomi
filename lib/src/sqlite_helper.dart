@@ -439,8 +439,24 @@ class SqliteHelper {
     return queryGalleryByLabel('tag', label);
   }
 
-  Future<ResultSet> queryGalleryById(dynamic id) async {
-    return querySql('''select * from Gallery where id=?''', [id]);
+  Future<Gallery> queryGalleryById(dynamic id) async {
+    return querySql('''select * from Gallery where id=?''', [id])
+        .then((value) => Gallery.fromRow(value.first))
+        .then((g) async {
+      var images = await queryImageHashsById(id).then((set) => set.fold(
+          <Image>[],
+          (previousValue, element) => previousValue
+            ..add(Image(
+                hash: element['hash'],
+                hasavif: 0,
+                width: element['width'],
+                haswebp: 0,
+                name: element['name'],
+                height: element['height'],
+                fileHash: element['fileHash']))));
+      g.files.addAll(images);
+      return g;
+    });
   }
 
   Future<ResultSet> queryImageHashsById(dynamic id) async {

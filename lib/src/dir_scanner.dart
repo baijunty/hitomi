@@ -32,16 +32,18 @@ class DirScanner {
         .asyncMap((event) async {
       return readGalleryFromPath(event.path, _downLoader.logger)
           .then((value) async {
-        if (!value.hasAuthor) {
-          var newGallery =
-              await _downLoader.api.fetchGallery(value.id, usePrefence: false);
-          if (newGallery.hasAuthor) {
-            _downLoader.logger?.d(
-                'fix ${value} label with path ${newGallery.createDir(_config.output).path} ');
+        if (!value.hasAuthor ||
+            value.language != _downLoader.config.languages.first) {
+          var newGallery = await _downLoader.api.fetchGallery(value.id);
+          if (!value.hasAuthor && newGallery.hasAuthor ||
+              newGallery.language != value.language) {
+            var newDir = newGallery.createDir(_config.output);
+            _downLoader.logger
+                ?.d('fix ${value} label with path ${newDir.path} ');
             value = newGallery;
-            File(path.join(event.path, 'meta.json'))
+            File(path.join(newDir.path, 'meta.json'))
                 .writeAsStringSync(json.encode(newGallery), flush: true);
-            await _downLoader.helper.insertGallery(newGallery, event);
+            await _downLoader.helper.insertGallery(newGallery, newDir);
           }
         }
         final useDir = value.createDir(_config.output, createDir: false);
@@ -55,12 +57,13 @@ class DirScanner {
                 'delete ${value.id} path ${event.path} because exists $value');
             event.deleteSync(recursive: true);
             return null;
-          } else if (!useDir.existsSync()) {
+          } else {
             _downLoader.logger?.d(
                 'rename ${value.id} path ${event.path} from ${path.basename(event.path)} to ${path.basename(useDir.path)}');
-            await event.rename(useDir.path);
-            await _downLoader.helper.insertGallery(value, useDir);
-            event.deleteSync(recursive: true);
+            await useDir
+                .delete(recursive: true)
+                .then((_) => event.rename(useDir.path))
+                .then((_) => _downLoader.helper.insertGallery(value, useDir));
           }
           return HitomiDir(useDir, _downLoader, value);
         } else {
@@ -198,10 +201,10 @@ class DirScanner {
       entry = MapEntry('artist', artist);
       tags.addAll([
         Artist(artist: artist),
-        ...title.split(blankExp).take(5).map((e) => QueryText(e))
+        ...title.split(blankExp).take(5).map((e) => QueryText(e)).toSet()
       ]);
     } else {
-      tags.addAll(name.split(blankExp).map((e) => QueryText(e)));
+      tags.addAll(name.split(blankExp).map((e) => QueryText(e)).toSet());
     }
     _downLoader.logger?.e('fix by search $tags');
     return _downLoader

@@ -222,8 +222,8 @@ class TaskManager {
   }
 
   Future<List<int>> checkExistsId(int id) async {
-    var row =
-        await helper.queryGalleryById(id).then((value) => value.firstOrNull);
+    var row = await helper.querySql('select 1 from Gallery where id=?',
+        [id]).then((value) => value.firstOrNull);
     if (row != null) {
       return [id];
     }

@@ -94,30 +94,9 @@ class _LocalHitomiImpl implements Hitomi {
 
   @override
   Future<Gallery> fetchGallery(id, {usePrefence = true, CancelToken? token}) {
-    return _helper
-        .queryGalleryById(id)
-        .then((value) => Gallery.fromRow(value.first))
-        .then((value) {
-      return _helper
-          .querySql(
-              'select hash,width,name,height,fileHash from GalleryFile where gid=? order by name',
-              [
-                value.id
-              ])
-          .then((value) => value.fold(
-              <Image>[],
-              (previousValue, element) => previousValue
-                ..add(Image(
-                    hash: element['hash'],
-                    hasavif: 0,
-                    width: element['width'],
-                    haswebp: 0,
-                    name: element['name'],
-                    height: element['height'],
-                    fileHash: element['fileHash']))))
-          .then((fs) => value..files.addAll(fs));
-    }).catchError((e) => _hitomiImpl.fetchGallery(id, usePrefence: usePrefence),
-            test: (error) => true);
+    return _helper.queryGalleryById(id).catchError(
+        (e) => _hitomiImpl.fetchGallery(id, usePrefence: usePrefence),
+        test: (error) => true);
   }
 
   @override

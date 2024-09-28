@@ -261,18 +261,18 @@ class DownLoader {
               logger: logger))
           .then((value) async {
         if (value.isEmpty && gallery.files.length >= 40) {
-          var exists = await fetchGalleryHash(gallery, helper, api, adHashes: adImage.map((e) => e.key).toList(), fullHash: true)
+          var exists = await fetchGalleryHash(gallery, helper, api,
+                  adHashes: adImage.map((e) => e.key).toList(), fullHash: true)
               .then((v) => findDuplicateGalleryIds(
                   gallery: gallery,
                   helper: helper,
                   fileHashs: v.value,
                   logger: logger,
                   reserved: true))
-              .then((value) => Future.wait(value.map((e) => helper
-                  .queryGalleryById(e)
-                  .then((value) =>
-                      readGalleryFromPath(join(config.output, value.first['path']), logger)
-                          .catchError((e) => api.fetchGallery(value.first['id'], usePrefence: false), test: (error) => true)))));
+              .then((ids) => Future.wait(ids.map((id) => helper
+                  .queryGalleryById(id)
+                  .catchError((e) => api.fetchGallery(id, usePrefence: false),
+                      test: (error) => true))));
           logger?.i(
               '${gallery.id} found duplicate with ${exists.map((g) => g.id).toList()}');
           var chapterDown = chapter(gallery.name);
@@ -293,6 +293,21 @@ class DownLoader {
                       'new collection ${gallery.id} contails exists gallery ${event.gallery.id}'))
               .length;
           return true;
+        } else if (value.isNotEmpty) {
+          return value
+              .asStream()
+              .asyncMap((id) => helper.queryGalleryById(id))
+              .fold(<Gallery>[], (acc, g) => acc..add(g)).then((gs) {
+            var overwrite =
+                compareGallerWithOther(gallery, gs, config.languages).id ==
+                    gallery.id;
+            if (overwrite) {
+              gs.forEach((g) => HitomiDir(g.createDir(config.output), this, g)
+                  .deleteGallery(
+                      reason: 'new gallery ${gallery.id} overwrite'));
+            }
+            return overwrite;
+          });
         }
         return value.isEmpty;
       });
@@ -460,7 +475,8 @@ class DownLoader {
                           .catchError((e) async {
                           var g = await fromNet;
                           logger?.e('read json $e from net $g');
-                          File(join(config.output, path, 'meta.json'))
+                          File(join(
+                                  g.createDir(config.output).path, 'meta.json'))
                               .writeAsStringSync(json.encode(g), flush: true);
                           return g;
                         }, test: (error) => true)
