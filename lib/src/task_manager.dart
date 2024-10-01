@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:args/args.dart';
-import 'package:async/async.dart';
 import 'package:collection/collection.dart';
 import 'package:dcache/dcache.dart';
 import 'package:dio/dio.dart';
@@ -253,6 +252,65 @@ class TaskManager {
                     logger: logger));
   }
 
+  Future<List<int>> findSugguestGallery(int id) async {
+    return config.aiTagPath.isNotEmpty
+        ? await getApiDirect().fetchGallery(id).then((gallery) async {
+            var idTitleMap = Map<int, String>();
+            var ids = <int>[];
+            if (gallery.artists != null) {
+              await gallery.artists!
+                  .asStream()
+                  .asyncMap(
+                      (event) => helper.queryGalleryByLabel('artist', event))
+                  .map((event) => event.fold(
+                      <int, String>{}, (acc, m) => acc..[m['id']] = m['title']))
+                  .fold(idTitleMap, (map, item) => map..addAll(item));
+            }
+            if (gallery.groups != null) {
+              await gallery.groups!
+                  .asStream()
+                  .asyncMap(
+                      (event) => helper.queryGalleryByLabel('groupes', event))
+                  .map((event) => event.fold(
+                      <int, String>{}, (acc, m) => acc..[m['id']] = m['title']))
+                  .fold(idTitleMap, (map, item) => map..addAll(item));
+            }
+            if (idTitleMap.isNotEmpty) {
+              final formData = FormData.fromMap({
+                "limit": 5,
+                'threshold': 0.8,
+                'docs': json
+                    .encode([gallery.nameFixed, ...idTitleMap.values.toList()]),
+                'process': 'feature'
+              });
+              var result = await dio
+                  .post<List<dynamic>>(config.aiTagPath,
+                      data: formData,
+                      options: Options(responseType: ResponseType.json))
+                  .then((resp) => resp.data!)
+                  .then((list) => list
+                      .map((m) => m as Map<String, dynamic>)
+                      .fold(
+                          <MapEntry<String, double>>[],
+                          (acc, m) => acc
+                            ..add(MapEntry(m.keys.first, m.values.first))));
+              logger.d('text similer search $result');
+              result
+                  .map((e) => idTitleMap.entries
+                      .firstWhere((m) => m.value == e.key)
+                      .key)
+                  .fold(ids, (list, id) => list..add(id));
+            }
+            return await helper
+                .querySql(
+                    'select g.id,vector_distance(g1.feature,g.feature) as distance from Gallery g left join Gallery g1 on g1.id=? where g.id!=? and vector_distance(g1.feature,g.feature)<0.3 order by vector_distance(g1.feature,g.feature) limit 5',
+                    [id, id])
+                .then((d) => d.map((r) => r['id'] as int).toList())
+                .then((l) => ids..addAll(l));
+          })
+        : [];
+  }
+
   Future<Map<Label, Map<String, dynamic>>> collectedInfo(List<Label> keys) {
     return keys
         .where((element) => !_cache.containsKey(element))
@@ -360,30 +418,51 @@ class TaskManager {
               ..[element.gallery.id.toString()] =
                   ((previous[element.gallery.id.toString()] ?? [])
                     ..add(element)))
-        .then((value) => value.values.toList())
-        .asStream()
-        .expand((element) => element)
-        .slices(5)
-        .asyncMap((list) {
-          return Future.wait(list.map((event) {
-            var left = event.firstWhereOrNull((g) => g.gallery.hasAuthor) ??
-                event.first;
-            event.removeWhere((g) => g == left);
-            if (event.isNotEmpty) {
-              event.where((g) => g.dir.path != left.dir.path).forEach((e) {
-                logger.d(
-                    'delete duplication ${e.gallery.id} with ${e.dir} left ${left.gallery}');
-                try {
-                  e.dir.deleteSync(recursive: true);
-                } catch (err) {
-                  logger.e('delete ${e.gallery.id} err ${err}');
+        .then((value) {
+          return value
+              .map((key, event) {
+                var left = event.firstWhereOrNull((g) => g.gallery.hasAuthor) ??
+                    event.first;
+                event.removeWhere((g) => g == left);
+                if (event.isNotEmpty) {
+                  event.where((g) => g.dir.path != left.dir.path).forEach((e) {
+                    logger.d(
+                        'delete duplication ${e.gallery.id} with ${e.dir} left ${left.gallery}');
+                    try {
+                      e.dir.deleteSync(recursive: true);
+                    } catch (err) {
+                      logger.e('delete ${e.gallery.id} err ${err}');
+                    }
+                  });
                 }
-              });
-            }
-            return left.fixGallery();
-          })).then((value) => value.length);
+                return MapEntry(key, left);
+              })
+              .values
+              .toList()
+              .groupListsBy((g) => g.needDownMissFile);
         })
-        .fold(0, (previous, element) => previous + element);
+        .then((m) {
+          var downTaskes = m[true]?.map((g) async {
+            var completer = Completer<bool>();
+            await _downLoader.addTask(g.gallery, handle: (msg) async {
+              if (msg is DownLoadFinished) {
+                if (msg.target is List) {
+                  _downLoader.logger?.d('redown ${msg.success}');
+                  completer.complete(msg.success);
+                } else if (msg.target is Gallery) {
+                  _downLoader.logger?.d('redown faild');
+                  completer.complete(false);
+                }
+              }
+              return true;
+            });
+            return completer.future;
+          }).toList();
+          var fixTaskes = m[false]?.map((g) => g.fixGallery()).toList();
+          return (fixTaskes ?? <Future<bool>>[])..addAll(downTaskes ?? []);
+        })
+        .then((element) => Future.wait(element))
+        .then((f) => f.length);
     logger.d("scan finishd ${count}");
     return count;
   }
@@ -541,8 +620,10 @@ class TaskManager {
         return _fetchTagsFromNet()
             .then((value) => helper.updateTagTable(value));
       } else if (result['continue']) {
-        return remainTask().then((value) =>
-            value.asyncMap((event) => _downLoader.addTask(event)).length);
+        return remainTask().then((value) => value
+            .where((g) => down.filter(g))
+            .asyncMap((event) => _downLoader.addTask(event))
+            .length);
       } else if (result.wasParsed('sqlite3')) {
         String command = result["sqlite3"];
         return helper.querySql(command).then((value) => value.toList());

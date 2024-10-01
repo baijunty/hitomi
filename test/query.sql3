@@ -1,14 +1,14 @@
 SELECT * from Tasks WHERE completed=1 order by id desc limit 20
 SELECT * FROM Tags WHERE translate like '%;%' limit 20
-select * from Gallery  g,json_each(g.character) ja where json_valid(g.character)=1 and ja.value = 'asuna yuuki' 
+select title from Gallery  g,json_each(g.artist) ja where json_valid(g.artist)=1 and ja.value = 'hisasi' 
 SELECT gf.gid  from (SELECT DISTINCT(gid) from GalleryFile)  gf WHERE  not EXISTS (SELECT 1 from Gallery g WHERE g.id=gf.gid)
 select g.id from  Gallery g,json_each(g.artist) ja left join GalleryFile gf on g.id=gf.gid where json_valid(g.artist)=1 and ja.value = 'fuuga' and gf.gid is null
 select *  from Gallery g where g.feature is null limit 50
 select COUNT(*) OVER() AS total_count,id from Gallery where  (  json_value_contains(language,?,?)=1  or  json_value_contains(language,?,?)=1  ) and 1=1 limit 25 offset 0
 select * from ( select count(gid) as count,* from GalleryFile where fileHash=-1 group by gid ) as g where g.count>4 order by count desc
 select * from ( SELECT g.id as rid,e.id as eid,g.path as gth,e.path as eth from Gallery e left join Gallery g on (e.path=g.title and e.id!=g.id) where e.groupes is null and e.artist is null) as t where t.rid is not null
-select * from Gallery LIMIT 20
-select count(1) from Gallery where createDate  <'2013-01-01' limit 20
+select * from Gallery where id =554098
+select count(1) from Gallery where type='game cg' limit 20
 select path,id,feature is null as feat from Gallery limit 20
 select * from GalleryFile where gid=3066192 limit 20
 select * from UserLog where type= 1 << 17 

@@ -76,7 +76,7 @@ Future<MapEntry<Gallery, List<int>>> fetchGalleryHash(
   return helper
       .queryImageHashsById(gallery.id)
       .then((value) => value.fold(<int>[],
-          (previousValue, element) => previousValue..add(element['fileHash'])))
+          (previousValue, element) => previousValue..add(element.fileHash!)))
       .then((value) => MapEntry<Gallery, List<int>>(gallery, value))
       .then((value) async {
         if (value.value.length < 18 &&
@@ -144,9 +144,12 @@ Future<MapEntry<Gallery, List<int>>> fetchGalleryHashFromNet(
               id: gallery.id)
           .fold(<int>[], (acc, l) => acc..addAll(l))
           .then((value) => imageHash(Uint8List.fromList(value)))
-          .catchError((e) => 0, test: (error) => true)))) // Fetch image data for each file in the chunk asynchronously.
+          .catchError((e) => 0,
+              test: (error) =>
+                  true)))) // Fetch image data for each file in the chunk asynchronously.
       .fold(<int>[], (previous, element) => previous..addAll(element)).then(
-          (value) => MapEntry<Gallery, List<int>>(gallery, value)); // Combine the results of fetching hashes from the network into a single list and return it as a map entry with the gallery.
+          (value) => MapEntry<Gallery, List<int>>(gallery,
+              value)); // Combine the results of fetching hashes from the network into a single list and return it as a map entry with the gallery.
 }
 
 String titleFixed(String title) {

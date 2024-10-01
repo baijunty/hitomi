@@ -32,18 +32,19 @@ class DirScanner {
         .asyncMap((event) async {
       return readGalleryFromPath(event.path, _downLoader.logger)
           .then((value) async {
-        if (!value.hasAuthor ||
-            value.language != _downLoader.config.languages.first) {
+        if (!value.hasAuthor) {
           var newGallery = await _downLoader.api.fetchGallery(value.id);
           if (!value.hasAuthor && newGallery.hasAuthor ||
               newGallery.language != value.language) {
             var newDir = newGallery.createDir(_config.output);
             _downLoader.logger
                 ?.d('fix ${value} label with path ${newDir.path} ');
-            value = newGallery;
             File(path.join(newDir.path, 'meta.json'))
                 .writeAsStringSync(json.encode(newGallery), flush: true);
-            await _downLoader.helper.insertGallery(newGallery, newDir);
+            await _downLoader.helper
+                .insertGallery(newGallery, newDir)
+                .then((_) => _downLoader.helper.deleteGallery(value.id));
+            value = newGallery;
           }
         }
         final useDir = value.createDir(_config.output, createDir: false);
@@ -110,13 +111,18 @@ class DirScanner {
                 return true;
               }).catchError((e) {
                 _downLoader.logger?.e(' fix row $event error $e');
-                return _downLoader.api
-                    .fetchGallery(id, usePrefence: false)
-                    .then((value) => _downLoader.filter(value)
-                        ? _downLoader.addTask(value)
-                        : false)
-                    .then((value) => _helper.deleteGallery(id))
-                    .catchError((e) async {
+                return _downLoader.api.fetchGallery(id).then((value) async {
+                  if (_downLoader.filter(value) &&
+                      !value
+                          .createDir(_downLoader.config.output,
+                              createDir: false)
+                          .existsSync()) {
+                    await _downLoader.addTask(value);
+                    return true;
+                  }
+                  await _helper.deleteGallery(id);
+                  return false;
+                }).catchError((e) async {
                   await _helper.deleteGallery(id);
                   return false;
                 }, test: (error) => true);
@@ -239,6 +245,13 @@ class HitomiDir {
   final DownLoader _downLoader;
   final bool fixFromNet;
   HitomiDir(this.dir, this._downLoader, this.gallery, {this.fixFromNet = true});
+
+  bool get needDownMissFile =>
+      _downLoader.filter(gallery) &&
+      fixFromNet &&
+      gallery.files
+          .map((e) => File(path.join(dir.path, e.name)))
+          .any((element) => !element.existsSync() || element.lengthSync() == 0);
 
   Future<bool> _tryFixMissingFile() async {
     var fileLost = gallery.files
@@ -396,21 +409,6 @@ class HitomiDir {
             '${gallery} fix file missing ${missing.map((e) => e.name).toList()}');
         lost = await batchInsertImage(missing, false);
       }
-      // missing = _downLoader.config.aiTagPath.isNotEmpty
-      //     ? value
-      //         .where((e) =>
-      //             missing.every((miss) => miss.hash != e.key[1]) &&
-      //             e.value.firstOrNull?['tag'] == 1)
-      //         .map((element) => gallery.files
-      //             .firstWhere((e) => e.hash == element.key[1]))
-      //         .where((e) => File(path.join(dir.path, e.name)).existsSync())
-      //         .toList()
-      //     : [];
-      // if (missing.isNotEmpty) {
-      //   _downLoader.logger?.d(
-      //       '${gallery} fix tag missing ${missing.map((e) => e.name).toList()}');
-      //   lost = await batchInsertImage(missing, true);
-      // }
       return lost;
     }).catchError((e, stack) {
       _downLoader.logger?.e('scan gallery faild $e $stack');

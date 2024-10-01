@@ -443,25 +443,16 @@ class SqliteHelper {
     return querySql('''select * from Gallery where id=?''', [id])
         .then((value) => Gallery.fromRow(value.first))
         .then((g) async {
-      var images = await queryImageHashsById(id).then((set) => set.fold(
-          <Image>[],
-          (previousValue, element) => previousValue
-            ..add(Image(
-                hash: element['hash'],
-                hasavif: 0,
-                width: element['width'],
-                haswebp: 0,
-                name: element['name'],
-                height: element['height'],
-                fileHash: element['fileHash']))));
+      var images = await queryImageHashsById(id);
       g.files.addAll(images);
       return g;
     });
   }
 
-  Future<ResultSet> queryImageHashsById(dynamic id) async {
+  Future<List<Image>> queryImageHashsById(dynamic id) async {
     return querySql(
-        '''select * from GalleryFile where gid=? order by name''', [id]);
+            '''select * from GalleryFile where gid=? order by name''', [id])
+        .then((set) => set.map((r) => Image.fromRow(r)).toList());
   }
 
   //通过gid查询GalleryFile表并转换为Image List后返回
