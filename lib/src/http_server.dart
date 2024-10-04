@@ -43,6 +43,15 @@ class _TaskWarp {
       ..options('/addAdMark', _optionsOk)
       ..post('/checkId', _checkId)
       ..options('/checkId', _optionsOk)
+      ..get('/suggest', (Request req) {
+        var id = req.url.queryParameters['id'] ?? '';
+        if (id.isEmpty == true || int.tryParse(id) == null) {
+          return Response.badRequest(body: 'missing id');
+        }
+        return _manager.findSugguestGallery(id.toInt()).then(
+            (ids) => Response.ok(json.encode(ids), headers: defaultRespHeader));
+      })
+      ..options('/suggest', _optionsOk)
       ..post('/fetchTag/<key>', _fetchTag)
       ..options('/fetchTag/<key>', _optionsOk)
       ..post('/proxy/<method>', _proxy)
