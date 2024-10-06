@@ -306,7 +306,8 @@ class TaskManager {
                     'select g.id,vector_distance(g1.feature,g.feature) as distance from Gallery g left join Gallery g1 on g1.id=? where g.id!=? and vector_distance(g1.feature,g.feature)<0.3 order by vector_distance(g1.feature,g.feature) limit 5',
                     [id, id])
                 .then((d) => d.map((r) => r['id'] as int).toList())
-                .then((l) => ids..addAll(l));
+                .then((l) => ids..addAll(l))
+                .then((l) => l..remove(id));
           })
         : [];
   }

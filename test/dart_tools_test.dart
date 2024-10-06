@@ -20,7 +20,7 @@ var config = UserConfig.fromStr(File('config.json').readAsStringSync())
 var task = TaskManager(config);
 void main() async {
   test('chapter', () async {
-    await testGallerySuggest(1329599);
+    await testGallerySuggest(554098);
   }, timeout: Timeout(Duration(minutes: 120)));
 
   test('vector', () async {
@@ -85,7 +85,7 @@ Future<void> testGallerySuggest(int id) async {
   return task
       .findSugguestGallery(id)
       .then((r) => print(r))
-      .catchError((e) => testGallerySuggest(id), test: (error) => true);
+      .catchError((e) => print(e), test: (error) => true);
 }
 
 Future<bool> textVector(String target, List<String> strings) async {
