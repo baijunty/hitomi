@@ -238,11 +238,25 @@ class TaskManager {
                 .then((d) => imageHash(Uint8List.fromList(d)))
                 .then((hash) {
                   return helper.querySql(
-                      '''SELECT gid FROM (SELECT gid, fileHash, ROW_NUMBER() OVER (PARTITION BY gid ORDER BY name) AS rn FROM GalleryFile where gid!=?) sub WHERE rn < 3 and hash_distance(fileHash,?) <5 limit 1''',
+                      '''SELECT gid FROM (SELECT gid, fileHash, ROW_NUMBER() OVER (PARTITION BY gid ORDER BY name) AS rn FROM GalleryFile where gid!=?) sub WHERE rn < 3 and hash_distance(fileHash,?) <5 limit 5''',
                       [
                         hash,
                         value.id
                       ]).then((d) => d.map((r) => r['gid'] as int).toList());
+                })
+                .then((list) async {
+                  if (list.isEmpty) return [];
+                  var hashes = await Future.wait(list.map((id) => _localApi
+                          .fetchGallery(id)
+                          .then((g) => readGalleryFromPath(
+                              g.createDir(config.output).path, logger))
+                          .then((g) => fetchGalleryHash(g, helper, _api))
+                          .then((e) => MapEntry(e.key.id, e.value))))
+                      .then((l) => l.fold(
+                          <int, List<int>>{}, (m, e) => m..[e.key] = e.value));
+                  return fetchGalleryHash(value, helper, _api, adHashes: adHash)
+                      .then((v) => searchSimilerGaller(
+                          MapEntry(v.key.id, v.value), hashes));
                 })
             : fetchGalleryHash(value, helper, _api, adHashes: adHash).then(
                 (v) => findDuplicateGalleryIds(
@@ -303,7 +317,7 @@ class TaskManager {
             }
             return await helper
                 .querySql(
-                    'select g.id,vector_distance(g1.feature,g.feature) as distance from Gallery g left join Gallery g1 on g1.id=? where g.id!=? and vector_distance(g1.feature,g.feature)<0.3 order by vector_distance(g1.feature,g.feature) limit 5',
+                    'select g.id,vector_distance(g1.feature,g.feature) as distance from Gallery g left join Gallery g1 on g1.id=? where g.id!=? order by vector_distance(g1.feature,g.feature) limit 5',
                     [id, id])
                 .then((d) => d.map((r) => r['id'] as int).toList())
                 .then((l) => ids..addAll(l))
