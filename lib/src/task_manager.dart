@@ -315,12 +315,16 @@ class TaskManager {
                       .key)
                   .fold(ids, (list, id) => list..add(id));
             }
+            logger.d('$id text similer search done $ids');
             return await helper
                 .querySql(
                     'select g.id,vector_distance(g1.feature,g.feature) as distance from Gallery g left join Gallery g1 on g1.id=? where g.id!=? order by vector_distance(g1.feature,g.feature) limit 5',
                     [id, id])
                 .then((d) => d.map((r) => r['id'] as int).toList())
-                .then((l) => ids..addAll(l))
+                .then((l) {
+                  logger.d('vector_distance similer search done $l');
+                  return ids..addAll(l);
+                })
                 .then((l) => l..remove(id));
           })
         : [];
@@ -453,31 +457,12 @@ class TaskManager {
                 return MapEntry(key, left);
               })
               .values
-              .toList()
-              .groupListsBy((g) => g.needDownMissFile);
+              .toList();
         })
-        .then((m) {
-          var downTaskes = m[true]?.map((g) async {
-            var completer = Completer<bool>();
-            await _downLoader.addTask(g.gallery, handle: (msg) async {
-              if (msg is DownLoadFinished) {
-                if (msg.target is List) {
-                  _downLoader.logger?.d('redown ${msg.success}');
-                  completer.complete(msg.success);
-                } else if (msg.target is Gallery) {
-                  _downLoader.logger?.d('redown faild');
-                  completer.complete(false);
-                }
-              }
-              return true;
-            });
-            return completer.future;
-          }).toList();
-          var fixTaskes = m[false]?.map((g) => g.fixGallery()).toList();
-          return (fixTaskes ?? <Future<bool>>[])..addAll(downTaskes ?? []);
-        })
-        .then((element) => Future.wait(element))
-        .then((f) => f.length);
+        .asStream()
+        .expand((l) => l)
+        .asyncMap((g) => g.fixGallery())
+        .length;
     logger.d("scan finishd ${count}");
     return count;
   }
@@ -526,8 +511,12 @@ class TaskManager {
           return await _api
               .fetchGallery(id)
               .then((value) => _downLoader.addTask(value))
-              .then((value) => true)
-              .catchError((e) {
+              .then((value) async {
+            if (value.gallery.id.toString() != id) {
+              await helper.removeTask(id.toInt(), withGaller: true);
+            }
+            return true;
+          }).catchError((e) {
             logger.e('add task $e');
             return false;
           }, test: (error) => true);

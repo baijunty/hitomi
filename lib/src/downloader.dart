@@ -70,8 +70,9 @@ class DownLoader {
                         msg.file.path, false)
                     .then(
                         (value) => helper.insertGallery(msg.gallery, msg.file));
+              } else {
+                return helper.deleteGallery(msg.gallery.id).then((r) => false);
               }
-              return false;
             });
           } else if (target is Image) {
             return !msg.file.existsSync() ||

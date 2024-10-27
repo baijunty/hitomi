@@ -27,7 +27,7 @@ void main() async {
     await task.helper
         .querySql(
             'select g.id,vector_distance(g1.feature,g.feature) as distance from Gallery g left join Gallery g1 on g1.id=? where g.id!=? and vector_distance(g1.feature,g.feature)<0.3 order by vector_distance(g1.feature,g.feature) limit 5',
-            [1403316, 1403316])
+            [3091377, 3091377])
         .then((d) => d.map((r) => '${r['id']}, ${r['distance']}').toList())
         .then((l) => print(l));
   }, timeout: Timeout(Duration(minutes: 120)));
