@@ -240,8 +240,8 @@ class TaskManager {
                   return helper.querySql(
                       '''SELECT gid FROM (SELECT gid, fileHash, ROW_NUMBER() OVER (PARTITION BY gid ORDER BY name) AS rn FROM GalleryFile where gid!=?) sub WHERE rn < 3 and hash_distance(fileHash,?) <5 limit 5''',
                       [
-                        hash,
-                        value.id
+                        value.id,
+                        hash
                       ]).then((d) => d.map((r) => r['gid'] as int).toList());
                 })
                 .then((list) async {
