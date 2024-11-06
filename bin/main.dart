@@ -6,16 +6,15 @@ import 'package:args/args.dart';
 import 'package:hitomi/lib.dart';
 
 void main(List<String> args) async {
-  Map<String, String> env = Platform.environment;
   final parser = ArgParser()
     ..addOption('output',
-        abbr: 'o', defaultsTo: r'/photos', help: 'set output path with -p')
-    ..addOption('proxy',
-        abbr: 'p', defaultsTo: env["https_proxy"], help: 'set proxy with -o')
+        abbr: 'o', defaultsTo: r'photos', help: 'set output path with -p')
+    ..addOption('proxy', abbr: 'p', defaultsTo: '', help: 'set proxy with -o')
     ..addOption('max',
         abbr: 'm', defaultsTo: '5', help: 'set max running tasks -o')
     ..addOption('file',
         abbr: 'f', defaultsTo: 'config.json', help: 'set config json path')
+    ..addFlag('version', abbr: 'v', help: 'show version')
     ..addMultiOption('languages',
         abbr: 'l',
         defaultsTo: ["japanese", "chinese"],
@@ -45,7 +44,7 @@ void main(List<String> args) async {
       (element) async => await (await task.parseCommandAndRun(element.trim())));
   run_server(task);
   getUserInputId().forEach((element) async {
-    print(
+    task.logger.i(
         '\x1b[47;31madd command ${element.trim()} return ${await task.parseCommandAndRun(element.trim())} \x1b[0m');
   });
   await task.parseCommandAndRun('-c');

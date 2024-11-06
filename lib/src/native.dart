@@ -20,8 +20,12 @@ HttpClientAdapter crateHttpClientAdapter(String proxy,
     return HttpClient()
       ..connectionTimeout = connectionTimeout ?? Duration(seconds: 60)
       ..idleTimeout = idelTimeout ?? Duration(seconds: 120)
-      ..findProxy = (u) =>
-          (proxy == "DIRECT" || proxy.isEmpty) ? 'DIRECT' : 'PROXY ${proxy}';
+      ..findProxy = (u) {
+        if (proxy.isEmpty) {
+          return HttpClient.findProxyFromEnvironment(u);
+        }
+        return (proxy == "DIRECT") ? 'DIRECT' : 'PROXY ${proxy}';
+      };
   });
 }
 

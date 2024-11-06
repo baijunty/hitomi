@@ -23,3 +23,5 @@ if [ -z $path ];then
     path=$(pwd)
 fi
 scan $path
+
+sudo docker run -d --name=hitomi -p 7890:7890 -v /mnt/ssd/manga:/photos  -v /etc/timezone:/etc/timezone:ro -v /etc/localtime:/etc/localtime:ro -e https_proxy=http://192.168.1.107:8389 -e ZT=Asia/Shanghai --restart=always hitomi

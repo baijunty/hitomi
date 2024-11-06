@@ -232,9 +232,13 @@ class _LocalHitomiImpl implements Hitomi {
     var sql = '';
     var params = <dynamic>[];
     if (tag is QueryText) {
-      sql =
-          'select COUNT(*) OVER() AS total_count,g.* from Gallery g where g.title like ? ';
-      params.add('%${tag.name}%');
+      if (tag.name.isNotEmpty) {
+        sql =
+            'select COUNT(*) OVER() AS total_count,g.* from Gallery g where g.title like ? ';
+        params.add('%${tag.name}%');
+      } else {
+        sql = 'select COUNT(*) OVER() AS total_count,g.* from Gallery g ';
+      }
     } else if (tag is TypeLabel) {
       sql =
           'select COUNT(*) OVER() AS total_count,g.* from Gallery g where type =? ';
