@@ -1,11 +1,10 @@
 name: hitomi
 description: A sample command-line application.
-# version: 1.0.0
-# homepage: https://www.example.com
-# author: baijunty <baijunty@163.com>
+version: 1.0.0
+homepage: https://github.com/baijunty/hitomi
 
 environment:
-  sdk: '>=3.0.0'
+  sdk: '>=3.5.0'
 
 dependencies: 
   args: ^2.6.0
@@ -16,8 +15,8 @@ dependencies:
   async: ^2.11.0
   json_annotation: ^4.9.0
   freezed_annotation: ^2.4.4
-  collection: ^1.19.0
-  sqlite3: ^2.4.6
+  collection: ^1.19.1
+  sqlite3: ^2.4.7
   dio: ^5.7.0
   shelf: ^1.4.2
   shelf_router: ^1.1.4
@@ -26,10 +25,9 @@ dependencies:
   uuid: ^4.5.1
   dcache: ^0.4.0
   logger: ^2.4.0
-  isolate_manager: ^5.5.2
+  isolate_manager: ^5.6.1
   http: ^1.2.2
   ml_linalg: ^13.12.6
-
 
 dev_dependencies:
   lints: ^5.0.0

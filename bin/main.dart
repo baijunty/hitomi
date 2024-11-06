@@ -14,18 +14,17 @@ void main(List<String> args) async {
         abbr: 'm', defaultsTo: '5', help: 'set max running tasks -o')
     ..addOption('file',
         abbr: 'f', defaultsTo: 'config.json', help: 'set config json path')
-    ..addFlag('version', abbr: 'v', help: 'show version')
     ..addMultiOption('languages',
         abbr: 'l',
         defaultsTo: ["japanese", "chinese"],
         allowed: ["japanese", "chinese", "english"],
         help: 'set language with -l')
     ..addMultiOption('task', abbr: 't', help: 'set task with -t');
-  print(parser.usage);
   ArgResults argResults = parser.parse(args);
+  print(parser.usage);
   final outDir = argResults['output'];
   final proxy = argResults['proxy'];
-  final file = File(argResults['file']);
+  final file = File('${outDir}/${argResults['file']}');
   final List<String> languages = argResults["languages"];
   final List<String>? tasks = argResults["task"];
   UserConfig config;
