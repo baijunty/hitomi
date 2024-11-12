@@ -8,7 +8,7 @@ import 'package:hitomi/lib.dart';
 void main(List<String> args) async {
   final parser = ArgParser()
     ..addOption('output',
-        abbr: 'o', defaultsTo: r'photos', help: 'set output path with -p')
+        abbr: 'o', defaultsTo: r'galleries', help: 'set output path with -p')
     ..addOption('proxy', abbr: 'p', defaultsTo: '', help: 'set proxy with -o')
     ..addOption('max',
         abbr: 'm', defaultsTo: '5', help: 'set max running tasks -o')

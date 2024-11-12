@@ -522,8 +522,8 @@ class TaskManager {
           }, test: (error) => true);
         }
       } else if (result.wasParsed('artist')) {
-        String? artist = result['artist'];
-        hasError = artist == null || artist.isEmpty;
+        String artist = result['artist'];
+        hasError = artist.isEmpty == true;
         if (!hasError && _queryTasks.every((value) => value.name != artist)) {
           final label = Artist(artist: artist);
           _queryTasks.add(label);
@@ -540,8 +540,8 @@ class TaskManager {
           });
         }
       } else if (result.wasParsed('group')) {
-        String? group = result['group'];
-        hasError = group == null || group.isEmpty;
+        String group = result['group'];
+        hasError = group.isEmpty;
         if (!hasError && _queryTasks.every((value) => value.name != group)) {
           final label = Group(group: group);
           _queryTasks.add(label);

@@ -302,7 +302,7 @@ class _HitomiImpl implements Hitomi {
   static final _valueExp = RegExp(r"var\s+o\s+=\s+(\d);");
   static final _totalExp = RegExp(r'\d+-\d+\/(?<totalCount>\d+)');
   int galleries_index_version = 0;
-  int tag_index_version = 0;
+  // int tag_index_version = 0;
   late String code;
   late List<int> codes;
   late int index;
@@ -695,49 +695,53 @@ class _HitomiImpl implements Hitomi {
   Future<List<Map<String, dynamic>>> fetchSuggestions(String key,
       {CancelToken? token}) async {
     await checkInit();
-    return _fetchQuery(
-            'https://ltn.hitomi.la/tagindex/global.$tag_index_version.index',
-            key,
-            token)
-        .then((value) => _fetchTagData(value, token))
+    return _dio
+        .httpInvoke<List<dynamic>>(
+            'https://tagindex.hitomi.la/global${key.codeUnits.fold('', (acc, char) => acc + '/' + String.fromCharCode(char))}',
+            headers: buildRequestHeader(
+                'https://ltn.hitomi.la/', 'https://ltn.hitomi.la/'))
+        .then((value) => value
+            .map((element) => element as List)
+            .map((m) => fromString(m[2], m[0]))
+            .toList())
         .then((value) => manager.collectedInfo(value))
         .then((value) => value.values.toList());
   }
 
-  Future<List<Label>> _fetchTagData(
-      MapEntry<int, int> tuple, CancelToken? token) async {
-    await checkInit();
-    final url = 'https://ltn.hitomi.la/tagindex/global.$tag_index_version.data';
-    return await _dio
-        .httpInvoke<List<int>>(url,
-            headers: buildRequestHeader(url, 'https://hitomi.la/',
-                range: MapEntry(tuple.key, tuple.key + tuple.value - 1)),
-            token: token)
-        .then((value) {
-      final view = _DataView(value);
-      var number = view.getData(4);
-      final sb = StringBuffer();
-      List<Label> list = [];
-      logger?.d('found $number');
-      for (int i = 0; i < number; i++) {
-        int len = view.getData(4);
-        for (var index = 0; index < len; index++) {
-          sb.writeCharCode(view.getData(1));
-        }
-        String type = sb.toString().replaceAll('/#', '');
-        sb.clear();
-        len = view.getData(4);
-        for (var index = 0; index < len; index++) {
-          sb.writeCharCode(view.getData(1));
-        }
-        String name = sb.toString();
-        sb.clear();
-        view.getData(4);
-        list.add(fromString(type, name));
-      }
-      return list;
-    });
-  }
+  // Future<List<Label>> _fetchTagData(
+  //     MapEntry<int, int> tuple, CancelToken? token) async {
+  //   await checkInit();
+  //   final url = 'https://ltn.hitomi.la/tagindex/global.$tag_index_version.data';
+  //   return await _dio
+  //       .httpInvoke<List<int>>(url,
+  //           headers: buildRequestHeader(url, 'https://hitomi.la/',
+  //               range: MapEntry(tuple.key, tuple.key + tuple.value - 1)),
+  //           token: token)
+  //       .then((value) {
+  //     final view = _DataView(value);
+  //     var number = view.getData(4);
+  //     final sb = StringBuffer();
+  //     List<Label> list = [];
+  //     logger?.d('found $number');
+  //     for (int i = 0; i < number; i++) {
+  //       int len = view.getData(4);
+  //       for (var index = 0; index < len; index++) {
+  //         sb.writeCharCode(view.getData(1));
+  //       }
+  //       String type = sb.toString().replaceAll('/#', '');
+  //       sb.clear();
+  //       len = view.getData(4);
+  //       for (var index = 0; index < len; index++) {
+  //         sb.writeCharCode(view.getData(1));
+  //       }
+  //       String name = sb.toString();
+  //       sb.clear();
+  //       view.getData(4);
+  //       list.add(fromString(type, name));
+  //     }
+  //     return list;
+  //   });
+  // }
 
   Future<MapEntry<int, int>> _fetchQuery(
       String url, String word, CancelToken? token) async {
@@ -882,10 +886,10 @@ class _HitomiImpl implements Hitomi {
         .httpInvoke<String>(
             'https://ltn.hitomi.la/galleriesindex/version?_=${DateTime.now().millisecondsSinceEpoch}')
         .then((value) => int.parse(value));
-    tag_index_version = await _dio
-        .httpInvoke<String>(
-            'https://ltn.hitomi.la/tagindex/version?_=${DateTime.now().millisecondsSinceEpoch}')
-        .then((value) => int.parse(value));
+    // tag_index_version = await _dio
+    //     .httpInvoke<String>(
+    //         'https://ltn.hitomi.la/tagindex/version?_=${DateTime.now().millisecondsSinceEpoch}')
+    //     .then((value) => int.parse(value));
   }
 
   Future<void> checkInit() async {
