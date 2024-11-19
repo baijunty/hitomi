@@ -3,8 +3,8 @@
 FROM dart:stable AS build
 ENV https_proxy=http://192.168.1.107:8389
 ENV http_proxy=http://192.168.1.107:8389
-RUN apt-get -o Acquire::https::proxy="http://192.168.1.107:8389" update && apt-get -o Acquire::https::proxy="http://192.168.1.107:8389" \ install -y libsqlite3-dev 
-# && apt-get -o Acquire::https::proxy="http://192.168.1.107:8389"  install -y sqlite3 && apt-get install -y libsqlite3-0
+RUN apt-get -o Acquire::https::proxy="http://192.168.1.107:8389" update && apt-get -o Acquire::https::proxy="http://192.168.1.107:8389" install -y libsqlite3-dev 
+#  && apt-get -o Acquire::https::proxy="http://192.168.1.107:8389"  install -y sqlite3 && apt-get install -y libsqlite3-0
 # Resolve app dependencies.
 WORKDIR /hitomi
 COPY pubspec.* ./

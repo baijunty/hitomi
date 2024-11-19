@@ -4,16 +4,15 @@ import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:hitomi/lib.dart';
+import 'package:path/path.dart';
 
 void main(List<String> args) async {
   final parser = ArgParser()
     ..addOption('output',
-        abbr: 'o', defaultsTo: r'', help: 'set output path with -p')
+        abbr: 'o', defaultsTo: r'galleries', help: 'set output path with -p')
     ..addOption('proxy', abbr: 'p', defaultsTo: '', help: 'set proxy with -o')
     ..addOption('max',
         abbr: 'm', defaultsTo: '5', help: 'set max running tasks -o')
-    ..addOption('file',
-        abbr: 'f', defaultsTo: 'config.json', help: 'set config json path')
     ..addMultiOption('languages',
         abbr: 'l',
         defaultsTo: ["japanese", "chinese"],
@@ -24,10 +23,10 @@ void main(List<String> args) async {
   print(parser.usage);
   final outDir = argResults['output'];
   final proxy = argResults['proxy'];
-  final file = argResults['file'];
   final List<String> languages = argResults["languages"];
   final List<String>? tasks = argResults["task"];
   UserConfig config;
+  File file = File(join(outDir, 'config.json'));
   if (file.existsSync()) {
     config = UserConfig.fromStr(file.readAsStringSync());
   } else {

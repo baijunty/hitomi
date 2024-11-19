@@ -159,8 +159,9 @@ class Gallery with Label {
         galleryurl: data['galleryurl'] as String?,
         languageUrl: data['language_url'] as String?,
         date: data['date'] as String,
-        related:
-            (data['related'] as List<dynamic>?)?.map((e) => e is int?e:int.parse(e)).toList(),
+        related: (data['related'] as List<dynamic>?)
+            ?.map((e) => e is int ? e : int.parse(e))
+            .toList(),
         video: data['video'] as dynamic,
         parodys: (data['parodys'] as List<dynamic>?)
             ?.map((e) => Parody.fromMap(e as Map<String, dynamic>))
