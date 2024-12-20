@@ -8,7 +8,6 @@ class Image {
   final String hash;
   final int hasavif;
   final int width;
-  final int haswebp;
   final String name;
   final int height;
   final int? fileHash;
@@ -16,7 +15,6 @@ class Image {
       {required this.hash,
       required this.hasavif,
       required this.width,
-      required this.haswebp,
       required this.name,
       required this.height,
       this.fileHash});
@@ -25,7 +23,6 @@ class Image {
         hash: data['hash'] as String,
         hasavif: data['hasavif'] as int,
         width: data['width'] as int,
-        haswebp: data['haswebp'] as int,
         name: data['name'] as String,
         height: data['height'] as int,
       );
@@ -33,7 +30,6 @@ class Image {
       hash: row['hash'] as String,
       hasavif: 0,
       width: row['width'] as int,
-      haswebp: 0,
       name: row['name'] as String,
       height: row['height'] as int,
       fileHash: row['fileHash'] as int?);
@@ -42,7 +38,6 @@ class Image {
         'hash': hash,
         'hasavif': hasavif,
         'width': width,
-        'haswebp': haswebp,
         'name': name,
         'height': height,
       };
@@ -71,7 +66,6 @@ class Image {
       hash: hash ?? this.hash,
       hasavif: hasavif ?? this.hasavif,
       width: width ?? this.width,
-      haswebp: haswebp ?? this.haswebp,
       name: name ?? this.name,
       height: height ?? this.height,
     );
@@ -94,7 +88,6 @@ class Image {
       hash.hashCode ^
       hasavif.hashCode ^
       width.hashCode ^
-      haswebp.hashCode ^
       name.hashCode ^
       height.hashCode;
 }

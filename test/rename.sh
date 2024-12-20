@@ -24,4 +24,4 @@ if [ -z $path ];then
 fi
 scan $path
 
-sudo docker run -d --name=hitomi -p 7890:7890 -v /mnt/ssd/manga:/galleries  -v /etc/timezone:/etc/timezone:ro -v /etc/localtime:/etc/localtime:ro -e https_proxy=http://192.168.1.107:8389 -e ZT=Asia/Shanghai --restart=always hitomi
+sudo docker run -d --name=hitomi -p 7890:7890 -e https_proxy=http://192.168.1.107:8389  -v /mnt/ssd/manga:/galleries  -v /etc/timezone:/etc/timezone:ro -v /etc/localtime:/etc/localtime:ro -e ZT=Asia/Shanghai --restart=always hitomi

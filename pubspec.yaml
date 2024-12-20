@@ -11,26 +11,26 @@ dependencies:
   test: ^1.6.0
   path: ^1.9.1
   crypto: ^3.0.6
-  image: ^4.3.0
+  image: ^4.5.2
   async: ^2.12.0
   json_annotation: ^4.9.0
   freezed_annotation: ^2.4.4
   collection: ^1.19.1
-  sqlite3: ^2.4.7
+  sqlite3: ^2.5.0
   dio: ^5.7.0
   shelf: ^1.4.2
   shelf_router: ^1.1.4
   shelf_static: ^1.1.3
-  shelf_web_socket: ^2.0.0
+  shelf_web_socket: ^2.0.1
   uuid: ^4.5.1
   dcache: ^0.4.0
-  logger: ^2.4.0
-  isolate_manager: ^5.6.1
+  logger: ^2.5.0
+  isolate_manager: ^5.7.0+1
   http: ^1.2.2
   ml_linalg: ^13.12.6
 
 dev_dependencies:
-  lints: ^5.0.0
-  build_runner: ^2.4.13
-  json_serializable: ^6.7.1
-  freezed: ^2.5.7
+  lints: ^5.1.0
+  build_runner: ^2.4.14
+  json_serializable: ^6.9.2
+  freezed: ^3.0.0-0.0.dev

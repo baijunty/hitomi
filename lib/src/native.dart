@@ -11,6 +11,7 @@ import 'hitomi_impl.dart';
 
 Future<CommonDatabase> openSqliteDb(String dirPath, String name) async {
   final filename = path.join(dirPath, name);
+  print("open sqlite3 $filename");
   return sqlite3.open(filename);
 }
 

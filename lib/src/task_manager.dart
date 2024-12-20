@@ -592,7 +592,6 @@ class TaskManager {
                   hash: hash,
                   hasavif: 0,
                   width: 0,
-                  haswebp: 0,
                   name: 'hash.jpg',
                   height: 0))
               .fold(<int>[], (acc, l) => acc..addAll(l))

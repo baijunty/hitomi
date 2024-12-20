@@ -19,7 +19,8 @@ RUN echo "Asia/shanghai" > /etc/timezone
 # Build minimal serving image from AOT-compiled `/server` and required system
 # libraries and configuration files stored in `/runtime/` from the build stage.
 FROM scratch
-COPY --from=build / /
+COPY --from=build /runtime/ /
+COPY --from=build /usr/lib/x86_64-linux-gnu/libsqlite3* /usr/lib/x86_64-linux-gnu/
 COPY --from=build /hitomi/bin/hitomi /bin/hitomi
 # Start server.
-CMD ["/bin/hitomi"]
+ENTRYPOINT ["/bin/hitomi"]

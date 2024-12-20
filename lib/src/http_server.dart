@@ -218,7 +218,6 @@ class _TaskWarp {
                 hash: hash!,
                 hasavif: 0,
                 width: 0,
-                haswebp: 0,
                 name: name,
                 height: 0),
             refererUrl: req.url.queryParameters['referer'] ?? '',

@@ -20,7 +20,10 @@ var config = UserConfig.fromStr(File('config.json').readAsStringSync())
 var task = TaskManager(config);
 void main() async {
   test('chapter', () async {
-    await testGallerySuggest(554098);
+    await task
+        .getApiDirect()
+        .viewByTag(QueryText(''))
+        .then((l) => print(l.data.length));
   }, timeout: Timeout(Duration(minutes: 120)));
 
   test('vector', () async {
