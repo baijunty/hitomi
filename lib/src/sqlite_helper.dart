@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:collection/collection.dart';
 import 'package:hitomi/gallery/gallery.dart';
 import 'package:hitomi/gallery/image.dart';
@@ -16,7 +17,7 @@ import 'multi_paltform.dart' show openSqliteDb;
 
 class SqliteHelper {
   final String _dirPath;
-  static final _version = 11;
+  static final _version = 12;
   Logger? _logger = null;
   late CommonDatabase _db;
   CommonDatabase? __db;
@@ -53,14 +54,8 @@ class SqliteHelper {
   double vectorDistance(List<Object?> arguments) {
     if (arguments.length == 2 && arguments.every((args) => args != null)) {
       try {
-        var v1 = Vector.fromList(
-            (json.decode(arguments[0].toString()) as List<dynamic>)
-                .map((d) => d as double)
-                .toList());
-        var v2 = Vector.fromList(
-            (json.decode(arguments[1].toString()) as List<dynamic>)
-                .map((d) => d as double)
-                .toList());
+        var v1 = Vector.fromList(_fromUint8List(arguments[0] as List<int>));
+        var v2 = Vector.fromList(_fromUint8List(arguments[1] as List<int>));
         return v1.distanceTo(v2, distance: Distance.cosine);
       } catch (e) {
         _logger?.e('args ${arguments.sublist(2)} occus $e');
@@ -68,6 +63,12 @@ class SqliteHelper {
       }
     }
     return 100.0;
+  }
+
+  List<double> _fromUint8List(List<int> list) {
+    Uint8List data = Uint8List.fromList(list);
+    Float64List doubleArray = Float64List.view(data.buffer);
+    return doubleArray.toList();
   }
 
   bool jsonValueContains(List<Object?> arguments) {
@@ -127,12 +128,14 @@ class SqliteHelper {
         argumentCount: AllowedArgumentCount(2));
     final result = stmt.select();
     var version = result.first.columnAt(0) as int;
-    if (version != _version) {
+    while (version != _version) {
       if (version < _version) {
-        dataBaseUpgrade(_db, version);
+        version = dataBaseUpgrade(_db, version);
       } else if (version > _version) {
-        dateBaseDowngrade(_db, version);
+        version = dateBaseDowngrade(_db, version);
       }
+    }
+    if (result.first.columnAt(0) != _version) {
       _db.execute('PRAGMA user_version=$_version;');
     }
     _db.execute('PRAGMA journal_mode = WAL;');
@@ -182,7 +185,7 @@ class SqliteHelper {
       date INTEGER,
       mark INTEGER default 0,
       length integer,
-      feature Text
+      feature BLOB
       )''');
     db.execute('''create table if not exists GalleryFile(
       gid INTEGER,
@@ -233,7 +236,7 @@ class SqliteHelper {
         'delete from $tableNmae where $where 1=1', params.values.toList());
   }
 
-  void dataBaseUpgrade(CommonDatabase db, int oldVersion) {
+  int dataBaseUpgrade(CommonDatabase db, int oldVersion) {
     switch (oldVersion) {
       case 1:
       case 2:
@@ -245,6 +248,7 @@ class SqliteHelper {
           db.execute(
               """insert into  Gallery(id,path,author,groupes,serial,character,language,title,tags,createDate,date,mark,length) select id,path,author,groupes,serial,null,language,title,null,null,0,0,0 from GalleryTemp""");
           db.execute("drop table GalleryTemp");
+          return 4;
         }
       case 4:
         {
@@ -254,6 +258,7 @@ class SqliteHelper {
           db.execute(
               """insert into  Gallery(id,path,artist,groupes,series,character,language,title,tag,createDate,date,mark,length) select id,path,author,groupes,serial,character,language,title,tags,createDate,date,mark,length from GalleryTemp""");
           db.execute("drop table GalleryTemp");
+          return 5;
         }
       case 5:
         {
@@ -263,6 +268,7 @@ class SqliteHelper {
           db.execute(
               """insert into  Gallery(id,path,artist,groupes,series,character,language,title,tag,createDate,type,date,mark,length) select id,path,artist,groupes,series,character,language,title,tag,createDate,null,date,mark,length from GalleryTemp""");
           db.execute("drop table GalleryTemp");
+          return 6;
         }
       case 6:
         {
@@ -272,6 +278,7 @@ class SqliteHelper {
           db.execute(
               """insert into  Tags(id,type,name,translate,intro,links,superior) select id,type,name,translate,intro,null,null from TagsTemp""");
           db.execute("drop table TagsTemp");
+          return 7;
         }
       case 7:
         {
@@ -281,6 +288,7 @@ class SqliteHelper {
           db.execute(
               """insert into  UserLog(id,mark,type,content,extension) select id,mark,0,content,extension from UserLogTemp""");
           db.execute("drop table UserLogTemp");
+          return 8;
         }
       case 8:
         {
@@ -290,6 +298,7 @@ class SqliteHelper {
           db.execute(
               """insert into GalleryFile(gid,hash,name,width,height,fileHash,tag) select gid,hash,name,width,height,fileHash,null from GalleryFileTemp""");
           db.execute("drop table GalleryFileTemp");
+          return 9;
         }
       case 9:
         {
@@ -300,6 +309,7 @@ class SqliteHelper {
               """insert into  Gallery(id,path,artist,groupes,series,character,language,title,tag,createDate,type,date,mark,length,feature) 
               select id,path,artist,groupes,series,character,language,title,tag,createDate,type,date,mark,length,null from GalleryTemp""");
           db.execute("drop table GalleryTemp");
+          return 10;
         }
       case 10:
         {
@@ -309,11 +319,41 @@ class SqliteHelper {
           db.execute(
               """insert into GalleryFile(gid,hash,name,width,height,fileHash) select gid,hash,name,width,height,fileHash from GalleryFileTemp""");
           db.execute("drop table GalleryFileTemp");
+          return 11;
+        }
+      case 11:
+        {
+          db.execute("drop table if exists GalleryTemp ");
+          db.execute("ALTER table Gallery rename to GalleryTemp");
+          createTables(db);
+          db.execute(
+              """insert into  Gallery(id,path,artist,groupes,series,character,language,title,tag,createDate,type,date,mark,length,feature) 
+              select id,path,artist,groupes,series,character,language,title,tag,createDate,type,date,mark,length,null from GalleryTemp""");
+          var stmt = db.prepare('select id,feature from GalleryTemp');
+          var cursor = stmt.selectCursor();
+          while (cursor.moveNext()) {
+            var row = cursor.current;
+            var id = row[0] as int;
+            var feature = row[1] as String?;
+            if (feature != null && feature.isNotEmpty) {
+              var data = json.decode(feature) as List<dynamic>;
+              var list = Float64List.fromList(
+                  data.map((element) => element as double).toList());
+              db.execute("update Gallery set feature = ? where id = ?",
+                  [list.buffer.asUint8List(), id]);
+            }
+          }
+          stmt.dispose();
+          db.execute("drop table if exists GalleryTemp ");
+          return 12;
         }
     }
+    return oldVersion;
   }
 
-  void dateBaseDowngrade(CommonDatabase db, int oldVersion) {}
+  int dateBaseDowngrade(CommonDatabase db, int oldVersion) {
+    return _version;
+  }
 
   Future<Map<List<dynamic>, ResultSet>> selectSqlMultiResultAsync(
       String sql, List<List<dynamic>> params) async {
@@ -425,8 +465,10 @@ class SqliteHelper {
 
   //通过id更新Gallery表的feature
   Future<bool> updateGalleryFeatureById(int id, List<double> feature) async {
+    var list = Float64List.fromList(feature);
+    var buffer = list.buffer;
     return await excuteSqlAsync('UPDATE Gallery SET feature = ? WHERE id = ?',
-        [json.encode(feature), id]);
+        [buffer.asUint8List(), id]);
   }
 
   Future<ResultSet> queryGalleryByLabel(String type, Label label) async {

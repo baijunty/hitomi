@@ -603,8 +603,10 @@
         let tags = document.getElementById('remote-tags')
         tags.value = saveExculdes
         document.getElementById('remote-confirm').addEventListener('click', async function (e) {
-            let resp = await fetchRemote({ path: 'test', baseHttp: input.value })
-            if (resp == 'ok') {
+            let resp = await fetchRemote({ path: 'test', baseHttp: input.value }).then(function (resp) {
+                return JSON.parse(resp)
+            })
+            if (resp.success) {
                 GM_setValue('hitomi_la_remote_url', input.value)
                 GM_setValue('hitomi_la_remote_token', tokenInput.value)
                 GM_setValue('hitomi_la_remote_excludes_tags', tags.value)
