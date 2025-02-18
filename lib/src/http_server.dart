@@ -214,12 +214,7 @@ class _TaskWarp {
     return _manager
         .getApiDirect(local: local)
         .fetchImageData(
-            Image(
-                hash: hash!,
-                hasavif: 0,
-                width: 0,
-                name: name,
-                height: 0),
+            Image(hash: hash!, hasavif: 0, width: 0, name: name, height: 0),
             refererUrl: req.url.queryParameters['referer'] ?? '',
             size: ThumbnaiSize.values
                 .firstWhere((element) => element.name == size),
@@ -351,7 +346,7 @@ Future<HttpServer> run_server(TaskManager manager) async {
   if (Directory('web').existsSync()) {
     staticHandle = createStaticHandler('web', defaultDocument: 'index.html');
   }
-  Handler webSocket = webSocketHandler((webSocket) {
+  Handler webSocket = webSocketHandler((webSocket, protocol) {
     Stream stream = webSocket.stream;
     final Function(Map<String, dynamic>) observer = (msg) {
       webSocket.sink.add(json.encode(msg));
