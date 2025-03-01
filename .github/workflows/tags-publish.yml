@@ -2,8 +2,7 @@ name: Source Code Release Automation
 
 on:
   push:
-    branches:
-      - main
+    branches: [ "master" ]
     paths:
       - 'pubspec.yaml'
 
