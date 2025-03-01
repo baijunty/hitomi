@@ -1,0 +1,71 @@
+name: Source Code Release Automation
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'pubspec.yaml'
+
+jobs:
+  version-check:
+    runs-on: ubuntu-latest
+    outputs:
+      new_version: ${{ steps.detect-version.outputs.VERSION }}
+    steps:
+    - name: Checkout with history
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 2  # 需要比较前后两次提交
+
+    - name: Detect Version Change
+      id: detect-version
+      run: |
+        PREV_VER=$(git show HEAD^:pubspec.yaml | grep 'version:' | awk '{print $2}' || echo "0.0.0")
+        NEW_VER=$(grep 'version:' pubspec.yaml | awk '{print $2}')
+
+        if [[ "$PREV_VER" != "$NEW_VER" ]]; then
+          echo "📦 New version detected: $NEW_VER"
+          echo "VERSION=$NEW_VER" >> $GITHUB_OUTPUT
+        else
+          echo "🔄 No version change"
+          exit 0
+        fi
+
+  tag-and-release:
+    needs: version-check
+    if: needs.version-check.outputs.new_version
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Full Code Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # 获取完整提交历史
+
+    - name: Create Git Tag
+      run: |
+        git config --global user.name "baijunty"
+        git config --global user.email "baijunty@github.com"
+        TAG_NAME="v${{ needs.version-check.outputs.new_version }}"
+        git tag $TAG_NAME
+        git push origin $TAG_NAME
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Generate Source Archive
+      run: |
+        VERSION="${{ needs.version-check.outputs.new_version }}"
+        git archive --format=zip HEAD -o source-$VERSION.zip
+        echo "🗜️ Generated source-$VERSION.zip"
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: v${{ needs.version-check.outputs.new_version }}
+        name: "Release v${{ needs.version-check.outputs.new_version }}"
+        body: "Source code for version ${{ needs.version-check.outputs.new_version }}"
+        files: |
+          source-*.zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
