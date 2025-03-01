@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:args/args.dart';
 import 'package:collection/collection.dart';
 import 'package:dcache/dcache.dart';
@@ -196,9 +195,15 @@ class TaskManager {
           .map((e) => MapEntry(
               e['namespace'] as String, e['data'] as Map<String, dynamic>))
           .fold<List<List<dynamic>>>([], (st, e) {
-        final key = ['mixed', 'other', 'cosplayer', 'temp'].contains(e.key)
-            ? 'tag'
-            : e.key.replaceAll('reclass', 'type');
+        var key = e.key;
+        switch (key) {
+          case 'mixed' || 'other' || 'cosplayer' || 'temp':
+            {
+              key = 'tag';
+            }
+          case 'reclass':
+            key = 'type';
+        }
         e.value.entries.fold<List<List<dynamic>>>(st, (previousValue, element) {
           final name = element.key;
           final value = element.value as Map<String, dynamic>;
@@ -232,34 +237,35 @@ class TaskManager {
                 value.createDir(config.output, createDir: false).path, logger)
             .then((value) => [value.id])
         : !value.hasAuthor
-            ? _api
-                .fetchImageData(value.files.first)
-                .fold(<int>[], (acc, d) => acc..addAll(d))
-                .then((d) => imageHash(Uint8List.fromList(d)))
-                .then((hash) {
-                  return helper.querySql(
-                      '''SELECT gid FROM (SELECT gid, fileHash, ROW_NUMBER() OVER (PARTITION BY gid ORDER BY name) AS rn FROM GalleryFile where gid!=?) sub WHERE rn < 3 and hash_distance(fileHash,?) <5 limit 5''',
-                      [
-                        value.id,
-                        hash
-                      ]).then((d) => d.map((r) => r['gid'] as int).toList());
-                })
-                .then((list) async {
-                  if (list.isEmpty) return [];
-                  var hashes = await Future.wait(list.map((id) => _localApi
-                          .fetchGallery(id)
-                          .then((g) => readGalleryFromPath(
-                              g.createDir(config.output).path, logger))
-                          .then((g) => fetchGalleryHash(g, helper, _api))
-                          .then((e) => MapEntry(e.key.id, e.value))))
-                      .then((l) => l.fold(
-                          <int, List<int>>{}, (m, e) => m..[e.key] = e.value));
-                  return fetchGalleryHash(value, helper, _api, adHashes: adHash)
-                      .then((v) => searchSimilerGaller(
-                          MapEntry(v.key.id, v.value), hashes));
-                })
-            : fetchGalleryHash(value, helper, _api, adHashes: adHash).then(
-                (v) => findDuplicateGalleryIds(
+            ? down.computeImageHash([
+                MultipartFile.fromBytes(
+                    await _api
+                        .fetchImageData(value.files.first)
+                        .fold(<int>[], (acc, d) => acc..addAll(d)),
+                    filename: value.files.first.name)
+              ]).then((hash) {
+                return helper.querySql(
+                    '''SELECT gid FROM (SELECT gid, fileHash, ROW_NUMBER() OVER (PARTITION BY gid ORDER BY name) AS rn FROM GalleryFile where gid!=?) sub WHERE rn < 3 and hash_distance(fileHash,?) <5 limit 5''',
+                    [
+                      value.id,
+                      hash[0]
+                    ]).then((d) => d.map((r) => r['gid'] as int).toList());
+              }).then((list) async {
+                if (list.isEmpty) return [];
+                var hashes = await Future.wait(list.map((id) =>
+                    _localApi
+                        .fetchGallery(id)
+                        .then((g) => readGalleryFromPath(
+                            g.createDir(config.output).path, logger))
+                        .then((g) => fetchGalleryHash(g, down))
+                        .then((e) => MapEntry(e.key.id, e.value)))).then((l) =>
+                    l.fold(<int, List<int>>{}, (m, e) => m..[e.key] = e.value));
+                return fetchGalleryHash(value, down, adHashes: adHash).then(
+                    (v) => searchSimilerGaller(
+                        MapEntry(v.key.id, v.value), hashes));
+              })
+            : fetchGalleryHash(value, down, adHashes: adHash).then((v) =>
+                findDuplicateGalleryIds(
                     gallery: value,
                     helper: helper,
                     fileHashs: v.value,
@@ -336,20 +342,17 @@ class TaskManager {
         .groupListsBy((element) => element.localSqlType)
         .entries
         .asStream()
-        .asyncMap((entry) {
+        .asyncMap((entry) async {
       return helper
           .selectSqlMultiResultAsync(
-              'select count(1) as count,date as date from Gallery where json_value_contains(${entry.key},?,?)=1',
-              entry.value
-                  .where((element) => element.runtimeType != TypeLabel)
-                  .map((e) => [e.name, e.type])
-                  .toList())
+              'select count(1) as count,g.date as date from Gallery g where exists (select 1 from GalleryTagRelation r where r.gid = g.id and r.tid = (select id from Tags where type = ? and name = ?))',
+              entry.value.map((e) => [e.type, e.name]).toList())
           .then((value) {
         return value.entries.fold(<Label, Map<String, dynamic>>{},
             (previousValue, element) {
           final row = element.value.firstOrNull;
           if (row != null && row['date'] != null) {
-            previousValue[fromString(element.key[1], element.key[0])] = {
+            previousValue[fromString(element.key[0], element.key[1])] = {
               'count': row['count'],
               'date':
                   DateTime.fromMillisecondsSinceEpoch(row['date']).toString()
@@ -587,25 +590,27 @@ class TaskManager {
         String hash = result["admark"];
         logger.d('admark ${hash}');
         if (hash.length == 64) {
-          return _api
-              .fetchImageData(Image(
-                  hash: hash,
-                  hasavif: 0,
-                  width: 0,
-                  name: 'hash.jpg',
-                  height: 0))
-              .fold(<int>[], (acc, l) => acc..addAll(l))
-              .then((value) => imageHash(Uint8List.fromList(value)))
-              .then((value) {
-                if (_adImage
-                    .every((e) => compareHashDistance(value, e.key) > 3)) {
-                  _adImage.add(MapEntry(value, hash));
-                  logger.d('now hash ${_adImage.length} admrks');
-                  return helper.insertUserLog(hash.hashCode.abs() * -1, 1 << 17,
-                      mark: value, content: hash);
-                }
-                return false;
-              });
+          return down.computeImageHash([
+            MultipartFile.fromBytes(
+                await _api
+                    .fetchImageData(Image(
+                        hash: hash,
+                        hasavif: 0,
+                        width: 0,
+                        name: 'hash.jpg',
+                        height: 0))
+                    .fold(<int>[], (acc, l) => acc..addAll(l)),
+                filename: 'hash.jpg')
+          ]).then((value) {
+            if (_adImage
+                .every((e) => compareHashDistance(value[0], e.key) > 3)) {
+              _adImage.add(MapEntry(value[0], hash));
+              logger.d('now hash ${_adImage.length} admrks');
+              return helper.insertUserLog(hash.hashCode.abs() * -1, 1 << 17,
+                  mark: value[0], content: hash);
+            }
+            return false;
+          });
         }
         return false;
       } else if (result['fixDb']) {

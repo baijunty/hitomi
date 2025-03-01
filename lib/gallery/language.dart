@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:hitomi/gallery/label.dart';
 
 import '../lib.dart';
@@ -55,18 +54,6 @@ class Language with Label {
       name: name ?? this.name,
     );
   }
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(other, this)) return true;
-    if (other is! Language) return false;
-    final mapEquals = const DeepCollectionEquality().equals;
-    return mapEquals(other.toMap(), toMap());
-  }
-
-  @override
-  int get hashCode =>
-      galleryid.hashCode ^ languageLocalname.hashCode ^ name.hashCode;
 
   @override
   String get type => 'language';

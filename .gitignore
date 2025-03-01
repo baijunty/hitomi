@@ -16,3 +16,4 @@ nohup.out
 config.json
 web/
 hitomi.log
+.vscode/

@@ -1,11 +1,9 @@
 import 'dart:io';
 import 'dart:math';
-import 'dart:typed_data';
-
-import 'package:async/async.dart';
 import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
 import 'package:hitomi/lib.dart';
+import 'package:hitomi/src/downloader.dart';
 import 'package:logger/logger.dart';
 import 'package:path/path.dart';
 
@@ -67,13 +65,13 @@ Gallery compareGallerWithOther(
 }
 
 Future<MapEntry<Gallery, List<int>>> fetchGalleryHash(
-    Gallery gallery, SqliteHelper helper, Hitomi api,
+    Gallery gallery, DownLoader downloader,
     {CancelToken? token,
     bool fullHash = false,
     String? outDir,
     List<int> adHashes = const [],
     Logger? logger}) async {
-  return helper
+  return downloader.helper
       .queryImageHashsById(gallery.id)
       .then((value) => value.fold(<int>[],
           (previousValue, element) => previousValue..add(element.fileHash!)))
@@ -83,24 +81,15 @@ Future<MapEntry<Gallery, List<int>>> fetchGalleryHash(
             outDir != null &&
             gallery.createDir(outDir, createDir: false).existsSync()) {
           final dirPath = gallery.createDir(outDir, createDir: false).path;
-          final fs = gallery.files
-              .map((element) => File(join(dirPath, element.name)))
-              .where((element) => element.existsSync())
-              .map((e) => imageFileHash(e).catchError((err) {
-                    logger?.e('${e.path} read bytes and hashimage $err');
-                    return api
-                        .fetchImageData(
-                            gallery.files.firstWhere(
-                                (element) => e.path.endsWith(element.name)),
-                            refererUrl: 'https://hitomi.la')
-                        .fold(<int>[], (acc, l) => acc..addAll(l))
-                        .then((value) => e.writeAsBytes(value, flush: true))
-                        .then((value) => value.readAsBytes())
-                        .then((value) => imageHash(value));
-                  }, test: (err) => true));
-          return Future.wait(fs).then((value) => MapEntry(gallery, value));
+          return downloader
+              .computeImageHash(gallery.files
+                  .map((element) => File(join(dirPath, element.name)))
+                  .where((element) => element.existsSync())
+                  .map((f) => MultipartFile.fromFileSync(f.path))
+                  .toList())
+              .then((values) => MapEntry(gallery, values));
         } else {
-          return fetchGalleryHashFromNet(gallery, api, token, fullHash);
+          return fetchGalleryHashFromNet(gallery, downloader, token, fullHash);
         }
       })
       .then((value) => MapEntry(
@@ -117,7 +106,7 @@ Future<MapEntry<Gallery, List<int>>> fetchGalleryHash(
 }
 
 Future<MapEntry<Gallery, List<int>>> fetchGalleryHashFromNet(
-    Gallery gallery, Hitomi api,
+    Gallery gallery, DownLoader down,
     [CancelToken? token, bool fullHash = false]) async {
   // This function fetches image hashes from the network for a given gallery.
   // It handles cases where the local hashing is not sufficient or desired.
@@ -135,21 +124,21 @@ Future<MapEntry<Gallery, List<int>>> fetchGalleryHashFromNet(
                       6)
             ])
       .asStream() // Convert the list of files to a stream for processing asynchronously.
-      .slices(5) // Split the stream into chunks of 5 files each.
-      .asyncMap((list) => Future.wait(list.map((event) => api
-          .fetchImageData(event,
-              refererUrl:
-                  'https://hitomi.la${Uri.encodeFull(gallery.galleryurl!)}',
-              token: token,
-              id: gallery.id)
-          .fold(<int>[], (acc, l) => acc..addAll(l))
-          .then((value) => imageHash(Uint8List.fromList(value)))
-          .catchError((e) => 0,
-              test: (error) =>
-                  true)))) // Fetch image data for each file in the chunk asynchronously.
-      .fold(<int>[], (previous, element) => previous..addAll(element)).then(
-          (value) => MapEntry<Gallery, List<int>>(gallery,
-              value)); // Combine the results of fetching hashes from the network into a single list and return it as a map entry with the gallery.
+      .asyncMap((image) async {
+        return MultipartFile.fromBytes(
+            await down.api
+                .fetchImageData(image,
+                    refererUrl:
+                        'https://hitomi.la${Uri.encodeFull(gallery.galleryurl!)}',
+                    token: token,
+                    id: gallery.id)
+                .fold(<int>[], (acc, l) => acc..addAll(l)),
+            filename: image.name);
+      })
+      .fold(<MultipartFile>[], (previous, element) => previous..add(element))
+      .then((value) => down.computeImageHash(value))
+      .then((value) => MapEntry<Gallery, List<int>>(gallery,
+          value)); // Combine the results of fetching hashes from the network into a single list and return it as a map entry with the gallery.
 }
 
 String titleFixed(String title) {

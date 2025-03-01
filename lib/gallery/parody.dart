@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:hitomi/gallery/label.dart';
 
 class Parody with Label {
@@ -31,17 +30,6 @@ class Parody with Label {
       parody: parody ?? this.parody,
     );
   }
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(other, this)) return true;
-    if (other is! Parody) return false;
-    final mapEquals = const DeepCollectionEquality().equals;
-    return mapEquals(other.toMap(), toMap());
-  }
-
-  @override
-  int get hashCode => parody.hashCode;
 
   @override
   String get type => 'series';

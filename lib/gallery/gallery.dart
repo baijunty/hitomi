@@ -89,49 +89,19 @@ class Gallery with Label {
     return 'Gallery(type: $type, title: ${dirName}, language: $language, date: $date, id: $id length:${files.length} artist:${artists?.firstOrNull} group:${groups?.firstOrNull})';
   }
 
-  factory Gallery.fromRow(Row row) {
+  factory Gallery.fromRow(Row row, List<Label> tags, List<Image> images) {
     var gallery = Gallery(
         type: row['type'],
         title: row['title'],
         date: row['createDate'],
-        files: [],
+        files: images,
         id: row['id'],
         language: row['language'],
-        artists: row['artist'] == null
-            ? null
-            : (json.decode(row['artist']) as List<dynamic>)
-                .map((e) => e as String)
-                .map((e) => Artist(artist: e))
-                .toList(),
-        groups: row['groupes'] == null
-            ? null
-            : (json.decode(row['groupes']) as List<dynamic>)
-                .map((e) => e as String)
-                .map((e) => Group(group: e))
-                .toList(),
-        parodys: row['series'] == null
-            ? null
-            : (json.decode(row['series']) as List<dynamic>)
-                .map((e) => e as String)
-                .map((e) => Parody(parody: e))
-                .toList(),
-        characters: row['character'] == null
-            ? null
-            : (json.decode(row['character']) as List<dynamic>)
-                .map((e) => e as String)
-                .map((e) => Character(character: e))
-                .toList(),
-        tags: row['tag'] == null
-            ? null
-            : (json.decode(row['tag']) as Map<String, dynamic>)
-                .map((key, value) => MapEntry(
-                    key, (value as List<dynamic>).map((e) => e as String)))
-                .entries
-                .fold(
-                    <Tag>[],
-                    (previousValue, element) => previousValue!
-                      ..addAll(element.value
-                          .map((e) => fromString(element.key, e) as Tag))),
+        artists: tags.filterInstance<Artist>().toList(),
+        groups: tags.filterInstance<Group>().toList(),
+        parodys: tags.filterInstance<Parody>().toList(),
+        characters: tags.filterInstance<Character>().toList(),
+        tags: tags.filterInstance<Tag>().toList(),
         downDate: row['date'],
         galleryurl: '/${row['type']}/${row['title']}-${row['id']}.html');
     return gallery;

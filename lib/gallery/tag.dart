@@ -1,8 +1,5 @@
 import 'dart:convert';
-
-import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:hitomi/gallery/label.dart';
-
 import '../lib.dart';
 
 class Tag with Label {
@@ -44,17 +41,6 @@ class Tag with Label {
       female: female ?? this.female,
     );
   }
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(other, this)) return true;
-    if (other is! Tag) return false;
-    final mapEquals = const DeepCollectionEquality().equals;
-    return mapEquals(other.toMap(), toMap());
-  }
-
-  @override
-  int get hashCode => male.hashCode ^ tag.hashCode ^ female.hashCode;
 
   @override
   String get type {

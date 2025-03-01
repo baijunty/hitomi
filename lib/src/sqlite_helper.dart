@@ -17,7 +17,7 @@ import 'multi_paltform.dart' show openSqliteDb;
 
 class SqliteHelper {
   final String _dirPath;
-  static final _version = 12;
+  static final _version = 13;
   Logger? _logger = null;
   late CommonDatabase _db;
   CommonDatabase? __db;
@@ -39,23 +39,13 @@ class SqliteHelper {
     }
   }
 
-  bool jsonKeyContains(List<Object?> arguments) {
-    if (arguments.length == 2) {
-      try {
-        var data = json.decode(arguments[0].toString());
-        if (data is Map<String, dynamic>) {
-          return data.keys.contains(arguments[1]);
-        }
-      } catch (e) {}
-    }
-    return false;
-  }
-
   double vectorDistance(List<Object?> arguments) {
     if (arguments.length == 2 && arguments.every((args) => args != null)) {
       try {
-        var v1 = Vector.fromList(_fromUint8List(arguments[0] as List<int>));
-        var v2 = Vector.fromList(_fromUint8List(arguments[1] as List<int>));
+        var v1 =
+            Vector.fromList(_uint8ListToDoubleList(arguments[0] as List<int>));
+        var v2 =
+            Vector.fromList(_uint8ListToDoubleList(arguments[1] as List<int>));
         return v1.distanceTo(v2, distance: Distance.cosine);
       } catch (e) {
         _logger?.e('args ${arguments.sublist(2)} occus $e');
@@ -65,30 +55,10 @@ class SqliteHelper {
     return 100.0;
   }
 
-  List<double> _fromUint8List(List<int> list) {
+  List<double> _uint8ListToDoubleList(List<int> list) {
     Uint8List data = Uint8List.fromList(list);
     Float64List doubleArray = Float64List.view(data.buffer);
     return doubleArray.toList();
-  }
-
-  bool jsonValueContains(List<Object?> arguments) {
-    if (arguments.length > 1 && (arguments[0]?.toString() ?? '').isNotEmpty) {
-      try {
-        var data = json.decode(arguments[0].toString());
-        if (data is Map<String, dynamic>) {
-          if (arguments.length == 3) {
-            var value = data[arguments[2]].toString();
-            return value.contains(arguments[1].toString());
-          } else {
-            return data.values
-                .any((e) => e.toString().contains(arguments[1].toString()));
-          }
-        } else if (data is List<dynamic>) {
-          return data.contains(arguments[1].toString());
-        }
-      } catch (e) {}
-    }
-    return false;
   }
 
   String? pureTitle(List<Object?> title) {
@@ -107,10 +77,6 @@ class SqliteHelper {
     createTables(_db);
     final stmt = _db.prepare('PRAGMA user_version;');
     _db.createFunction(
-        functionName: 'json_key_contains',
-        function: jsonKeyContains,
-        argumentCount: AllowedArgumentCount(2));
-    _db.createFunction(
         functionName: 'vector_distance',
         function: vectorDistance,
         argumentCount: AllowedArgumentCount.any());
@@ -119,16 +85,12 @@ class SqliteHelper {
         function: pureTitle,
         argumentCount: AllowedArgumentCount(2));
     _db.createFunction(
-        functionName: 'json_value_contains',
-        function: jsonValueContains,
-        argumentCount: AllowedArgumentCount.any());
-    _db.createFunction(
         functionName: 'hash_distance',
         function: hashDistance,
         argumentCount: AllowedArgumentCount(2));
     final result = stmt.select();
     var version = result.first.columnAt(0) as int;
-    while (version != _version) {
+    while (version > 0 && version != _version) {
       if (version < _version) {
         version = dataBaseUpgrade(_db, version);
       } else if (version > _version) {
@@ -173,13 +135,8 @@ class SqliteHelper {
     db.execute('''create table if not exists Gallery(
       id integer PRIMARY KEY,
       path TEXT Quique,
-      artist TEXT,
-      groupes TEXT,
-      series TEXT,
-      character TEXT,
       language TEXT not null,
       title TEXT not NULL,
-      tag TEXT,
       createDate TEXT,
       type Text,
       date INTEGER,
@@ -211,6 +168,14 @@ class SqliteHelper {
       extension BLOB,
       PRIMARY KEY(id,type)
       )''');
+    db.execute('''create table if not exists GalleryTagRelation(
+      gid integer,
+      tid integer,
+      type integer default null,
+      FOREIGN KEY (gid) REFERENCES Gallery(id) ON DELETE CASCADE,
+      FOREIGN KEY (tid) REFERENCES Tags(id),
+      PRIMARY KEY (gid, tid)
+      )''');
   }
 
   Future<bool> insertUserLog(int id, int type,
@@ -238,6 +203,7 @@ class SqliteHelper {
 
   int dataBaseUpgrade(CommonDatabase db, int oldVersion) {
     switch (oldVersion) {
+      case 0:
       case 1:
       case 2:
       case 3:
@@ -347,6 +313,17 @@ class SqliteHelper {
           db.execute("drop table if exists GalleryTemp ");
           return 12;
         }
+      case 12:
+        {
+          db.execute("drop table if exists GalleryTemp ");
+          db.execute("ALTER table Gallery rename to GalleryTemp");
+          createTables(db);
+          db.execute(
+              """insert into  Gallery(id,path,language,title,createDate,type,date,mark,length,feature) 
+              select id,path,language,title,createDate,type,date,mark,length,feature from GalleryTemp""");
+          db.execute("drop table if exists GalleryTemp ");
+          return 13;
+        }
     }
     return oldVersion;
   }
@@ -373,9 +350,30 @@ class SqliteHelper {
     return r;
   }
 
+  Future<Map<Label, int>> queryOrInsertTagTable(List<Label> params) async {
+    return await selectSqlMultiResultAsync(
+            'select id,type,name from Tags where type=? and name=?',
+            params.map((e) => [e.type, e.name]).toList())
+        .then((sets) async {
+      return await Future.wait(sets.entries.map((e) async {
+        var id = e.value.firstOrNull?['id'] as int?;
+        var label = fromString(e.key[0], e.key[1]);
+        if (label is QueryText) {
+          id = -1;
+        } else if (id == null) {
+          await updateTagTable([
+            [null, e.key[0], e.key[1], e.key[1], e.key[1], null, null]
+          ]);
+          id = this._db.lastInsertRowId;
+        }
+        return MapEntry(label, id);
+      })).then((entries) => Map.fromEntries(entries));
+    });
+  }
+
   Future<bool> updateTagTable(List<List<dynamic>> params) async {
     return excuteSqlMultiParams(
-        'REPLACE INTO Tags(id,type,name,translate,intro,links,superior) values(?,?,?,?,?,?,?)',
+        'REPLACE INTO Tags(id,type,name,translate,intro,links,superior) values(?,?,?,?,?,?,?) on Conflict(type,name) DO UPDATE SET translate=excluded.translate,intro=excluded.intro,links=excluded.links,superior=excluded.superior',
         params);
   }
 
@@ -429,38 +427,23 @@ class SqliteHelper {
   }
 
   Future<bool> insertGallery(Gallery gallery, FileSystemEntity path) async {
+    var idMap = await queryOrInsertTagTable(gallery.labels());
     return await excuteSqlAsync(
-        'replace into Gallery(id,path,artist,groupes,series,character,language,title,tag,createDate,type,date,mark,length,feature) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        'replace into Gallery(id,path,language,title,createDate,type,date,mark,length,feature) values(?,?,?,?,?,?,?,?,?,?)',
         [
           gallery.id,
           basename(path.path),
-          gallery.artists == null
-              ? null
-              : json.encode(gallery.artists?.map((e) => e.name).toList()),
-          gallery.groups == null
-              ? null
-              : json.encode(gallery.groups?.map((e) => e.name).toList()),
-          gallery.parodys == null
-              ? null
-              : json.encode(gallery.parodys?.map((e) => e.name).toList()),
-          gallery.characters == null
-              ? null
-              : json.encode(gallery.characters?.map((e) => e.name).toList()),
           gallery.language,
           gallery.name,
-          gallery.tags == null
-              ? null
-              : json.encode(gallery.tags
-                  ?.groupListsBy((element) => element.type)
-                  .map((key, value) =>
-                      MapEntry(key, value.map((e) => e.name).toList()))),
           gallery.date,
           gallery.type,
           path.statSync().modified.millisecondsSinceEpoch,
           0,
           gallery.files.length,
           null
-        ]);
+        ]).then((b) => excuteSqlMultiParams(
+        'replace into GalleryTagRelation(gid,tid) values (?,?)',
+        idMap.values.map((e) => [gallery.id, e]).toList()));
   }
 
   //通过id更新Gallery表的feature
@@ -473,22 +456,20 @@ class SqliteHelper {
 
   Future<ResultSet> queryGalleryByLabel(String type, Label label) async {
     return querySql(
-        'select * from Gallery where json_value_contains($type,?,?)=1',
-        [label.name, label.type]);
-  }
-
-  Future<ResultSet> queryGalleryByTag(Label label) async {
-    return queryGalleryByLabel('tag', label);
+        'select g.* from Gallery g where exists (select 1 from GalleryTagRelation r where r.gid = g.id and r.tid = (select id from Tags where type = ? and name = ?))',
+        [type, label.name]);
   }
 
   Future<Gallery> queryGalleryById(dynamic id) async {
+    var tags = await querySql(
+        'select t.type,t.name from Tags t where exists (select 1 from GalleryTagRelation r where r.tid = t.id and r.gid = ?)',
+        [
+          id
+        ]).then(
+        (set) => set.map((r) => fromString(r['type'], r['name'])).toList());
+    var images = await queryImageHashsById(id);
     return querySql('''select * from Gallery where id=?''', [id])
-        .then((value) => Gallery.fromRow(value.first))
-        .then((g) async {
-      var images = await queryImageHashsById(id);
-      g.files.addAll(images);
-      return g;
-    });
+        .then((value) => Gallery.fromRow(value.first, tags, images));
   }
 
   Future<List<Image>> queryImageHashsById(dynamic id) async {
@@ -506,8 +487,10 @@ class SqliteHelper {
 
   Future<Map<int, List<int>>> queryImageHashsByLabel(String type, String name) {
     return querySqlByCursor(
-        'select gf.gid,gf.fileHash,gf.name,g.path,g.length from Gallery g,json_each(g.${type}) ja left join GalleryFile gf on g.id=gf.gid where (json_valid(g.${type})=1 and ja.value = ? and gf.gid is not null) order by gf.gid,gf.name',
+        '''select gf.gid,gf.fileHash,gf.name,g.path,g.length from Gallery g left join GalleryFile gf on g.id=gf.gid 
+        where exists (select 1 from GalleryTagRelation r where r.gid = g.id and r.tid = (select id from Tags where type = ? and name = ?)) and gf.gid is not null order by gf.gid,gf.name''',
         [
+          type,
           name
         ]).then((value) => value.fold(<int, List<int>>{}, (previous, element) {
           previous[element['gid']] =

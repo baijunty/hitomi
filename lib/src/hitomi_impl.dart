@@ -123,7 +123,7 @@ class _LocalHitomiImpl implements Hitomi {
     var group = include.groupListsBy((element) => element.runtimeType);
     var excludeGroups = exclude.groupListsBy((element) => element.runtimeType);
     final sql = StringBuffer(
-        'select COUNT(*) OVER() AS total_count,id from Gallery where ');
+        'select COUNT(*) OVER() AS total_count,g.id from Gallery g where ');
     final params = [];
     group.entries.fold(sql, (previousValue, element) {
       switch (element.key) {
@@ -156,12 +156,13 @@ class _LocalHitomiImpl implements Hitomi {
           {
             previousValue.write('( ');
             element.value.foldIndexed(sql, (index, previousValue, element) {
-              params.addAll([element.name, element.type]);
+              params.addAll([element.type, element.name]);
               if (index != 0) {
                 previousValue.write('and ');
               }
               return previousValue
-                ..write('json_value_contains(${element.localSqlType},?,?)=1 ');
+                ..write(
+                    'exists (select 1 from GalleryTagRelation r where r.gid = g.id and r.tid = (select id from Tags where type = ? and name = ?))');
             });
             previousValue.write(') and ');
           }
@@ -199,12 +200,13 @@ class _LocalHitomiImpl implements Hitomi {
           {
             previousValue.write('( ');
             element.value.foldIndexed(sql, (index, previousValue, element) {
-              params.addAll([element.name, element.type]);
+              params.addAll([element.type, element.name]);
               if (index != 0) {
                 previousValue.write('and ');
               }
               return previousValue
-                ..write('json_value_contains(${element.localSqlType},?,?)=0 ');
+                ..write(
+                    'not exists (select 1 from GalleryTagRelation r where r.gid = g.id and r.tid = (select id from Tags where type = ? and name = ?))');
             });
             previousValue.write(') and ');
           }
@@ -228,7 +230,7 @@ class _LocalHitomiImpl implements Hitomi {
 
   @override
   Future<DataResponse<List<Gallery>>> viewByTag(Label tag,
-      {int page = 1, CancelToken? token, SortEnum? sort}) {
+      {int page = 1, CancelToken? token, SortEnum? sort}) async {
     var sql = '';
     var params = <dynamic>[];
     if (tag is QueryText) {
@@ -245,8 +247,8 @@ class _LocalHitomiImpl implements Hitomi {
       params.add(tag.name);
     } else {
       sql =
-          'select COUNT(*) OVER() AS total_count,g.* from Gallery g where json_value_contains(${tag.localSqlType},?,?)=1 ';
-      params.addAll([tag.name, tag.type]);
+          'select COUNT(*) OVER() AS total_count,g.id from Gallery g where exists (select 1 from GalleryTagRelation r where r.gid = g.id and r.tid = (select id from Tags where type = ? and name = ?)) ';
+      params.addAll([tag.type, tag.name]);
     }
     if (sort == SortEnum.Date) {
       sql = '${sql} order by date asc';
@@ -258,19 +260,13 @@ class _LocalHitomiImpl implements Hitomi {
     _manager.logger.d('$sql with $params');
     return _helper
         .querySqlByCursor(sql, params)
-        .then((value) => value.fold(<Gallery>[], (previous, element) {
+        .then((value) => value.asyncMap((row) {
               if (count <= 0) {
-                count = element['total_count'];
+                count = row['total_count'];
               }
-              return previous..add(Gallery.fromRow(element));
-            }))
-        .then((galleries) async {
-      for (var gallery in galleries) {
-        var images = await _helper.getImageListByGid(gallery.id);
-        gallery.files.addAll(images);
-      }
-      return galleries;
-    }).then((data) => DataResponse(data, totalCount: count));
+              return _helper.queryGalleryById(row['id']);
+            }).fold(<Gallery>[], (previous, element) => previous..add(element)))
+        .then((data) => DataResponse(data, totalCount: count));
   }
 
   @override
@@ -287,8 +283,7 @@ class _LocalHitomiImpl implements Hitomi {
   Future<DataResponse<List<Gallery>>> findSimilarGalleryBySearch(
       Gallery gallery,
       {CancelToken? token}) {
-    return fetchGalleryHash(gallery, _manager.helper, _hitomiImpl,
-            adHashes: _manager.adHash)
+    return fetchGalleryHash(gallery, _manager.down, adHashes: _manager.adHash)
         .then((value) => findDuplicateGalleryIds(
             gallery: gallery, helper: _manager.helper, fileHashs: value.value))
         .then((value) => Future.wait(value.map((e) => fetchGallery(e))))
@@ -583,8 +578,9 @@ class _HitomiImpl implements Hitomi {
     }
     logger
         ?.d('search ${gallery.id} ${gallery.dirName} target language by $keys');
-    var data = await fetchGalleryHashFromNet(gallery, this, token, false)
-        .then((value) => value.value);
+    var data =
+        await fetchGalleryHashFromNet(gallery, manager.down, token, false)
+            .then((value) => value.value);
     return search(keys, token: token)
         .then((value) {
           assert(value.data.length < 100);
@@ -594,7 +590,8 @@ class _HitomiImpl implements Hitomi {
         .asStream()
         .expand((element) => element.data)
         .asyncMap((event) => _fetchGalleryJsonById(event, token))
-        .asyncMap((event) => fetchGalleryHashFromNet(event, this, token, false))
+        .asyncMap((event) =>
+            fetchGalleryHashFromNet(event, manager.down, token, false))
         .where((event) => searchSimiler(data, event.value) > 0.75)
         .map((event) => event.key)
         .fold(<Gallery>[], (previous, element) => previous..add(element))

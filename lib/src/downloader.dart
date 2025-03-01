@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
@@ -117,7 +118,10 @@ class DownLoader {
             ]).then((value) async {
               bool needInsert = value.firstOrNull == null;
               int hashValue = value.firstOrNull?['fileHash'] ??
-                  await imageFileHash(msg.file as File).catchError((e) {
+                  await computeImageHash(
+                          [MultipartFile.fromFileSync((msg.file as File).path)])
+                      .then((l) => l[0])
+                      .catchError((e) {
                     logger?.e('image file ${msg.file.path} hash error $e ');
                     msg.file.deleteSync();
                     return 0;
@@ -159,6 +163,26 @@ class DownLoader {
         break;
     }
     return useHandle ?? true;
+  }
+
+  Future<List<int>> computeImageHash(List<MultipartFile> paths) async {
+    if (config.aiTagPath.isEmpty) {
+      return paths
+          .asStream()
+          .asyncMap((f) async => imageHash(await f
+                  .finalize()
+                  .fold(<int>[], (acc, i) => acc..addAll(i)).then(
+                      (l) => Uint8List.fromList(l)))
+              .catchError((e) => 0))
+          .fold([], (m, h) => m..add(h));
+    } else {
+      return dio
+          .post<List<dynamic>>(config.aiTagPath,
+              data: FormData.fromMap({'process': 'image_hash', 'file': paths}))
+          .then((m) => m.data!.map((e) {
+                return (e is int) ? e : (e as double).toInt();
+              }).toList());
+    }
   }
 
   DownLoader(
@@ -253,7 +277,7 @@ class DownLoader {
     } else if (!gallery.hasAuthor) {
       return true;
     } else {
-      return fetchGalleryHash(gallery, helper, api,
+      return fetchGalleryHash(gallery, this,
               adHashes: adImage.map((e) => e.key).toList(), fullHash: false)
           .then((v) => findDuplicateGalleryIds(
               gallery: gallery,
@@ -262,7 +286,7 @@ class DownLoader {
               logger: logger))
           .then((value) async {
         if (value.isEmpty && gallery.files.length >= 40) {
-          var exists = await fetchGalleryHash(gallery, helper, api,
+          var exists = await fetchGalleryHash(gallery, this,
                   adHashes: adImage.map((e) => e.key).toList(), fullHash: true)
               .then((v) => findDuplicateGalleryIds(
                   gallery: gallery,
@@ -523,7 +547,7 @@ class DownLoader {
       list.sort((e1, e2) => e2.files.length - e1.files.length);
       return list
           .asStream()
-          .asyncMap((event) => fetchGalleryHash(event, helper, api,
+          .asyncMap((event) => fetchGalleryHash(event, this,
                       adHashes: adImage.map((e) => e.key).toList(),
                       token: token,
                       fullHash: true,

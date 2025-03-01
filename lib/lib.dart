@@ -40,6 +40,12 @@ extension Comparable on Iterable<int> {
   }
 }
 
+extension Filter<E> on Iterable<E> {
+  Iterable<T> filterInstance<T>() {
+    return where((element) => element is T).map((element) => element as T);
+  }
+}
+
 extension CursorCover on IteratingCursor {
   Stream<Row> asStream(CommonPreparedStatement statement, [Logger? logger]) {
     late StreamController<Row> controller;

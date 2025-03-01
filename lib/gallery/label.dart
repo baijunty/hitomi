@@ -35,6 +35,8 @@ abstract mixin class Label {
     if (other is! Label) return false;
     return this.type == other.type && this.name == other.name;
   }
+
+  int get hashCode => type.hashCode ^ name.hashCode;
 }
 
 Label fromString(String type, String name) {
@@ -54,6 +56,7 @@ Label fromString(String type, String name) {
     case 'character':
       return Character(character: name);
     case 'group':
+    case 'groupes':
       return Group(group: name);
     case 'type':
       return TypeLabel(name);

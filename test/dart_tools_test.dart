@@ -9,6 +9,7 @@ import 'package:hitomi/gallery/gallery.dart';
 import 'package:hitomi/gallery/image.dart';
 import 'package:hitomi/gallery/label.dart';
 import 'package:hitomi/lib.dart';
+import 'package:hitomi/src/dir_scanner.dart';
 import 'package:hitomi/src/gallery_util.dart';
 import 'package:hitomi/src/multi_paltform.dart';
 import 'package:ml_linalg/linalg.dart';
@@ -20,10 +21,10 @@ var config = UserConfig.fromStr(File('config.json').readAsStringSync())
 var task = TaskManager(config);
 void main() async {
   test('chapter', () async {
-    await task
-        .getApiDirect()
-        .viewByTag(QueryText(''))
-        .then((l) => print(l.data.length));
+    await task.getApiDirect().fetchGallery(1035697).then((g) {
+      return HitomiDir(g.createDir(task.config.output), task.down, g)
+          .fixGallery();
+    }).then((r) => print(r));
   }, timeout: Timeout(Duration(minutes: 120)));
 
   test('vector', () async {
@@ -181,8 +182,7 @@ Future<void> testThumbHash(List<int> ids) async {
       .expand((element) {
         return element;
       })
-      .asyncMap((gallery) =>
-          fetchGalleryHash(gallery, task.helper, task.getApiDirect()))
+      .asyncMap((gallery) => fetchGalleryHash(gallery, task.down))
       .map((event) => MapEntry(event.key.id, event.value))
       .fold(<int, List<int>>{}, (previousValue, element) {
         task.logger.i(

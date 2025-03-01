@@ -46,25 +46,6 @@ void main(List<String> args) async {
         '\x1b[47;31madd command ${element.trim()} return ${await task.parseCommandAndRun(element.trim())} \x1b[0m');
   });
   await task.parseCommandAndRun('-c');
-  // var len = await readIdFromFile(pool)
-  //     .asStream()
-  //     .expand((element) => element)
-  //     .asyncMap((event) async {
-  //   return await pool.parseCommandAndRun("-a \'$event\'");
-  // }).length;
-  // print(len);
-}
-
-Future<Iterable<String>> readIdFromFile(TaskManager manager) {
-  return File('artist.txt').readAsLines().then((event) {
-    return manager.helper
-        .selectSqlMultiResultAsync(
-            'select 1 from Gallery g where json_value_contains(g.artist,?)=1',
-            event.map((e) => [e]).toList())
-        .then(
-            (value) => value.entries.where((element) => element.value.isEmpty))
-        .then((value) => value.map((e) => e.key.first as String));
-  });
 }
 
 Stream<String> getUserInputId() {

@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:hitomi/gallery/label.dart';
 
 class Artist with Label {
@@ -30,17 +29,6 @@ class Artist with Label {
       artist: artist ?? this.artist,
     );
   }
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(other, this)) return true;
-    if (other is! Artist) return false;
-    final mapEquals = const DeepCollectionEquality().equals;
-    return mapEquals(other.toMap(), toMap());
-  }
-
-  @override
-  int get hashCode => artist.hashCode;
 
   @override
   String get name => artist;
