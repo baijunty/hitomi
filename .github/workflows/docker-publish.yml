@@ -8,8 +8,10 @@ name: Docker
 on:
   push:
     branches: [ "master" ]
-    paths:
-      - 'pubspec.yaml'
+    # Publish semver tags as releases.
+    tags: [ 'v*.*.*' ]
+  pull_request:
+    branches: [ "master" ]
 
 env:
   # Use docker.io for Docker Hub if empty
@@ -19,29 +21,6 @@ env:
 
 
 jobs:
-  version-check:
-    runs-on: ubuntu-latest
-    outputs:
-      new_version: ${{ steps.detect-version.outputs.VERSION }}
-    steps:
-    - name: Checkout with history
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 2  # 需要比较前后两次提交
-
-    - name: Detect Version Change
-      id: detect-version
-      run: |
-        PREV_VER=$(git show HEAD^:pubspec.yaml | grep 'version:' | awk '{print $2}' || echo "0.0.0")
-        NEW_VER=$(grep 'version:' pubspec.yaml | awk '{print $2}')
-
-        if [[ "$PREV_VER" != "$NEW_VER" ]]; then
-          echo "📦 New version detected: $NEW_VER"
-          echo "VERSION=$NEW_VER" >> $GITHUB_OUTPUT
-        else
-          echo "🔄 No version change"
-          exit 0
-        fi
   build:
 
     runs-on: ubuntu-latest
