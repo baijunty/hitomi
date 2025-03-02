@@ -526,9 +526,11 @@ class SqliteHelper {
 
   Future<bool> deleteGallery(dynamic id) async {
     _logger?.w('del gallery with id $id');
-    return excuteSqlAsync('delete from Gallery where id =?', [id]).then(
-        (value) =>
-            excuteSqlAsync('delete from GalleryFile where gid =?', [id]));
+    return excuteSqlAsync('delete from Gallery where id =?', [id])
+        .then((value) =>
+            excuteSqlAsync('delete from GalleryFile where gid =?', [id]))
+        .then((value) => excuteSqlAsync(
+            'delete from GalleryTagRelation where gid =?', [id]));
   }
 
   Future<bool> deleteGalleryFile(dynamic id, String hash) async {

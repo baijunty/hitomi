@@ -18,8 +18,8 @@ abstract mixin class Label {
   List<String> get params => [sqlType, name];
   Map<String, dynamic> toMap() => {'type': type, 'name': name, type: name};
 
-  String urlEncode({SortEnum? sort}) {
-    return "${this.type}/${sort == null || sort == SortEnum.Default ? '' : 'popular/${sort.name}/'}${Uri.encodeComponent(name.toLowerCase())}";
+  String urlEncode() {
+    return "${this.type}/${Uri.encodeComponent(name.toLowerCase())}";
   }
 
   @override
@@ -118,8 +118,8 @@ class FilterLabel with Label {
   }
 
   @override
-  String urlEncode({SortEnum? sort}) {
-    return fromString(type, name).urlEncode(sort: sort);
+  String urlEncode() {
+    return fromString(type, name).urlEncode();
   }
 
   @override

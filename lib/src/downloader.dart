@@ -348,7 +348,7 @@ class DownLoader {
         excludes.where((element) => labels.contains(element)).toList();
     if (excludes.any(
         (element) => illeagalTags.contains(element) && element.weight >= 1.0)) {
-      logger?.w('${gallery.id} found forbidden tag');
+      logger?.w('${gallery.id} found forbidden tag $illeagalTags');
       return false;
     }
     final weight = illeagalTags.fold(0.0, (acc, e) => acc + e.weight);

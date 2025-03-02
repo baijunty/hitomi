@@ -214,10 +214,13 @@ class _LocalHitomiImpl implements Hitomi {
       return previousValue;
     });
     sql.write('1=1');
-    if (sort == SortEnum.Date) {
-      sql.write(' order by date asc');
-    } else if (sort == SortEnum.DateDesc) {
-      sql.write(' order by date desc');
+    switch (sort) {
+      case SortEnum.Default:
+        sql.write(' order by g.id desc');
+      case SortEnum.ADD_TIME:
+        sql.write(' order by g.date desc');
+      default:
+        break;
     }
     sql.write(' limit 25 offset ${(page - 1) * 25}');
     _manager.logger.d('sql is ${sql} parms = ${params}');
@@ -250,10 +253,15 @@ class _LocalHitomiImpl implements Hitomi {
           'select COUNT(*) OVER() AS total_count,g.id from Gallery g where exists (select 1 from GalleryTagRelation r where r.gid = g.id and r.tid = (select id from Tags where type = ? and name = ?)) ';
       params.addAll([tag.type, tag.name]);
     }
-    if (sort == SortEnum.Date) {
-      sql = '${sql} order by date asc';
-    } else if (sort == SortEnum.DateDesc) {
-      sql = '${sql} order by date desc';
+    switch (sort) {
+      case SortEnum.ID_ASC:
+        sql = '${sql}';
+        break;
+      case SortEnum.ADD_TIME:
+        sql = '${sql} order by date desc';
+      default:
+        sql = '${sql} order by g.id desc';
+        break;
     }
     sql = '$sql limit 25 offset ${(page - 1) * 25}';
     var count = 0;
@@ -658,7 +666,7 @@ class _HitomiImpl implements Hitomi {
       });
       includeIds = filtered.toList();
     }
-    if (sort == SortEnum.DateDesc) {
+    if (sort == SortEnum.ID_ASC) {
       includeIds = includeIds.reversed.toList();
     }
     logger?.i('search left id ${includeIds.length}');
@@ -826,12 +834,12 @@ class _HitomiImpl implements Hitomi {
   Future<DataResponse<List<Gallery>>> viewByTag(Label tag,
       {int page = 1, CancelToken? token, SortEnum? sort}) {
     var referer =
-        'https://hitomi.la/${tag.urlEncode(sort: sort)}${tag is Language ? '' : '-all'}.html';
+        'https://hitomi.la/${tag.urlEncode()}${tag is Language ? '' : '-all'}.html';
     if (page > 1) {
       referer += '?page=$page';
     }
     final dataUrl =
-        'https://ltn.hitomi.la/${tag.urlEncode(sort: sort)}${tag is Language ? '' : '-all'}.nozomi';
+        'https://ltn.hitomi.la/${tag.urlEncode()}${tag is Language ? '' : '-all'}.nozomi';
     logger?.d('$dataUrl from $referer');
     int totalCount = 0;
     return _dio
