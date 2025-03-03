@@ -18,7 +18,7 @@ var config = UserConfig.fromStr(File('config.json').readAsStringSync())
 var task = TaskManager(config);
 void main() async {
   test('chapter', () async {
-    await task.getApiDirect().fetchGallery(1035697).then((g) {
+    await task.getApiDirect().fetchGallery(2739394).then((g) {
       return HitomiDir(g.createDir(task.config.output), task.down, g)
           .fixGallery();
     }).then((r) => print(r));
@@ -45,14 +45,20 @@ void main() async {
   }, timeout: Timeout(Duration(minutes: 120)));
 
   test('hash compared', () async {
-    var v1 = await task.helper
-        .queryImageHashsById(844089)
-        .then((d) => d.first.fileHash);
-    var v2 = await task.helper
-        .queryImageHashsById(1280909)
-        .then((d) => d.first.fileHash);
-    print(compareHashDistance(v1!, v2!));
+    var hash1 = await task.helper
+        .queryImageHashsById(2739394)
+        .then((r) => r.fold(<int>[], (l, i) => l..add(i.fileHash!)));
+    var hash2 = await task
+        .getApiDirect(local: false)
+        .fetchGallery(2739396, usePrefence: false)
+        .then((g) => fetchGalleryHashFromNet(g, task.down))
+        .then((v) => v.value);
+    print('$hash1 smiler $hash2 is  ${searchSimiler(hash2, hash1)}');
   }, timeout: Timeout(Duration(minutes: 120)));
+
+  test('hash distance', () async {
+    print(compareHashDistance(1126013186873856, 3377813000559104));
+  });
 
   test('image search', () async {
     await task

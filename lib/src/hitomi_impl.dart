@@ -36,13 +36,10 @@ class _LocalHitomiImpl implements Hitomi {
       String lang = 'ja',
       ThumbnaiSize size = ThumbnaiSize.smaill,
       void Function(int now, int total)? onProcess}) {
-    var origin = _helper.querySql(
-        'select path from Gallery g left join GalleryFile gf on g.id=gf.gid where g.id=? and gf.hash=?',
-        [
-          id,
-          image.hash
-        ]).then((value) =>
-        join(_manager.config.output, value.first['path'], image.name));
+    var origin = _helper
+        .querySql('select g.path from Gallery g where g.id=?', [id]).then(
+            (value) =>
+                join(_manager.config.output, value.first['path'], image.name));
     final stream = StreamController<List<int>>();
     if (size == ThumbnaiSize.origin) {
       origin.then((value) async {

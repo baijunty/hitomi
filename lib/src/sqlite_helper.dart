@@ -461,15 +461,19 @@ class SqliteHelper {
   }
 
   Future<Gallery> queryGalleryById(dynamic id) async {
+    var images = await queryImageHashsById(id);
+    var row = await querySql('''select * from Gallery where id=?''', [id])
+        .then((value) => value.first);
+    if (images.isEmpty) {
+      return readGalleryFromPath(join(_dirPath, row['path']), _logger);
+    }
     var tags = await querySql(
         'select t.type,t.name from Tags t where exists (select 1 from GalleryTagRelation r where r.tid = t.id and r.gid = ?)',
         [
           id
         ]).then(
         (set) => set.map((r) => fromString(r['type'], r['name'])).toList());
-    var images = await queryImageHashsById(id);
-    return querySql('''select * from Gallery where id=?''', [id])
-        .then((value) => Gallery.fromRow(value.first, tags, images));
+    return Gallery.fromRow(row, tags, images);
   }
 
   Future<List<Image>> queryImageHashsById(dynamic id) async {

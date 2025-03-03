@@ -8,7 +8,7 @@ select * from ( select count(gid) as count,* from GalleryFile where fileHash=-1 
 select * from ( SELECT g.id as rid,e.id as eid,g.path as gth,e.path as eth from Gallery e left join Gallery g on (e.path=g.title and e.id!=g.id) where e.groupes is null and e.artist is null) as t where t.rid is not null
 select g.feature is null,g.* from Gallery g  where g.id =3215729
 select path,id,feature is null as feat from Gallery limit 20
-select * from GalleryFile where gid=1035697 order by name
+select * from GalleryFile where gid=2739394 order by name
 select * from UserLog where type= 1 << 17 
 SELECT SUM("pgsize")/1024/1024,name FROM "dbstat" group by name
 SELECT gid, name, hash FROM (

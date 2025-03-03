@@ -110,7 +110,7 @@ Future<MapEntry<Gallery, List<int>>> fetchGalleryHashFromNet(
     [CancelToken? token, bool fullHash = false]) async {
   // This function fetches image hashes from the network for a given gallery.
   // It handles cases where the local hashing is not sufficient or desired.
-  return (fullHash || gallery.files.length <= 18
+  return Future.wait((fullHash || gallery.files.length <= 18
           ? gallery.files
           : [
               ...gallery.files.sublist(min(gallery.files.length ~/ 3 - 6, 10),
@@ -122,23 +122,20 @@ Future<MapEntry<Gallery, List<int>>> fetchGalleryHashFromNet(
                   max(gallery.files.length - 10,
                           gallery.files.length ~/ 3 * 2) +
                       6)
-            ])
-      .asStream() // Convert the list of files to a stream for processing asynchronously.
-      .asyncMap((image) async {
-        return MultipartFile.fromBytes(
-            await down.api
-                .fetchImageData(image,
-                    refererUrl:
-                        'https://hitomi.la${Uri.encodeFull(gallery.galleryurl!)}',
-                    token: token,
-                    id: gallery.id)
-                .fold(<int>[], (acc, l) => acc..addAll(l)),
-            filename: image.name);
-      })
-      .fold(<MultipartFile>[], (previous, element) => previous..add(element))
-      .then((value) => down.computeImageHash(value))
-      .then((value) => MapEntry<Gallery, List<int>>(gallery,
-          value)); // Combine the results of fetching hashes from the network into a single list and return it as a map entry with the gallery.
+            ]) // Convert the list of files to a stream for processing asynchronously.
+      .map((image) async {
+    return MultipartFile.fromBytes(
+        await down.api
+            .fetchImageData(image,
+                refererUrl:
+                    'https://hitomi.la${Uri.encodeFull(gallery.galleryurl!)}',
+                token: token,
+                id: gallery.id)
+            .fold(<int>[], (acc, l) => acc..addAll(l)),
+        filename: image.name);
+  })).then((value) => down.computeImageHash(value)).then((value) => MapEntry<
+          Gallery, List<int>>(gallery,
+      value)); // Combine the results of fetching hashes from the network into a single list and return it as a map entry with the gallery.
 }
 
 String titleFixed(String title) {

@@ -64,7 +64,7 @@ class DirScanner {
                 .delete(recursive: true)
                 .then((_) => event.rename(useDir.path))
                 .then((_) => _downLoader.helper.insertGallery(value, useDir))
-                .catchError((e)=>false, test: (error) => true);
+                .catchError((e) => false, test: (error) => true);
           }
           return HitomiDir(useDir, _downLoader, value);
         } else {
