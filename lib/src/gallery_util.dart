@@ -87,7 +87,8 @@ Future<MapEntry<Gallery, List<int>>> fetchGalleryHash(
                   .where((element) => element.existsSync())
                   .map((f) => MultipartFile.fromFileSync(f.path))
                   .toList())
-              .then((values) => MapEntry(gallery, values));
+              .then((values) => MapEntry(
+                  gallery, values.fold(<int>[], (l, i) => l..add(i ?? 0))));
         } else {
           return fetchGalleryHashFromNet(gallery, downloader, token, fullHash);
         }
@@ -134,8 +135,13 @@ Future<MapEntry<Gallery, List<int>>> fetchGalleryHashFromNet(
             .fold(<int>[], (acc, l) => acc..addAll(l)),
         filename: image.name);
   })).then((value) => down.computeImageHash(value)).then((value) => MapEntry<
-          Gallery, List<int>>(gallery,
-      value)); // Combine the results of fetching hashes from the network into a single list and return it as a map entry with the gallery.
+          Gallery, List<int>>(
+      gallery,
+      value.fold(
+          <int>[],
+          (l, i) => l
+            ..add(i ??
+                0)))); // Combine the results of fetching hashes from the network into a single list and return it as a map entry with the gallery.
 }
 
 String titleFixed(String title) {

@@ -603,11 +603,11 @@ class TaskManager {
                 filename: 'hash.jpg')
           ]).then((value) {
             if (_adImage
-                .every((e) => compareHashDistance(value[0], e.key) > 3)) {
-              _adImage.add(MapEntry(value[0], hash));
+                .every((e) => compareHashDistance(value[0]!, e.key) > 3)) {
+              _adImage.add(MapEntry(value[0]!, hash));
               logger.d('now hash ${_adImage.length} admrks');
               return helper.insertUserLog(hash.hashCode.abs() * -1, 1 << 17,
-                  mark: value[0], content: hash);
+                  mark: value[0]!, content: hash);
             }
             return false;
           });

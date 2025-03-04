@@ -165,23 +165,28 @@ class DownLoader {
     return useHandle ?? true;
   }
 
-  Future<List<int>> computeImageHash(List<MultipartFile> paths) async {
+  Future<List<int?>> computeImageHash(List<MultipartFile> paths) async {
     if (config.aiTagPath.isEmpty) {
       return paths
           .asStream()
-          .asyncMap((f) async => imageHash(await f
-                  .finalize()
-                  .fold(<int>[], (acc, i) => acc..addAll(i)).then(
-                      (l) => Uint8List.fromList(l)))
-              .catchError((e) => 0))
-          .fold([], (m, h) => m..add(h));
+          .asyncMap((f) async => imageHash(await f.finalize().fold(<int>[],
+              (acc, i) => acc..addAll(i)).then((l) => Uint8List.fromList(l))))
+          .fold(<int?>[], (m, h) => m..add(h));
     } else {
       return dio
-          .post<List<dynamic>>(config.aiTagPath,
+          .post<Map<String, dynamic>>(config.aiTagPath,
               data: FormData.fromMap({'process': 'image_hash', 'file': paths}))
-          .then((m) => m.data!.map((e) {
-                return (e is int) ? e : (e as double).toInt();
-              }).toList());
+          .then((m) {
+        var data = m.data!;
+        return paths.map((e) => data[e.filename]).map((i) {
+          if (i is int) {
+            return i;
+          } else if (i is double) {
+            return i.toInt();
+          }
+          return null;
+        }).toList();
+      });
     }
   }
 

@@ -382,13 +382,9 @@ class HitomiDir {
               .updateGalleryFeatureById(gallery.id, f.data!);
         }
       }
-      return Future.wait(images.mapIndexed((index, img) => _downLoader.helper
-              .insertGalleryFile(gallery, img, hashList[index])))
-          .then((r) => r.fold(true, (acc, i) => acc && i));
-    }).catchError((e) {
-      _downLoader.logger?.e('batchInsertImage ${e}');
-      return false;
-    });
+      return Future.wait(images.mapIndexed((index, img) =>
+          _downLoader.helper.insertGalleryFile(gallery, img, hashList[index])));
+    }).then((r) => r.reduce((acc, i) => acc && i));
   }
 
   Future<bool> fixGallery() async {

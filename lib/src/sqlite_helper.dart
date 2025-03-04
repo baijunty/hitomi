@@ -503,7 +503,8 @@ class SqliteHelper {
         }));
   }
 
-  Future<bool> insertGalleryFile(Gallery gallery, Image image, int hash) async {
+  Future<bool> insertGalleryFile(
+      Gallery gallery, Image image, int? hash) async {
     return excuteSqlAsync(
         'replace into GalleryFile(gid,hash,name,width,height,fileHash) values(?,?,?,?,?,?)',
         [gallery.id, image.hash, image.name, image.width, image.height, hash]);
