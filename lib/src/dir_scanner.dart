@@ -49,8 +49,7 @@ class DirScanner {
           }
         }
         final useDir = value.createDir(_config.output, createDir: false);
-        if (path.basename(useDir.path).toLowerCase() !=
-            (path.basename(event.path).toLowerCase())) {
+        if (useDir.path.toLowerCase() != event.path.toLowerCase()) {
           if (useDir.existsSync() &&
               useDir.listSync().length - 1 >= value.files.length) {
             _downLoader.logger?.w(
@@ -105,8 +104,7 @@ class DirScanner {
                   return await _helper.deleteGallery(id);
                 }
                 if (event['feat'] == 1) {
-                  await HitomiDir(dir, _downLoader, value)
-                      .batchInsertImage([value.files.first], true);
+                  await HitomiDir(dir, _downLoader, value).generateFuture();
                 }
                 var labels = await _helper
                     .querySql(
@@ -363,28 +361,51 @@ class HitomiDir {
     }, test: (error) => true);
   }
 
-  Future<bool> batchInsertImage(Iterable<Image> images, bool generateTag) {
+  Future<bool> batchInsertImage(Iterable<Image> images) {
+    final files = images
+        .map((img) => File(path.join(dir.path, img.name)))
+        .where((f) => f.existsSync());
     return _downLoader
-        .computeImageHash(images
-            .map((img) =>
-                MultipartFile.fromFileSync(path.join(dir.path, img.name)))
-            .toList())
+        .computeImageHash(
+            files.map((f) => MultipartFile.fromFileSync(f.path)).toList(),
+            _downLoader.config.aiTagPath.isEmpty)
+        .catchError(
+            (e) => files
+                .asStream()
+                .asyncMap((f) => _downLoader.computeImageHash(
+                        [MultipartFile.fromFileSync(f.path)],
+                        _downLoader.config.aiTagPath.isEmpty).catchError((e) {
+                      _downLoader.logger?.e('compute $f hash err $e');
+                      f.deleteSync();
+                      return [null];
+                    }, test: (e) => true))
+                .fold(
+                    <int?>[], (previous, element) => previous..addAll(element)),
+            test: (error) => true)
         .then((hashList) async {
-      var thumbnail = images.first == gallery.files.first;
-      if (generateTag && thumbnail) {
-        var f = await _downLoader
-            .autoTagImages(path.join(dir.path, images.first.name),
-                feature: true)
-            .then((r) => r.firstOrNull);
-        if (f != null) {
-          _downLoader.logger?.d('ganerate feature for ${gallery.id}');
-          await _downLoader.helper
-              .updateGalleryFeatureById(gallery.id, f.data!);
-        }
-      }
-      return Future.wait(images.mapIndexed((index, img) =>
-          _downLoader.helper.insertGalleryFile(gallery, img, hashList[index])));
-    }).then((r) => r.reduce((acc, i) => acc && i));
+          return Future.wait(files
+              .mapIndexed((index, f) => MapEntry(
+                  images.firstWhere((img) => img.name == path.basename(f.path)),
+                  hashList[index]))
+              .where((e) => e.value != null)
+              .map((e) => _downLoader.helper
+                  .insertGalleryFile(gallery, e.key, e.value)));
+        })
+        .then((r) => r.fold(true, (acc, i) => acc && i))
+        .then((v) => v);
+  }
+
+  Future<bool> generateFuture() async {
+    var f = await _downLoader
+        .autoTagImages(path.join(dir.path, gallery.files.first.name),
+            feature: true)
+        .then((r) => r.firstOrNull);
+    if (f != null) {
+      _downLoader.logger?.d('ganerate feature for ${gallery.id}');
+      return await _downLoader.helper
+          .updateGalleryFeatureById(gallery.id, f.data!);
+    }
+    return false;
   }
 
   Future<bool> fixGallery() async {
@@ -403,7 +424,7 @@ class HitomiDir {
         await _downLoader.helper.insertGallery(gallery, dir);
       }
       if (set.firstOrNull?['feature'] == null) {
-        await batchInsertImage([gallery.files.first], true);
+        await generateFuture();
       }
       var missing = gallery.files
           .where((f) => images.every((i) => i.hash != f.hash))
@@ -412,7 +433,7 @@ class HitomiDir {
       if (missing.isNotEmpty) {
         _downLoader.logger?.d(
             '${gallery} fix file missing ${missing.map((e) => e.name).toList()}');
-        lost = await batchInsertImage(missing, false);
+        lost = await batchInsertImage(missing);
       }
       return lost;
     }).catchError((e, stack) {

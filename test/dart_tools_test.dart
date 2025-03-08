@@ -6,6 +6,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:hitomi/gallery/artist.dart';
+import 'package:hitomi/gallery/image.dart';
 import 'package:hitomi/gallery/label.dart';
 import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/dir_scanner.dart';
@@ -31,6 +32,33 @@ void main() async {
             [3091377, 3091377])
         .then((d) => d.map((r) => '${r['id']}, ${r['distance']}').toList())
         .then((l) => print(l));
+  }, timeout: Timeout(Duration(minutes: 120)));
+
+  test('ad image', () async {
+    await task.helper
+        .querySql('select * from UserLog where type=?', [1 << 17])
+        .then((value) => Map.fromEntries(value.map((element) =>
+            MapEntry<int, String>(element['mark'], element['content']))))
+        .then((m) {
+          var list = m.entries
+              .where((s) => compareHashDistance(s.key, 8589934592) < 4);
+          print(list.toList());
+          return list
+              .asStream()
+              .asyncMap((e) => task
+                  .getApiDirect()
+                  .fetchImageData(
+                      Image(
+                          hash: e.value,
+                          hasavif: 0,
+                          width: 1024,
+                          name: '01.jpg',
+                          height: 1024),
+                      refererUrl: 'https://hitomi.la/doujinshi/test.html')
+                  .fold(<int>[], (l, i) => l..addAll(i)))
+              .map((d) => File('adimage.jpg')..writeAsBytesSync(d, flush: true))
+              .length;
+        });
   }, timeout: Timeout(Duration(minutes: 120)));
 
   test('ai stable', () async {

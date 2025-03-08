@@ -60,21 +60,22 @@ class DownLoader {
         {
           var target = msg.target;
           if (target is Gallery) {
-            return _findUnCompleteGallery(msg.gallery, msg.file as Directory)
-                .catchError((e) {
-              logger?.e(e);
-              return true;
-            }, test: (error) => true).then((value) {
-              if (value) {
-                return helper
-                    .updateTask(msg.gallery.id, msg.gallery.dirName,
-                        msg.file.path, false)
-                    .then(
-                        (value) => helper.insertGallery(msg.gallery, msg.file));
-              } else {
-                return helper.deleteGallery(msg.gallery.id).then((r) => false);
-              }
-            });
+            return illeagalTagsCheck(msg.gallery, config.excludes)
+                ? _findUnCompleteGallery(msg.gallery, msg.file as Directory)
+                    .catchError((e) {
+                    logger?.e(e);
+                    return true;
+                  }, test: (error) => true).then((value) {
+                    if (value) {
+                      return helper
+                          .updateTask(msg.gallery.id, msg.gallery.dirName,
+                              msg.file.path, false)
+                          .then((value) =>
+                              helper.insertGallery(msg.gallery, msg.file));
+                    }
+                    return value;
+                  })
+                : false;
           } else if (target is Image) {
             return !msg.file.existsSync() ||
                 (msg.file as File).lengthSync() == 0;
@@ -119,14 +120,16 @@ class DownLoader {
               bool needInsert = value.firstOrNull == null;
               int hashValue = value.firstOrNull?['fileHash'] ??
                   await computeImageHash(
-                          [MultipartFile.fromFileSync((msg.file as File).path)])
+                          [MultipartFile.fromFileSync((msg.file as File).path)],
+                          config.aiTagPath.isEmpty)
                       .then((l) => l[0])
                       .catchError((e) {
                     logger?.e('image file ${msg.file.path} hash error $e ');
                     msg.file.deleteSync();
                     return 0;
                   }, test: (error) => true);
-              if (msg.gallery.files.length -
+              if (msg.gallery.language != 'japanese' &&
+                  msg.gallery.files.length -
                           msg.gallery.files
                               .indexWhere((f) => f.name == msg.target.name) <=
                       8 &&
@@ -165,8 +168,9 @@ class DownLoader {
     return useHandle ?? true;
   }
 
-  Future<List<int?>> computeImageHash(List<MultipartFile> paths) async {
-    if (config.aiTagPath.isEmpty) {
+  Future<List<int?>> computeImageHash(
+      List<MultipartFile> paths, bool localHash) async {
+    if (localHash) {
       return paths
           .asStream()
           .asyncMap((f) async => imageHash(await f.finalize().fold(<int>[],
@@ -200,12 +204,22 @@ class DownLoader {
       required this.adImage,
       required this.taskObserver}) {
     limit = DateTime.parse(config.dateLimit);
-    filter = (Gallery gallery) =>
-        illeagalTagsCheck(gallery, config.excludes) &&
-        DateTime.parse(gallery.date).compareTo(limit) > 0 &&
-        (gallery.artists?.length ?? 0) <= 2 &&
-        gallery.files.length >= 18;
+    filter = filterGalleryDefault;
     api.registerCallBack(messageHandle);
+  }
+
+  bool filterGalleryDefault(Gallery gallery) {
+    if (!illeagalTagsCheck(gallery, config.excludes)) {
+      logger?.d('$gallery contains excluded tags');
+      return false;
+    }
+    if (!(DateTime.parse(gallery.date).compareTo(limit) > 0 &&
+        (gallery.artists?.length ?? 0) <= 2 &&
+        gallery.files.length >= 18)) {
+      logger?.d('$gallery not match filter');
+      return false;
+    }
+    return true;
   }
 
   /// Generates image tags using a deep learning model based on the provided file path.
@@ -258,8 +272,8 @@ class DownLoader {
               .writeAsStringSync(json.encode(gallery), flush: true);
           await helper.insertGallery(gallery, newDir);
         }
-        return (compareGallerWithOther(value, [gallery], config.languages).id !=
-                value.id) ||
+        return (compareGallerWithOther(value, [gallery], config.languages).id ==
+                gallery.id) ||
             (newDir.listSync().length - 1) < gallery.files.length ||
             value.files
                 .map((e) => e.name)
@@ -351,13 +365,11 @@ class DownLoader {
     }
     var illeagalTags =
         excludes.where((element) => labels.contains(element)).toList();
-    if (excludes.any(
-        (element) => illeagalTags.contains(element) && element.weight >= 1.0)) {
+    if (illeagalTags.fold(0.0, (acc, i) => acc + i.weight) >= 1.0) {
       logger?.w('${gallery.id} found forbidden tag $illeagalTags');
       return false;
     }
-    final weight = illeagalTags.fold(0.0, (acc, e) => acc + e.weight);
-    final checkResult = weight <= illeagalTags.length / labels.length &&
+    final checkResult =
         pow(10, illeagalTags.length) * 2 / gallery.files.length < 0.5;
     return checkResult;
   }

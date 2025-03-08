@@ -243,7 +243,7 @@ class TaskManager {
                         .fetchImageData(value.files.first)
                         .fold(<int>[], (acc, d) => acc..addAll(d)),
                     filename: value.files.first.name)
-              ]).then((hash) {
+              ], config.aiTagPath.isEmpty).then((hash) {
                 return helper.querySql(
                     '''SELECT gid FROM (SELECT gid, fileHash, ROW_NUMBER() OVER (PARTITION BY gid ORDER BY name) AS rn FROM GalleryFile where gid!=?) sub WHERE rn < 3 and hash_distance(fileHash,?) <5 limit 5''',
                     [
@@ -601,7 +601,7 @@ class TaskManager {
                         height: 0))
                     .fold(<int>[], (acc, l) => acc..addAll(l)),
                 filename: 'hash.jpg')
-          ]).then((value) {
+          ], config.aiTagPath.isEmpty).then((value) {
             if (_adImage
                 .every((e) => compareHashDistance(value[0]!, e.key) > 3)) {
               _adImage.add(MapEntry(value[0]!, hash));

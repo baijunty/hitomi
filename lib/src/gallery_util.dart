@@ -82,11 +82,13 @@ Future<MapEntry<Gallery, List<int>>> fetchGalleryHash(
             gallery.createDir(outDir, createDir: false).existsSync()) {
           final dirPath = gallery.createDir(outDir, createDir: false).path;
           return downloader
-              .computeImageHash(gallery.files
-                  .map((element) => File(join(dirPath, element.name)))
-                  .where((element) => element.existsSync())
-                  .map((f) => MultipartFile.fromFileSync(f.path))
-                  .toList())
+              .computeImageHash(
+                  gallery.files
+                      .map((element) => File(join(dirPath, element.name)))
+                      .where((element) => element.existsSync())
+                      .map((f) => MultipartFile.fromFileSync(f.path))
+                      .toList(),
+                  downloader.config.aiTagPath.isEmpty)
               .then((values) => MapEntry(
                   gallery, values.fold(<int>[], (l, i) => l..add(i ?? 0))));
         } else {
@@ -111,7 +113,7 @@ Future<MapEntry<Gallery, List<int>>> fetchGalleryHashFromNet(
     [CancelToken? token, bool fullHash = false]) async {
   // This function fetches image hashes from the network for a given gallery.
   // It handles cases where the local hashing is not sufficient or desired.
-  return Future.wait((fullHash || gallery.files.length <= 18
+  return (fullHash || gallery.files.length <= 18
           ? gallery.files
           : [
               ...gallery.files.sublist(min(gallery.files.length ~/ 3 - 6, 10),
@@ -123,25 +125,26 @@ Future<MapEntry<Gallery, List<int>>> fetchGalleryHashFromNet(
                   max(gallery.files.length - 10,
                           gallery.files.length ~/ 3 * 2) +
                       6)
-            ]) // Convert the list of files to a stream for processing asynchronously.
-      .map((image) async {
-    return MultipartFile.fromBytes(
-        await down.api
-            .fetchImageData(image,
-                refererUrl:
-                    'https://hitomi.la${Uri.encodeFull(gallery.galleryurl!)}',
-                token: token,
-                id: gallery.id)
-            .fold(<int>[], (acc, l) => acc..addAll(l)),
-        filename: image.name);
-  })).then((value) => down.computeImageHash(value)).then((value) => MapEntry<
-          Gallery, List<int>>(
-      gallery,
-      value.fold(
-          <int>[],
-          (l, i) => l
-            ..add(i ??
-                0)))); // Combine the results of fetching hashes from the network into a single list and return it as a map entry with the gallery.
+            ])
+      .asStream()
+      .asyncMap((image) async => MultipartFile.fromBytes(
+          await down.api
+              .fetchImageData(image,
+                  refererUrl:
+                      'https://hitomi.la${Uri.encodeFull(gallery.galleryurl!)}',
+                  token: token,
+                  id: gallery.id)
+              .fold(<int>[], (acc, l) => acc..addAll(l)),
+          filename: image.name))
+      .fold(<MultipartFile>[], (fs, f) => fs..add(f))
+      .then((fs) => down.computeImageHash(fs, down.config.aiTagPath.isEmpty))
+      .then((value) => MapEntry<Gallery, List<int>>(
+          gallery,
+          value.fold(
+              <int>[],
+              (l, i) => l
+                ..add(i ??
+                    0)))); // Combine the results of fetching hashes from the network into a single list and return it as a map entry with the gallery.
 }
 
 String titleFixed(String title) {
