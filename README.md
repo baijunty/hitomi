@@ -1,6 +1,9 @@
 # hitomi
 工口漫画网站[hitomi](https://hitomi.la/)后端下载管理
 
+- flutter前端
+[ayaka](https://github.com/baijunty/ayaka)
+
 [MIT](https://choosealicense.com/licenses/mit/)
 
 Copyright (c) 
