@@ -329,7 +329,8 @@ class _HitomiImpl implements Hitomi {
 
   Future<Gallery> _fetchGalleryJsonById(dynamic id, CancelToken? token) async {
     return _dio
-        .httpInvoke<String>('$apiUrl/galleries/$id.js', token: token)
+        .httpInvoke<String>('https://ltn.$apiDomain/galleries/$id.js',
+            token: token)
         .then((value) => value.indexOf("{") >= 0
             ? value.substring(value.indexOf("{"))
             : value)
@@ -497,20 +498,20 @@ class _HitomiImpl implements Hitomi {
       case ThumbnaiSize.origin:
         {
           url =
-              "https://${_getUserInfo(image.hash, 'a')}.hitomi.la/webp/${code}/${_parseLast3HashCode(image.hash)}/${image.hash}.webp";
+              "https://${_getUserInfo(image.hash, 'a')}.$apiDomain/webp/${code}/${_parseLast3HashCode(image.hash)}/${image.hash}.webp";
         }
       case ThumbnaiSize.smaill:
         sizeStr = 'webpsmallsmalltn';
         url =
-            "https://${_getUserInfo(image.hash, 'tn')}.hitomi.la/$sizeStr/${lastThreeCode.substring(2)}/${lastThreeCode.substring(0, 2)}/${image.hash}.webp";
+            "https://${_getUserInfo(image.hash, 'tn')}.$apiDomain/$sizeStr/${lastThreeCode.substring(2)}/${lastThreeCode.substring(0, 2)}/${image.hash}.webp";
       case ThumbnaiSize.medium:
         sizeStr = 'webpsmalltn';
         url =
-            "https://${_getUserInfo(image.hash, 'tn')}.hitomi.la/$sizeStr/${lastThreeCode.substring(2)}/${lastThreeCode.substring(0, 2)}/${image.hash}.webp";
+            "https://${_getUserInfo(image.hash, 'tn')}.$apiDomain/$sizeStr/${lastThreeCode.substring(2)}/${lastThreeCode.substring(0, 2)}/${image.hash}.webp";
       case ThumbnaiSize.big:
         sizeStr = 'webpbigtn';
         url =
-            "https://${_getUserInfo(image.hash, 'tn')}.hitomi.la/$sizeStr/${lastThreeCode.substring(2)}/${lastThreeCode.substring(0, 2)}/${image.hash}.webp";
+            "https://${_getUserInfo(image.hash, 'tn')}.$apiDomain/$sizeStr/${lastThreeCode.substring(2)}/${lastThreeCode.substring(0, 2)}/${image.hash}.webp";
     }
     return url;
   }
@@ -676,7 +677,7 @@ class _HitomiImpl implements Hitomi {
       {Language? language, CancelToken? token}) {
     if (tag is QueryText) {
       return _fetchQuery(
-              '$apiUrl/galleriesindex/galleries.${galleries_index_version}.index',
+              'https://ltn.$apiDomain/galleriesindex/galleries.${galleries_index_version}.index',
               tag.name.toLowerCase(),
               token)
           .then((value) => _fetchData(value, token));
@@ -684,9 +685,9 @@ class _HitomiImpl implements Hitomi {
       final useLanguage = language?.name ?? 'all';
       String url;
       if (tag is Language) {
-        url = '$apiUrl/n/${tag.urlEncode()}.nozomi';
+        url = 'https://ltn.$apiDomain/n/${tag.urlEncode()}.nozomi';
       } else {
-        url = '$apiUrl/n/${tag.urlEncode()}-$useLanguage.nozomi';
+        url = 'https://ltn.$apiDomain/n/${tag.urlEncode()}-$useLanguage.nozomi';
       }
       return _fetchTagIdsByNet(url, token).then((value) {
         logger?.d('search label $tag found ${value.length} ');
@@ -702,7 +703,8 @@ class _HitomiImpl implements Hitomi {
     return _dio
         .httpInvoke<List<dynamic>>(
             'https://tagindex.hitomi.la/global${key.codeUnits.fold('', (acc, char) => acc + '/' + String.fromCharCode(char))}',
-            headers: buildRequestHeader(apiUrl, 'https://hitomi.la/'))
+            headers: buildRequestHeader(
+                'https://ltn.$apiDomain', 'https://hitomi.la/'))
         .then((value) => value
             .map((element) => element as List)
             .map((m) => fromString(m[2], m[0]))
@@ -783,7 +785,7 @@ class _HitomiImpl implements Hitomi {
       MapEntry<int, int> tuple, CancelToken? token) async {
     await checkInit();
     final url =
-        '$apiUrl/galleriesindex/galleries.${galleries_index_version}.data';
+        'https://ltn.$apiDomain/galleriesindex/galleries.${galleries_index_version}.data';
     return await _dio
         .httpInvoke<List<int>>(url,
             headers: buildRequestHeader(url, 'https://hitomi.la/',
@@ -837,7 +839,7 @@ class _HitomiImpl implements Hitomi {
       referer += '?page=$page';
     }
     final dataUrl =
-        '$apiUrl/${tag.urlEncode()}${tag is Language ? '' : '-all'}.nozomi';
+        'https://ltn.$apiDomain/${tag.urlEncode()}${tag is Language ? '' : '-all'}.nozomi';
     logger?.d('$dataUrl from $referer');
     int totalCount = 0;
     return _dio
@@ -873,7 +875,7 @@ class _HitomiImpl implements Hitomi {
 
   Future<void> initData() async {
     final gg = await _dio
-        .httpInvoke<String>('$apiUrl/gg.js')
+        .httpInvoke<String>('https://ltn.$apiDomain/gg.js')
         .then((value) => LineSplitter.split(value))
         .then((value) => value.toList());
     final codeStr = gg.lastWhere((element) => _codeExp.hasMatch(element));
@@ -887,7 +889,7 @@ class _HitomiImpl implements Hitomi {
         .toList();
     galleries_index_version = await _dio
         .httpInvoke<String>(
-            '$apiUrl/galleriesindex/version?_=${DateTime.now().millisecondsSinceEpoch}')
+            'https://ltn.$apiDomain/galleriesindex/version?_=${DateTime.now().millisecondsSinceEpoch}')
         .then((value) => int.parse(value));
     // tag_index_version = await _dio
     //     .httpInvoke<String>(

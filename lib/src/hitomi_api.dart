@@ -7,7 +7,7 @@ import '../gallery/image.dart';
 import '../gallery/label.dart';
 import 'response.dart';
 
-final apiUrl = 'https://ltn.gold-usergeneratedcontent.net';
+final apiDomain = 'gold-usergeneratedcontent.net';
 
 abstract class Hitomi {
   void registerCallBack(Future<bool> callBack(Message msg));
