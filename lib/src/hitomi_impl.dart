@@ -214,8 +214,11 @@ class _LocalHitomiImpl implements Hitomi {
     switch (sort) {
       case SortEnum.Default:
         sql.write(' order by g.id desc');
+      case SortEnum.ID_ASC:
+        sql.write(' order by g.id asc');
       case SortEnum.ADD_TIME:
         sql.write(' order by g.date desc');
+      // ignore: unreachable_switch_default
       default:
         break;
     }
@@ -326,8 +329,7 @@ class _HitomiImpl implements Hitomi {
 
   Future<Gallery> _fetchGalleryJsonById(dynamic id, CancelToken? token) async {
     return _dio
-        .httpInvoke<String>('https://ltn.hitomi.la/galleries/$id.js',
-            token: token)
+        .httpInvoke<String>('$apiUrl/galleries/$id.js', token: token)
         .then((value) => value.indexOf("{") >= 0
             ? value.substring(value.indexOf("{"))
             : value)
@@ -674,7 +676,7 @@ class _HitomiImpl implements Hitomi {
       {Language? language, CancelToken? token}) {
     if (tag is QueryText) {
       return _fetchQuery(
-              'https://ltn.hitomi.la/galleriesindex/galleries.${galleries_index_version}.index',
+              '$apiUrl/galleriesindex/galleries.${galleries_index_version}.index',
               tag.name.toLowerCase(),
               token)
           .then((value) => _fetchData(value, token));
@@ -682,9 +684,9 @@ class _HitomiImpl implements Hitomi {
       final useLanguage = language?.name ?? 'all';
       String url;
       if (tag is Language) {
-        url = 'https://ltn.hitomi.la/n/${tag.urlEncode()}.nozomi';
+        url = '$apiUrl/n/${tag.urlEncode()}.nozomi';
       } else {
-        url = 'https://ltn.hitomi.la/n/${tag.urlEncode()}-$useLanguage.nozomi';
+        url = '$apiUrl/n/${tag.urlEncode()}-$useLanguage.nozomi';
       }
       return _fetchTagIdsByNet(url, token).then((value) {
         logger?.d('search label $tag found ${value.length} ');
@@ -700,8 +702,7 @@ class _HitomiImpl implements Hitomi {
     return _dio
         .httpInvoke<List<dynamic>>(
             'https://tagindex.hitomi.la/global${key.codeUnits.fold('', (acc, char) => acc + '/' + String.fromCharCode(char))}',
-            headers: buildRequestHeader(
-                'https://ltn.hitomi.la/', 'https://ltn.hitomi.la/'))
+            headers: buildRequestHeader(apiUrl, 'https://hitomi.la/'))
         .then((value) => value
             .map((element) => element as List)
             .map((m) => fromString(m[2], m[0]))
@@ -782,7 +783,7 @@ class _HitomiImpl implements Hitomi {
       MapEntry<int, int> tuple, CancelToken? token) async {
     await checkInit();
     final url =
-        'https://ltn.hitomi.la/galleriesindex/galleries.${galleries_index_version}.data';
+        '$apiUrl/galleriesindex/galleries.${galleries_index_version}.data';
     return await _dio
         .httpInvoke<List<int>>(url,
             headers: buildRequestHeader(url, 'https://hitomi.la/',
@@ -836,7 +837,7 @@ class _HitomiImpl implements Hitomi {
       referer += '?page=$page';
     }
     final dataUrl =
-        'https://ltn.hitomi.la/${tag.urlEncode()}${tag is Language ? '' : '-all'}.nozomi';
+        '$apiUrl/${tag.urlEncode()}${tag is Language ? '' : '-all'}.nozomi';
     logger?.d('$dataUrl from $referer');
     int totalCount = 0;
     return _dio
@@ -872,7 +873,7 @@ class _HitomiImpl implements Hitomi {
 
   Future<void> initData() async {
     final gg = await _dio
-        .httpInvoke<String>('https://ltn.hitomi.la/gg.js')
+        .httpInvoke<String>('$apiUrl/gg.js')
         .then((value) => LineSplitter.split(value))
         .then((value) => value.toList());
     final codeStr = gg.lastWhere((element) => _codeExp.hasMatch(element));
@@ -886,7 +887,7 @@ class _HitomiImpl implements Hitomi {
         .toList();
     galleries_index_version = await _dio
         .httpInvoke<String>(
-            'https://ltn.hitomi.la/galleriesindex/version?_=${DateTime.now().millisecondsSinceEpoch}')
+            '$apiUrl/galleriesindex/version?_=${DateTime.now().millisecondsSinceEpoch}')
         .then((value) => int.parse(value));
     // tag_index_version = await _dio
     //     .httpInvoke<String>(

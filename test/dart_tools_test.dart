@@ -88,6 +88,33 @@ void main() async {
     print(compareHashDistance(1126013186873856, 3377813000559104));
   });
 
+  test('gallery', () async {
+    var api = task.getApiDirect(local: true);
+    await task
+        .getApiDirect(local: true)
+        .fetchGallery(3277402, usePrefence: false)
+        .then((g) => g.files
+            .asStream()
+            .asyncMap((f) => api
+                .fetchImageData(f,
+                    refererUrl: 'https://hitomi.la/doujinshi/test-3277402.html',
+                    id: g.id,
+                    size: ThumbnaiSize.medium)
+                .fold(<int>[], (acc, l) => acc..addAll(l)).then(
+                    (d) => base64Encode(d)))
+            .fold(<String>[], (l, s) => l..add(s)))
+        .then((l) {
+      task.logger.d(l.length);
+      return task.dio.post('http://192.168.1.107:11434/api/chat', data: {
+        "model": "gemma3:12b",
+        "stream": false,
+        "messages": [
+          {"role": "user", "content": "总结图片故事内容", "images": l}
+        ]
+      });
+    }).then((v) => print(v.data));
+  }, timeout: Timeout(Duration(minutes: 120)));
+
   test('image search', () async {
     await task
         .getApiDirect()
