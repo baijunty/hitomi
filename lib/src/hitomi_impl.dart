@@ -414,6 +414,7 @@ class _HitomiImpl implements Hitomi {
           (token?.isCancelled ?? false) == false;
       if (b) {
         var writer = out.openWrite();
+        logger?.d('down image $url to ${out.path}');
         await _dio
             .httpInvoke<ResponseBody>(url,
                 headers: buildRequestHeader(url, referer),
@@ -498,7 +499,7 @@ class _HitomiImpl implements Hitomi {
       case ThumbnaiSize.origin:
         {
           url =
-              "https://${_getUserInfo(image.hash, 'a')}.$apiDomain/webp/${code}/${_parseLast3HashCode(image.hash)}/${image.hash}.webp";
+              "https://w${_subDomainIndex(image.hash) + 1}.$apiDomain/${code}/${_parseLast3HashCode(image.hash)}/${image.hash}.webp";
         }
       case ThumbnaiSize.smaill:
         sizeStr = 'webpsmallsmalltn';
@@ -909,10 +910,14 @@ class _HitomiImpl implements Hitomi {
   }
 
   String _getUserInfo(String hash, String postFix) {
-    final code = _parseLast3HashCode(hash);
     final userInfo = ['a', 'b'];
+    return userInfo[_subDomainIndex(hash)] + postFix;
+  }
+
+  int _subDomainIndex(String hash) {
+    final code = _parseLast3HashCode(hash);
     var useIndex = index - (codes.any((element) => element == code) ? 1 : 0);
-    return userInfo[useIndex.abs()] + postFix;
+    return useIndex.abs();
   }
 
   int _parseLast3HashCode(String hash) {
