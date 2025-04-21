@@ -153,7 +153,6 @@ class TaskManager {
       ..addOption('pause', abbr: 'p')
       ..addOption('delete', abbr: 'd')
       ..addOption('artist', abbr: 'a')
-      ..addOption('admark')
       ..addOption('group', abbr: 'g')
       ..addOption('sqlite3', abbr: 's')
       ..addMultiOption('tags', abbr: 't');
@@ -489,6 +488,43 @@ class TaskManager {
                 }).filterNonNull());
   }
 
+  Future<bool> addAdMark(List<String> ads) async {
+    return ads
+        .asStream()
+        .asyncMap((hash) async => MultipartFile.fromBytes(
+            await _api
+                .fetchImageData(Image(
+                    hash: hash,
+                    hasavif: 0,
+                    width: 0,
+                    name: 'hash.jpg',
+                    height: 0))
+                .fold(<int>[], (acc, l) => acc..addAll(l)),
+            filename: 'hash.jpg'))
+        .fold(<MultipartFile>[], (fs, f) => fs..add(f))
+        .then((fs) => down.computeImageHash(fs, config.aiTagPath.isEmpty))
+        .then((values) {
+          return values
+              .mapIndexed((index, v) => MapEntry(ads[index], v))
+              .where((e) =>
+                  e.value != null &&
+                  _adImage
+                      .every((i) => compareHashDistance(e.value!, i.key) > 3))
+              .asStream()
+              .asyncMap((e) => helper.insertUserLog(
+                  e.key.hashCode.abs() * -1, admarkMask,
+                  value: e.value!, content: e.key))
+              .fold(true, (acc, i) => acc && i);
+        });
+  }
+
+  Future<bool> addUserLog(List<int> ids, int type) async {
+    return ids
+        .asStream()
+        .asyncMap((id) => helper.insertUserLog(id, type))
+        .fold(true, (fs, f) => fs && f);
+  }
+
   void removeAdImages(Gallery gallery) {
     if (gallery.language == 'chinese' ||
         gallery.tags?.any((element) => element.name == 'extraneous ads') ==
@@ -584,33 +620,6 @@ class TaskManager {
         logger.d('pause ${id}');
         if (numberExp.hasMatch(id)) {
           return _downLoader.cancelById(int.parse(id));
-        }
-        return false;
-      } else if (result.wasParsed('admark')) {
-        String hash = result["admark"];
-        logger.d('admark ${hash}');
-        if (hash.length == 64) {
-          return down.computeImageHash([
-            MultipartFile.fromBytes(
-                await _api
-                    .fetchImageData(Image(
-                        hash: hash,
-                        hasavif: 0,
-                        width: 0,
-                        name: 'hash.jpg',
-                        height: 0))
-                    .fold(<int>[], (acc, l) => acc..addAll(l)),
-                filename: 'hash.jpg')
-          ], config.aiTagPath.isEmpty).then((value) {
-            if (_adImage
-                .every((e) => compareHashDistance(value[0]!, e.key) > 3)) {
-              _adImage.add(MapEntry(value[0]!, hash));
-              logger.d('now hash ${_adImage.length} admrks');
-              return helper.insertUserLog(hash.hashCode.abs() * -1, 1 << 17,
-                  mark: value[0]!, content: hash);
-            }
-            return false;
-          });
         }
         return false;
       } else if (result['fixDb']) {

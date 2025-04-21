@@ -39,8 +39,8 @@ class _TaskWarp {
       ..options('/translate', _optionsOk)
       ..post('/addTask', _addTask)
       ..options('/addTask', _optionsOk)
-      ..post('/addAdMark', _addAdMark)
-      ..options('/addAdMark', _optionsOk)
+      ..post('/sync', _sync)
+      ..options('/sync', _optionsOk)
       ..post('/checkId', _checkId)
       ..options('/checkId', _optionsOk)
       ..get('/suggest', (Request req) {
@@ -68,11 +68,6 @@ class _TaskWarp {
       ..options('/cancel', _optionsOk)
       ..post('/delete', _delete)
       ..options('/delete', _optionsOk)
-      ..options('/adList', _optionsOk)
-      ..get('/adList', (req) {
-        return Response.ok(json.encode(_manager.adImage),
-            headers: defaultRespHeader);
-      })
       ..get('/ip', (req) {
         return NetworkInterface.list()
             .then((value) => value.firstOrNull?.addresses
@@ -313,17 +308,49 @@ class _TaskWarp {
     return Response.unauthorized('unauth');
   }
 
-  Future<Response> _addAdMark(Request req) async {
+  Future<Response> _sync(Request req) async {
     final task = await _authToken(req);
     final ip = req.headers['x-real-ip'] ?? '';
     _manager.logger.d('real ip $ip');
     if (task.key && (ip.isEmpty || ip.startsWith('192.168'))) {
-      return (task.value['mask'] as List<dynamic>)
-          .asStream()
-          .asyncMap((event) => _manager.parseCommandAndRun('--admark ${event}'))
-          .fold(true, (previous, element) => previous && element)
-          .then((value) => Response.ok(json.encode({'success': value}),
-              headers: defaultRespHeader));
+      String target = task.value['target'];
+      List<dynamic> content = task.value['content'];
+      switch (target) {
+        case 'history':
+          return _manager
+              .addUserLog(
+                  content.map((e) => e as int).toList(), readHistoryMask)
+              .then((v) => _manager.helper.querySql(
+                  'select id from UserLog where type = $readHistoryMask'))
+              .then((set) => set.map((r) => r['id'] as int))
+              .then((value) => Response.ok(
+                  json.encode({'success': value, 'content': value.toList()}),
+                  headers: defaultRespHeader));
+        case 'bookmark':
+          return _manager
+              .addUserLog(content.map((e) => e as int).toList(), bookMarkMask)
+              .then((v) => _manager.helper.querySql(
+                  'select id from UserLog where type = $bookMarkMask'))
+              .then((set) => set.map((r) => r['id'] as int))
+              .then((value) => Response.ok(
+                  json.encode({'success': value, 'content': value.toList()}),
+                  headers: defaultRespHeader));
+        case 'lateRead':
+          return _manager
+              .addUserLog(content.map((e) => e as int).toList(), lateReadMark)
+              .then((v) => _manager.helper.querySql(
+                  'select id from UserLog where type = $lateReadMark'))
+              .then((set) => set.map((r) => r['id'] as int))
+              .then((value) => Response.ok(
+                  json.encode({'success': value, 'content': value.toList()}),
+                  headers: defaultRespHeader));
+        case 'admark':
+          return _manager
+              .addAdMark(content.map((e) => e as String).toList())
+              .then((value) => Response.ok(
+                  json.encode({'success': value, 'result': _manager.adImage}),
+                  headers: defaultRespHeader));
+      }
     }
     return Response.unauthorized('unauth');
   }

@@ -179,10 +179,10 @@ class SqliteHelper {
   }
 
   Future<bool> insertUserLog(int id, int type,
-      {int mark = 0, String? content, List<int> extension = const []}) async {
+      {int value = 0, String? content, List<int> extension = const []}) async {
     return excuteSqlAsync(
         'replace into UserLog(id,mark,type,content,extension) values (?,?,?,?,?)',
-        [id, mark, type, content, extension]);
+        [id, value, type, content, extension]);
   }
 
   Future<T?> readlData<T>(
