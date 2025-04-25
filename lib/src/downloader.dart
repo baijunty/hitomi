@@ -178,7 +178,7 @@ class DownLoader {
           .fold(<int?>[], (m, h) => m..add(h));
     } else {
       return dio
-          .post<Map<String, dynamic>>(config.aiTagPath,
+          .post<Map<String, dynamic>>('${config.aiTagPath}/evaluate',
               data: FormData.fromMap({'process': 'image_hash', 'file': paths}))
           .then((m) {
         var data = m.data!;
@@ -251,7 +251,7 @@ class DownLoader {
         'process': feature ? 'feature' : 'tagger'
       });
       return dio
-          .post<List<dynamic>>(config.aiTagPath,
+          .post<List<dynamic>>('${config.aiTagPath}/evaluate',
               data: formData, options: Options(responseType: ResponseType.json))
           .then((resp) => resp.data!)
           .then((l) => l.map((t) => ImageTagFeature.fromJson(t)).toList())

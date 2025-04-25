@@ -322,27 +322,27 @@ class _TaskWarp {
                   content.map((e) => e as int).toList(), readHistoryMask)
               .then((v) => _manager.helper.querySql(
                   'select id from UserLog where type = $readHistoryMask'))
-              .then((set) => set.map((r) => r['id'] as int))
+              .then((set) => set.map((r) => r['id'] as int).toList())
               .then((value) => Response.ok(
-                  json.encode({'success': value, 'content': value.toList()}),
+                  json.encode({'success': value, 'content': value}),
                   headers: defaultRespHeader));
         case 'bookmark':
           return _manager
               .addUserLog(content.map((e) => e as int).toList(), bookMarkMask)
               .then((v) => _manager.helper.querySql(
                   'select id from UserLog where type = $bookMarkMask'))
-              .then((set) => set.map((r) => r['id'] as int))
+              .then((set) => set.map((r) => r['id'] as int).toList())
               .then((value) => Response.ok(
-                  json.encode({'success': value, 'content': value.toList()}),
+                  json.encode({'success': value, 'content': value}),
                   headers: defaultRespHeader));
         case 'lateRead':
           return _manager
               .addUserLog(content.map((e) => e as int).toList(), lateReadMark)
               .then((v) => _manager.helper.querySql(
                   'select id from UserLog where type = $lateReadMark'))
-              .then((set) => set.map((r) => r['id'] as int))
+              .then((set) => set.map((r) => r['id'] as int).toList())
               .then((value) => Response.ok(
-                  json.encode({'success': value, 'content': value.toList()}),
+                  json.encode({'success': value, 'content': value}),
                   headers: defaultRespHeader));
         case 'admark':
           return _manager

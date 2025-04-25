@@ -303,7 +303,7 @@ class TaskManager {
                 'process': 'feature'
               });
               var result = await dio
-                  .post<List<dynamic>>(config.aiTagPath,
+                  .post<List<dynamic>>('${config.aiTagPath}/evaluate',
                       data: formData,
                       options: Options(responseType: ResponseType.json))
                   .then((resp) => resp.data!)

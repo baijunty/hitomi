@@ -48,7 +48,7 @@ class _LocalHitomiImpl implements Hitomi {
         var count = 0;
         if (translate) {
           await _manager.dio
-              .post<ResponseBody>(_manager.config.aiTagPath,
+              .post<ResponseBody>('${_manager.config.aiTagPath}/evaluate',
                   data: FormData.fromMap({
                     'file': MultipartFile.fromStream(() => f.openRead(), length,
                         filename: image.name),
@@ -71,6 +71,21 @@ class _LocalHitomiImpl implements Hitomi {
         stream.addError(e);
         stream.close();
       }, test: (error) => true);
+    } else if (_manager.config.aiTagPath.isNotEmpty) {
+      origin
+          .then((value) => _manager.dio.get<ResponseBody>(
+              '${_manager.config.aiTagPath}/resize',
+              options: Options(responseType: ResponseType.stream),
+              queryParameters: {'file': value}))
+          .then((body) {
+        onProcess?.call(0, body.data?.contentLength ?? 0);
+        return body.data != null
+            ? stream.addStream(body.data!.stream)
+            : stream.addError('empty data');
+      }).catchError((e) {
+        stream.addError(e);
+        _manager.logger.e('download error: $e');
+      }, test: (error) => true).whenComplete(() => stream.close());
     } else {
       origin
           .then((value) => _manager.down.manager.compute(value))
@@ -471,7 +486,7 @@ class _HitomiImpl implements Hitomi {
                 .then((resp) async {
               if (translate) {
                 return await _dio
-                    .post<ResponseBody>(manager.config.aiTagPath,
+                    .post<ResponseBody>('${manager.config.aiTagPath}/evaluate',
                         data: FormData.fromMap({
                           'file': MultipartFile.fromStream(() => resp, length,
                               filename: image.name,

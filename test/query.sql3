@@ -7,7 +7,6 @@ select * from UserLog where type=131072
 select g.feature is null,g.* from Gallery g  where g.id =2616344
 select path,id,feature is null as feat from Gallery limit 20
 select * from GalleryFile where gid=2343313  order by name
-Delete from UserLog where type= 1 << 17 
 SELECT SUM("pgsize")/1024/1024,name FROM "dbstat" group by name
 SELECT gid, name, hash FROM (
     SELECT gid, name, hash, ROW_NUMBER() OVER (PARTITION BY gid ORDER BY name) AS rn
