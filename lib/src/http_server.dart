@@ -319,7 +319,7 @@ class _TaskWarp {
       switch (target) {
         case 'history':
           return _manager
-              .addUserLog(
+              .manageUserLog(
                   content.map((e) => e as int).toList(), readHistoryMask)
               .then((v) => _manager.helper.querySql(
                   'select id from UserLog where type = $readHistoryMask'))
@@ -329,7 +329,8 @@ class _TaskWarp {
                   headers: defaultRespHeader));
         case 'bookmark':
           return _manager
-              .addUserLog(content.map((e) => e as int).toList(), bookMarkMask)
+              .manageUserLog(
+                  content.map((e) => e as int).toList(), bookMarkMask)
               .then((v) => _manager.helper.querySql(
                   'select id from UserLog where type = $bookMarkMask'))
               .then((set) => set.map((r) => r['id'] as int).toList())
@@ -338,7 +339,8 @@ class _TaskWarp {
                   headers: defaultRespHeader));
         case 'lateRead':
           return _manager
-              .addUserLog(content.map((e) => e as int).toList(), lateReadMark)
+              .manageUserLog(
+                  content.map((e) => e as int).toList(), lateReadMark)
               .then((v) => _manager.helper.querySql(
                   'select id from UserLog where type = $lateReadMark'))
               .then((set) => set.map((r) => r['id'] as int).toList())

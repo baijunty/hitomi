@@ -520,10 +520,12 @@ class TaskManager {
         });
   }
 
-  Future<bool> addUserLog(List<int> ids, int type) async {
+  Future<bool> manageUserLog(List<int> ids, int type) async {
     return ids
         .asStream()
-        .asyncMap((id) => helper.insertUserLog(id, type))
+        .asyncMap((id) => id > 0
+            ? helper.insertUserLog(id, type)
+            : helper.delete('UserLog', {'id': id * -1, 'type': type}))
         .fold(true, (fs, f) => fs && f);
   }
 
