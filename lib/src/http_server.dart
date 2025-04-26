@@ -325,7 +325,7 @@ class _TaskWarp {
                   'select id from UserLog where type = $readHistoryMask'))
               .then((set) => set.map((r) => r['id'] as int).toList())
               .then((value) => Response.ok(
-                  json.encode({'success': value, 'content': value}),
+                  json.encode({'success': true, 'content': value}),
                   headers: defaultRespHeader));
         case 'bookmark':
           return _manager
@@ -334,7 +334,7 @@ class _TaskWarp {
                   'select id from UserLog where type = $bookMarkMask'))
               .then((set) => set.map((r) => r['id'] as int).toList())
               .then((value) => Response.ok(
-                  json.encode({'success': value, 'content': value}),
+                  json.encode({'success': true, 'content': value}),
                   headers: defaultRespHeader));
         case 'lateRead':
           return _manager
@@ -343,13 +343,13 @@ class _TaskWarp {
                   'select id from UserLog where type = $lateReadMark'))
               .then((set) => set.map((r) => r['id'] as int).toList())
               .then((value) => Response.ok(
-                  json.encode({'success': value, 'content': value}),
+                  json.encode({'success': true, 'content': value}),
                   headers: defaultRespHeader));
         case 'admark':
           return _manager
               .addAdMark(content.map((e) => e as String).toList())
               .then((value) => Response.ok(
-                  json.encode({'success': value, 'result': _manager.adImage}),
+                  json.encode({'success': true, 'result': _manager.adImage}),
                   headers: defaultRespHeader));
       }
     }
