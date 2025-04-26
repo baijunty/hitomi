@@ -23,4 +23,5 @@ if [ -z $path ];then
     path=$(pwd)
 fi
 scan $path
-docker run -d --name=hitomi -p 7890:7890 -e https_proxy=http://192.168.1.107:8389  -v /mnt/ssd/manga:/galleries  -v /etc/timezone:/etc/timezone:ro -v /etc/localtime:/etc/localtime:ro -e ZT=Asia/Shanghai --restart=always hitomi
+docker pull ghcr.io/baijunty/hitomi:masterdocker pull ghcr.io/baijunty/hitomi:master
+docker run -d --name=hitomi -p 7890:7890 -e https_proxy=http://192.168.1.107:8389  -v /mnt/ssd/manga:/galleries  -v /etc/timezone:/etc/timezone:ro -v /etc/localtime:/etc/localtime:ro -e ZT=Asia/Shanghai --restart=always  ghcr.io/baijunty/hitomi:master

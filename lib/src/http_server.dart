@@ -311,7 +311,8 @@ class _TaskWarp {
   Future<Response> _sync(Request req) async {
     final task = await _authToken(req);
     final ip = req.headers['x-real-ip'] ?? '';
-    _manager.logger.d('real ip $ip');
+    _manager.logger.d(
+        'real ip $ip ${task.value['target']} ${task.value['content'].length}');
     if (task.key && (ip.isEmpty || ip.startsWith('192.168'))) {
       String target = task.value['target'];
       List<dynamic> content = task.value['content'];

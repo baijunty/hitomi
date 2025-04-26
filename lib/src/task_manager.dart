@@ -488,7 +488,9 @@ class TaskManager {
                 }).filterNonNull());
   }
 
-  Future<bool> addAdMark(List<String> ads) async {
+  Future<bool> addAdMark(List<String> hashes) async {
+    var ads = hashes.where((s) => !adImage.contains(s)).toList();
+    if (ads.isEmpty) return false;
     return ads
         .asStream()
         .asyncMap((hash) async => MultipartFile.fromBytes(
