@@ -250,7 +250,7 @@ class _TaskWarp {
     final task = await _authToken(req);
     final ip = req.headers['x-real-ip'] ?? '';
     _manager.logger.d('real ip $ip');
-    if (task.key && (ip.isEmpty || ip.startsWith('192.168'))) {
+    if (task.key && (ip.isEmpty || isLocalOrLAN(InternetAddress(ip)))) {
       _manager.parseCommandAndRun(task.value['task']);
       return Response.ok(json.encode({'success': true}),
           headers: defaultRespHeader);
@@ -288,7 +288,7 @@ class _TaskWarp {
     final task = await _authToken(req);
     final ip = req.headers['x-real-ip'] ?? '';
     _manager.logger.d('real ip $ip');
-    if (task.key && (ip.isEmpty || ip.startsWith('192.168'))) {
+    if (task.key && (ip.isEmpty || isLocalOrLAN(InternetAddress(ip)))) {
       return _manager.parseCommandAndRun('-p ${task.value['id']}').then(
           (value) => Response.ok(json.encode({'success': value}),
               headers: defaultRespHeader));
@@ -300,7 +300,7 @@ class _TaskWarp {
     final task = await _authToken(req);
     final ip = req.headers['x-real-ip'] ?? '';
     _manager.logger.d('real ip $ip');
-    if (task.key && (ip.isEmpty || ip.startsWith('192.168'))) {
+    if (task.key && (ip.isEmpty || isLocalOrLAN(InternetAddress(ip)))) {
       return _manager.parseCommandAndRun('-d ${task.value['id']}').then(
           (value) => Response.ok(json.encode({'success': value}),
               headers: defaultRespHeader));
@@ -308,52 +308,68 @@ class _TaskWarp {
     return Response.unauthorized('unauth');
   }
 
+  bool isLocalOrLAN(InternetAddress address) {
+    // 检查环回地址
+    if (address.isLoopback) return true;
+
+    if (address.type == InternetAddressType.IPv4) {
+      final bytes = address.rawAddress;
+      // 检查IPv4私有地址和链路本地地址
+      if (bytes.length == 4) {
+        final b0 = bytes[0];
+        final b1 = bytes[1];
+        // 10.0.0.0/8
+        if (b0 == 10) return true;
+        // 172.16.0.0/12
+        if (b0 == 172 && b1 >= 16 && b1 <= 31) return true;
+        // 192.168.0.0/16
+        if (b0 == 192 && b1 == 168) return true;
+        // 169.254.0.0/16 (链路本地地址)
+        if (b0 == 169 && b1 == 254) return true;
+      }
+      return false;
+    } else if (address.type == InternetAddressType.IPv6) {
+      final bytes = address.rawAddress;
+      if (bytes.length == 16) {
+        // 检查唯一本地地址 (fc00::/7)
+        if ((bytes[0] & 0xFE) == 0xFC) return true;
+
+        // 检查链路本地地址 (fe80::/10)
+        final firstTwoBytes = (bytes[0] << 8) | bytes[1];
+        if (firstTwoBytes >= 0xFE80 && firstTwoBytes <= 0xFEBF) {
+          return true;
+        }
+      }
+      return false;
+    }
+    return false;
+  }
+
   Future<Response> _sync(Request req) async {
     final task = await _authToken(req);
     final ip = req.headers['x-real-ip'] ?? '';
-    _manager.logger.d(
-        'real ip $ip ${task.value['target']} ${task.value['content'].length}');
-    if (task.key && (ip.isEmpty || ip.startsWith('192.168'))) {
-      String target = task.value['target'];
+    _manager.logger
+        .d('real ip $ip ${task.value['mark']} ${task.value['content'].length}');
+    if (task.key && (ip.isEmpty || isLocalOrLAN(InternetAddress(ip)))) {
+      int mark = task.value['mark'];
       List<dynamic> content = task.value['content'];
-      switch (target) {
-        case 'history':
-          return _manager
-              .manageUserLog(
-                  content.map((e) => e as int).toList(), readHistoryMask)
-              .then((v) => _manager.helper.querySql(
-                  'select id from UserLog where type = $readHistoryMask'))
-              .then((set) => set.map((r) => r['id'] as int).toList())
-              .then((value) => Response.ok(
-                  json.encode({'success': true, 'content': value}),
-                  headers: defaultRespHeader));
-        case 'bookmark':
-          return _manager
-              .manageUserLog(
-                  content.map((e) => e as int).toList(), bookMarkMask)
-              .then((v) => _manager.helper.querySql(
-                  'select id from UserLog where type = $bookMarkMask'))
-              .then((set) => set.map((r) => r['id'] as int).toList())
-              .then((value) => Response.ok(
-                  json.encode({'success': true, 'content': value}),
-                  headers: defaultRespHeader));
-        case 'lateRead':
-          return _manager
-              .manageUserLog(
-                  content.map((e) => e as int).toList(), lateReadMark)
-              .then((v) => _manager.helper.querySql(
-                  'select id from UserLog where type = $lateReadMark'))
-              .then((set) => set.map((r) => r['id'] as int).toList())
-              .then((value) => Response.ok(
-                  json.encode({'success': true, 'content': value}),
-                  headers: defaultRespHeader));
-        case 'admark':
-          return _manager
-              .addAdMark(content.map((e) => e as String).toList())
-              .then((value) => Response.ok(
-                  json.encode({'success': true, 'result': _manager.adImage}),
-                  headers: defaultRespHeader));
+      if (mark == admarkMask) {
+        return _manager
+            .addAdMark(content.map((e) => e as String).toList())
+            .then((value) => Response.ok(
+                json.encode({'success': value, 'result': _manager.adImage}),
+                headers: defaultRespHeader));
+      } else if ([readHistoryMask, bookMarkMask, lateReadMark].contains(mark)) {
+        return _manager
+            .manageUserLog(content.map((e) => e as int).toList(), mark)
+            .then((v) => _manager.helper
+                .querySql('select id from UserLog where type = $mark'))
+            .then((set) => set.map((r) => r['id'] as int).toList())
+            .then((value) => Response.ok(
+                json.encode({'success': true, 'content': value}),
+                headers: defaultRespHeader));
       }
+      return Response.badRequest();
     }
     return Response.unauthorized('unauth');
   }
