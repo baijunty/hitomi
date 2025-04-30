@@ -352,26 +352,33 @@ class _TaskWarp {
         .d('real ip $ip ${task.value['mark']} ${task.value['content'].length}');
     if (task.key && (ip.isEmpty || isLocalOrLAN(InternetAddress(ip)))) {
       int mark = task.value['mark'];
+      bool returnValue = task.value['returnValue'] ?? false;
       List<dynamic> content = task.value['content'];
       if (mark == admarkMask) {
         return _manager
             .addAdMark(content.map((e) => e as String).toList())
             .then((value) => Response.ok(
-                json.encode({'success': value, 'result': _manager.adImage}),
+                json.encode({
+                  'success': value,
+                  'content': returnValue ? _manager.adImage : []
+                }),
                 headers: defaultRespHeader));
       } else if ([readHistoryMask, bookMarkMask, lateReadMark].contains(mark)) {
         return _manager
             .manageUserLog(content.map((e) => e as int).toList(), mark)
-            .then((v) => _manager.helper
-                .querySql('select id from UserLog where type = $mark'))
-            .then((set) => set.map((r) => r['id'] as int).toList())
+            .then((v) async => returnValue
+                ? await _manager.helper
+                    .querySql(
+                        'select id,mark,type,content from UserLog where type = $mark')
+                    .then((set) => set.map((r) => r).toList())
+                : [])
             .then((value) => Response.ok(
                 json.encode({'success': true, 'content': value}),
                 headers: defaultRespHeader));
       }
       return Response.badRequest();
     }
-    return Response.unauthorized('unauth');
+    return Response.unauthorized('Unauthorized');
   }
 }
 

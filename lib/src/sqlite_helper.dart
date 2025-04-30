@@ -379,7 +379,7 @@ class SqliteHelper {
 
   Future<List<Map<String, dynamic>>> fetchLabelsFromSql(String name) async {
     var sets = await querySql(
-        'select type,name,translate,intro,links from Tags where name like ? or translate like ?',
+        'select type,name,translate,intro,links from Tags where name like ? or translate like ? limit 30',
         [name.toLowerCase(), name.toLowerCase()]);
     return sets.toList();
   }
