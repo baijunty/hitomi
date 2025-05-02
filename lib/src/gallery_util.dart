@@ -232,8 +232,7 @@ Future<List<int>> findDuplicateGalleryIds(
   if (gallery.groups != null) {
     await gallery.groups!
         .asStream()
-        .asyncMap(
-            (event) => helper.queryImageHashsByLabel('groupes', event.name))
+        .asyncMap((event) => helper.queryImageHashsByLabel('group', event.name))
         .fold(allFileHash, (previous, element) => previous..addAll(element));
   }
   if (allFileHash.isNotEmpty == true) {

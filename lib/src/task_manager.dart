@@ -289,7 +289,7 @@ class TaskManager {
               await gallery.groups!
                   .asStream()
                   .asyncMap(
-                      (event) => helper.queryGalleryByLabel('groupes', event))
+                      (event) => helper.queryGalleryByLabel('group', event))
                   .map((event) => event.fold(
                       <int, String>{}, (acc, m) => acc..[m['id']] = m['title']))
                   .fold(idTitleMap, (map, item) => map..addAll(item));
@@ -596,7 +596,7 @@ class TaskManager {
             ...config.languages.map((e) => Language(name: e)),
             TypeLabel('doujinshi'),
             TypeLabel('manga')
-          ], MapEntry('groupes', group), CancelToken(),
+          ], MapEntry('group', group), CancelToken(),
               onFinish: (success) async {
             _queryTasks.remove(label);
             _storage.remove(label);
