@@ -185,7 +185,7 @@ class SqliteHelper {
       int? date,
       List<int> extension = const []}) async {
     return excuteSqlAsync(
-        'replace into UserLog(id,value,type,content,date,extension) values (?,?,?,?,?)',
+        'replace into UserLog(id,value,type,content,date,extension) values (?,?,?,?,?,?)',
         [
           id,
           value,
