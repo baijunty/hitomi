@@ -17,7 +17,7 @@ import 'multi_paltform.dart' show openSqliteDb;
 
 class SqliteHelper {
   final String _dirPath;
-  static final _version = 13;
+  static final _version = 14;
   Logger? _logger = null;
   late CommonDatabase _db;
   CommonDatabase? __db;
@@ -162,9 +162,10 @@ class SqliteHelper {
       )''');
     db.execute('''create table if not exists UserLog(
       id integer,
-      mark integer,
+      value integer,
       type integer default 0,
       content Text,
+      date integer,
       extension BLOB,
       PRIMARY KEY(id,type)
       )''');
@@ -179,10 +180,20 @@ class SqliteHelper {
   }
 
   Future<bool> insertUserLog(int id, int type,
-      {int value = 0, String? content, List<int> extension = const []}) async {
+      {int value = 0,
+      String? content,
+      int? date,
+      List<int> extension = const []}) async {
     return excuteSqlAsync(
-        'replace into UserLog(id,mark,type,content,extension) values (?,?,?,?,?)',
-        [id, value, type, content, extension]);
+        'replace into UserLog(id,value,type,content,date,extension) values (?,?,?,?,?)',
+        [
+          id,
+          value,
+          type,
+          content,
+          date ?? DateTime.now().millisecondsSinceEpoch,
+          extension
+        ]);
   }
 
   Future<T?> readlData<T>(
@@ -323,6 +334,16 @@ class SqliteHelper {
               select id,path,language,title,createDate,type,date,mark,length,feature from GalleryTemp""");
           db.execute("drop table if exists GalleryTemp ");
           return 13;
+        }
+      case 13:
+        {
+          db.execute("drop table if exists UserLogTemp ");
+          db.execute("ALTER table UserLog rename to UserLogTemp");
+          createTables(db);
+          db.execute(
+              """insert into  UserLog(id,type,value,content,date,extension) 
+              select id,type,mark,content,null,null  from UserLogTemp""");
+          return 14;
         }
     }
     return oldVersion;

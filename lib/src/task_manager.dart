@@ -159,7 +159,7 @@ class TaskManager {
     helper
         .querySql('select * from UserLog where type=?', [1 << 17])
         .then((value) => value.map((element) =>
-            MapEntry<int, String>(element['mark'], element['content'])))
+            MapEntry<int, String>(element['value'], element['content'])))
         .then((value) {
           logger.d('load ${value.length} ads');
           _adImage.addAll(value);
@@ -525,7 +525,9 @@ class TaskManager {
         .asStream()
         .asyncMap((item) => item['id'] > 0
             ? helper.insertUserLog(item['id'], type,
-                value: item['mark'] ?? 0, content: item['content'])
+                value: item['mark'] ?? 0,
+                content: item['content'],
+                date: item['date'])
             : helper.delete('UserLog', {'id': item['id'] * -1, 'type': type}))
         .fold(true, (fs, f) => fs && f);
   }
