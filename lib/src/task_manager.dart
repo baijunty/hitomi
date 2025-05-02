@@ -525,7 +525,7 @@ class TaskManager {
         .asStream()
         .asyncMap((item) => item['id'] > 0
             ? helper.insertUserLog(item['id'], type,
-                value: item['mark'] ?? 0,
+                value: item['value'] ?? 0,
                 content: item['content'],
                 date: item['date'])
             : helper.delete('UserLog', {'id': item['id'] * -1, 'type': type}))

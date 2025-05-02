@@ -38,7 +38,7 @@ void main() async {
     await task.helper
         .querySql('select * from UserLog where type=?', [1 << 17])
         .then((value) => Map.fromEntries(value.map((element) =>
-            MapEntry<int, String>(element['mark'], element['content']))))
+            MapEntry<int, String>(element['value'], element['content']))))
         .then((m) {
           var list = m.entries
               .where((s) => compareHashDistance(s.key, 8589934592) < 4);

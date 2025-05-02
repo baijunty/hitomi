@@ -370,7 +370,7 @@ class _TaskWarp {
             .then((v) async => returnValue
                 ? await _manager.helper
                     .querySql(
-                        'select id,mark,type,content,date from UserLog where type = $mark')
+                        'select id,value,type,content,date from UserLog where type = $mark')
                     .then((set) => set.map((r) => r).toList())
                 : [])
             .then((value) => Response.ok(
