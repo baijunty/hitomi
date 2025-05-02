@@ -6,9 +6,8 @@ part of 'imagetagfeature.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
-_$ImageTagFeatureImpl _$$ImageTagFeatureImplFromJson(
-        Map<String, dynamic> json) =>
-    _$ImageTagFeatureImpl(
+_ImageTagFeature _$ImageTagFeatureFromJson(Map<String, dynamic> json) =>
+    _ImageTagFeature(
       json['fileName'] as String,
       (json['data'] as List<dynamic>?)
           ?.map((e) => (e as num).toDouble())
@@ -18,8 +17,7 @@ _$ImageTagFeatureImpl _$$ImageTagFeatureImplFromJson(
       ),
     );
 
-Map<String, dynamic> _$$ImageTagFeatureImplToJson(
-        _$ImageTagFeatureImpl instance) =>
+Map<String, dynamic> _$ImageTagFeatureToJson(_ImageTagFeature instance) =>
     <String, dynamic>{
       'fileName': instance.fileName,
       'data': instance.data,

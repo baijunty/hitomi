@@ -158,7 +158,8 @@ class DirScanner {
             <int, List<int>>{},
             (previousValue, element) => previousValue
               ..[element.key] = searchSimilerGaller(element, value,
-                  logger: _downLoader.logger)))
+                  logger: _downLoader.logger,
+                  threshold: _downLoader.config.threshold)))
         .then((value) => value..removeWhere((key, value) => value.isEmpty));
   }
 

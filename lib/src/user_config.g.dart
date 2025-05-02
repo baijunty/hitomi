@@ -6,8 +6,7 @@ part of 'user_config.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
-_$UserConfigImpl _$$UserConfigImplFromJson(Map<String, dynamic> json) =>
-    _$UserConfigImpl(
+_UserConfig _$UserConfigFromJson(Map<String, dynamic> json) => _UserConfig(
       json['output'] as String,
       maxTasks: (json['maxTasks'] as num?)?.toInt() ?? 5,
       languages: (json['languages'] as List<dynamic>?)
@@ -25,9 +24,10 @@ _$UserConfigImpl _$$UserConfigImplFromJson(Map<String, dynamic> json) =>
       logOutput: json['logOutput'] as String? ?? "",
       aiTagPath: json['aiTagPath'] as String? ?? "",
       remoteHttp: json['remoteHttp'] as String? ?? "127.0.0.1:7890",
+      threshold: (json['threshold'] as num?)?.toDouble() ?? 0.72,
     );
 
-Map<String, dynamic> _$$UserConfigImplToJson(_$UserConfigImpl instance) =>
+Map<String, dynamic> _$UserConfigToJson(_UserConfig instance) =>
     <String, dynamic>{
       'output': instance.output,
       'maxTasks': instance.maxTasks,
@@ -40,4 +40,5 @@ Map<String, dynamic> _$$UserConfigImplToJson(_$UserConfigImpl instance) =>
       'logOutput': instance.logOutput,
       'aiTagPath': instance.aiTagPath,
       'remoteHttp': instance.remoteHttp,
+      'threshold': instance.threshold,
     };

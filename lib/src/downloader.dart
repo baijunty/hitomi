@@ -301,6 +301,7 @@ class DownLoader {
           .then((v) => findDuplicateGalleryIds(
               gallery: gallery,
               helper: helper,
+              threshold: config.threshold,
               fileHashs: v.value,
               logger: logger))
           .then((value) async {
@@ -310,6 +311,7 @@ class DownLoader {
               .then((v) => findDuplicateGalleryIds(
                   gallery: gallery,
                   helper: helper,
+                  threshold: config.threshold,
                   fileHashs: v.value,
                   logger: logger,
                   reserved: true))
@@ -575,12 +577,13 @@ class DownLoader {
                 return MapEntry(event, <int>[]);
               }, test: (error) => true))
           .where((event) => searchSimilerGaller(
-                  MapEntry(event.key.id, event.value), allHash, logger: logger)
+                  MapEntry(event.key.id, event.value), allHash,
+                  logger: logger, threshold: config.threshold)
               .isEmpty)
           .fold(<int, List<int>>{}, (previous, element) {
             var duplicate = searchSimilerGaller(
                 MapEntry(element.key.id, element.value), previous,
-                logger: logger);
+                logger: logger, threshold: config.threshold);
             if (duplicate.isEmpty) {
               previous[element.key.id] = element.value;
             } else {

@@ -261,13 +261,15 @@ class TaskManager {
                     l.fold(<int, List<int>>{}, (m, e) => m..[e.key] = e.value));
                 return fetchGalleryHash(value, down, adHashes: adHash).then(
                     (v) => searchSimilerGaller(
-                        MapEntry(v.key.id, v.value), hashes));
+                        MapEntry(v.key.id, v.value), hashes,
+                        threshold: config.threshold));
               })
             : fetchGalleryHash(value, down, adHashes: adHash).then((v) =>
                 findDuplicateGalleryIds(
                     gallery: value,
                     helper: helper,
                     fileHashs: v.value,
+                    threshold: config.threshold,
                     logger: logger));
   }
 

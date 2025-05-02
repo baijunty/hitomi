@@ -4,7 +4,7 @@ part 'imagetagfeature.freezed.dart';
 part 'imagetagfeature.g.dart';
 
 @freezed
-class ImageTagFeature with _$ImageTagFeature {
+abstract class ImageTagFeature with _$ImageTagFeature {
   factory ImageTagFeature(
           String fileName, List<double>? data, Map<String, double>? tags) =
       _ImageTagFeature;

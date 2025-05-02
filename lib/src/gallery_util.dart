@@ -11,7 +11,7 @@ import '../gallery/gallery.dart';
 
 List<int> searchSimilerGaller(
     MapEntry<int, List<int>> gallery, Map<int, List<int>> all,
-    {Logger? logger, double threshold = 0.75}) {
+    {Logger? logger, double threshold = 0.72}) {
   try {
     final r = all.entries
         .where((element) =>
@@ -218,6 +218,7 @@ Future<List<int>> findDuplicateGalleryIds(
     {required Gallery gallery,
     required SqliteHelper helper,
     required List<int> fileHashs,
+    required double threshold,
     Logger? logger,
     CancelToken? token,
     bool reserved = false}) async {
@@ -240,12 +241,15 @@ Future<List<int>> findDuplicateGalleryIds(
     if (reserved) {
       var map = {value.key: value.value};
       var r = allFileHash.entries
-          .where((e) => searchSimilerGaller(e, map, logger: logger).isNotEmpty)
+          .where((e) =>
+              searchSimilerGaller(e, map, logger: logger, threshold: threshold)
+                  .isNotEmpty)
           .fold(<int>[],
               (previousValue, element) => previousValue..add(element.key));
       return r;
     }
-    return searchSimilerGaller(value, allFileHash, logger: logger);
+    return searchSimilerGaller(value, allFileHash,
+        logger: logger, threshold: threshold);
   }
   return [];
 }

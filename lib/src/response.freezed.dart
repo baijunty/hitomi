@@ -1,3 +1,4 @@
+// dart format width=80
 // coverage:ignore-file
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint
@@ -9,137 +10,30 @@ part of 'response.dart';
 // FreezedGenerator
 // **************************************************************************
 
+// dart format off
 T _$identity<T>(T value) => value;
-
-final _privateConstructorUsedError = UnsupportedError(
-    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
-
-DataResponse<T> _$DataResponseFromJson<T>(
-    Map<String, dynamic> json, T Function(Object?) fromJsonT) {
-  return _DataResponse<T>.fromJson(json, fromJsonT);
-}
 
 /// @nodoc
 mixin _$DataResponse<T> {
-  T get data => throw _privateConstructorUsedError;
-  int get totalCount => throw _privateConstructorUsedError;
-
-  /// Serializes this DataResponse to a JSON map.
-  Map<String, dynamic> toJson(Object? Function(T) toJsonT) =>
-      throw _privateConstructorUsedError;
+  T get data;
+  int get totalCount;
 
   /// Create a copy of DataResponse
   /// with the given fields replaced by the non-null parameter values.
   @JsonKey(includeFromJson: false, includeToJson: false)
+  @pragma('vm:prefer-inline')
   $DataResponseCopyWith<T, DataResponse<T>> get copyWith =>
-      throw _privateConstructorUsedError;
-}
+      _$DataResponseCopyWithImpl<T, DataResponse<T>>(
+          this as DataResponse<T>, _$identity);
 
-/// @nodoc
-abstract class $DataResponseCopyWith<T, $Res> {
-  factory $DataResponseCopyWith(
-          DataResponse<T> value, $Res Function(DataResponse<T>) then) =
-      _$DataResponseCopyWithImpl<T, $Res, DataResponse<T>>;
-  @useResult
-  $Res call({T data, int totalCount});
-}
-
-/// @nodoc
-class _$DataResponseCopyWithImpl<T, $Res, $Val extends DataResponse<T>>
-    implements $DataResponseCopyWith<T, $Res> {
-  _$DataResponseCopyWithImpl(this._value, this._then);
-
-  // ignore: unused_field
-  final $Val _value;
-  // ignore: unused_field
-  final $Res Function($Val) _then;
-
-  /// Create a copy of DataResponse
-  /// with the given fields replaced by the non-null parameter values.
-  @pragma('vm:prefer-inline')
-  @override
-  $Res call({
-    Object? data = freezed,
-    Object? totalCount = null,
-  }) {
-    return _then(_value.copyWith(
-      data: freezed == data
-          ? _value.data
-          : data // ignore: cast_nullable_to_non_nullable
-              as T,
-      totalCount: null == totalCount
-          ? _value.totalCount
-          : totalCount // ignore: cast_nullable_to_non_nullable
-              as int,
-    ) as $Val);
-  }
-}
-
-/// @nodoc
-abstract class _$$DataResponseImplCopyWith<T, $Res>
-    implements $DataResponseCopyWith<T, $Res> {
-  factory _$$DataResponseImplCopyWith(_$DataResponseImpl<T> value,
-          $Res Function(_$DataResponseImpl<T>) then) =
-      __$$DataResponseImplCopyWithImpl<T, $Res>;
-  @override
-  @useResult
-  $Res call({T data, int totalCount});
-}
-
-/// @nodoc
-class __$$DataResponseImplCopyWithImpl<T, $Res>
-    extends _$DataResponseCopyWithImpl<T, $Res, _$DataResponseImpl<T>>
-    implements _$$DataResponseImplCopyWith<T, $Res> {
-  __$$DataResponseImplCopyWithImpl(
-      _$DataResponseImpl<T> _value, $Res Function(_$DataResponseImpl<T>) _then)
-      : super(_value, _then);
-
-  /// Create a copy of DataResponse
-  /// with the given fields replaced by the non-null parameter values.
-  @pragma('vm:prefer-inline')
-  @override
-  $Res call({
-    Object? data = freezed,
-    Object? totalCount = null,
-  }) {
-    return _then(_$DataResponseImpl<T>(
-      freezed == data
-          ? _value.data
-          : data // ignore: cast_nullable_to_non_nullable
-              as T,
-      totalCount: null == totalCount
-          ? _value.totalCount
-          : totalCount // ignore: cast_nullable_to_non_nullable
-              as int,
-    ));
-  }
-}
-
-/// @nodoc
-@JsonSerializable(genericArgumentFactories: true)
-class _$DataResponseImpl<T> implements _DataResponse<T> {
-  _$DataResponseImpl(this.data, {this.totalCount = 0});
-
-  factory _$DataResponseImpl.fromJson(
-          Map<String, dynamic> json, T Function(Object?) fromJsonT) =>
-      _$$DataResponseImplFromJson(json, fromJsonT);
-
-  @override
-  final T data;
-  @override
-  @JsonKey()
-  final int totalCount;
-
-  @override
-  String toString() {
-    return 'DataResponse<$T>(data: $data, totalCount: $totalCount)';
-  }
+  /// Serializes this DataResponse to a JSON map.
+  Map<String, dynamic> toJson(Object? Function(T) toJsonT);
 
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
-            other is _$DataResponseImpl<T> &&
+            other is DataResponse<T> &&
             const DeepCollectionEquality().equals(other.data, data) &&
             (identical(other.totalCount, totalCount) ||
                 other.totalCount == totalCount));
@@ -150,38 +44,136 @@ class _$DataResponseImpl<T> implements _DataResponse<T> {
   int get hashCode => Object.hash(
       runtimeType, const DeepCollectionEquality().hash(data), totalCount);
 
-  /// Create a copy of DataResponse
-  /// with the given fields replaced by the non-null parameter values.
-  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  @pragma('vm:prefer-inline')
-  _$$DataResponseImplCopyWith<T, _$DataResponseImpl<T>> get copyWith =>
-      __$$DataResponseImplCopyWithImpl<T, _$DataResponseImpl<T>>(
-          this, _$identity);
-
-  @override
-  Map<String, dynamic> toJson(Object? Function(T) toJsonT) {
-    return _$$DataResponseImplToJson<T>(this, toJsonT);
+  String toString() {
+    return 'DataResponse<$T>(data: $data, totalCount: $totalCount)';
   }
 }
 
-abstract class _DataResponse<T> implements DataResponse<T> {
-  factory _DataResponse(final T data, {final int totalCount}) =
-      _$DataResponseImpl<T>;
+/// @nodoc
+abstract mixin class $DataResponseCopyWith<T, $Res> {
+  factory $DataResponseCopyWith(
+          DataResponse<T> value, $Res Function(DataResponse<T>) _then) =
+      _$DataResponseCopyWithImpl;
+  @useResult
+  $Res call({T data, int totalCount});
+}
 
+/// @nodoc
+class _$DataResponseCopyWithImpl<T, $Res>
+    implements $DataResponseCopyWith<T, $Res> {
+  _$DataResponseCopyWithImpl(this._self, this._then);
+
+  final DataResponse<T> _self;
+  final $Res Function(DataResponse<T>) _then;
+
+  /// Create a copy of DataResponse
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? data = freezed,
+    Object? totalCount = null,
+  }) {
+    return _then(_self.copyWith(
+      data: freezed == data
+          ? _self.data
+          : data // ignore: cast_nullable_to_non_nullable
+              as T,
+      totalCount: null == totalCount
+          ? _self.totalCount
+          : totalCount // ignore: cast_nullable_to_non_nullable
+              as int,
+    ));
+  }
+}
+
+/// @nodoc
+@JsonSerializable(genericArgumentFactories: true)
+class _DataResponse<T> implements DataResponse<T> {
+  _DataResponse(this.data, {this.totalCount = 0});
   factory _DataResponse.fromJson(
-          Map<String, dynamic> json, T Function(Object?) fromJsonT) =
-      _$DataResponseImpl<T>.fromJson;
+          Map<String, dynamic> json, T Function(Object?) fromJsonT) =>
+      _$DataResponseFromJson(json, fromJsonT);
 
   @override
-  T get data;
+  final T data;
   @override
-  int get totalCount;
+  @JsonKey()
+  final int totalCount;
 
   /// Create a copy of DataResponse
   /// with the given fields replaced by the non-null parameter values.
   @override
   @JsonKey(includeFromJson: false, includeToJson: false)
-  _$$DataResponseImplCopyWith<T, _$DataResponseImpl<T>> get copyWith =>
-      throw _privateConstructorUsedError;
+  @pragma('vm:prefer-inline')
+  _$DataResponseCopyWith<T, _DataResponse<T>> get copyWith =>
+      __$DataResponseCopyWithImpl<T, _DataResponse<T>>(this, _$identity);
+
+  @override
+  Map<String, dynamic> toJson(Object? Function(T) toJsonT) {
+    return _$DataResponseToJson<T>(this, toJsonT);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _DataResponse<T> &&
+            const DeepCollectionEquality().equals(other.data, data) &&
+            (identical(other.totalCount, totalCount) ||
+                other.totalCount == totalCount));
+  }
+
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  int get hashCode => Object.hash(
+      runtimeType, const DeepCollectionEquality().hash(data), totalCount);
+
+  @override
+  String toString() {
+    return 'DataResponse<$T>(data: $data, totalCount: $totalCount)';
+  }
 }
+
+/// @nodoc
+abstract mixin class _$DataResponseCopyWith<T, $Res>
+    implements $DataResponseCopyWith<T, $Res> {
+  factory _$DataResponseCopyWith(
+          _DataResponse<T> value, $Res Function(_DataResponse<T>) _then) =
+      __$DataResponseCopyWithImpl;
+  @override
+  @useResult
+  $Res call({T data, int totalCount});
+}
+
+/// @nodoc
+class __$DataResponseCopyWithImpl<T, $Res>
+    implements _$DataResponseCopyWith<T, $Res> {
+  __$DataResponseCopyWithImpl(this._self, this._then);
+
+  final _DataResponse<T> _self;
+  final $Res Function(_DataResponse<T>) _then;
+
+  /// Create a copy of DataResponse
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @pragma('vm:prefer-inline')
+  $Res call({
+    Object? data = freezed,
+    Object? totalCount = null,
+  }) {
+    return _then(_DataResponse<T>(
+      freezed == data
+          ? _self.data
+          : data // ignore: cast_nullable_to_non_nullable
+              as T,
+      totalCount: null == totalCount
+          ? _self.totalCount
+          : totalCount // ignore: cast_nullable_to_non_nullable
+              as int,
+    ));
+  }
+}
+
+// dart format on

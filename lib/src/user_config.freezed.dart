@@ -1,3 +1,4 @@
+// dart format width=80
 // coverage:ignore-file
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint
@@ -9,142 +10,88 @@ part of 'user_config.dart';
 // FreezedGenerator
 // **************************************************************************
 
+// dart format off
 T _$identity<T>(T value) => value;
-
-final _privateConstructorUsedError = UnsupportedError(
-    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
-
-UserConfig _$UserConfigFromJson(Map<String, dynamic> json) {
-  return _UserConfig.fromJson(json);
-}
 
 /// @nodoc
 mixin _$UserConfig {
-  String get output => throw _privateConstructorUsedError;
-  int get maxTasks => throw _privateConstructorUsedError;
-  List<String> get languages => throw _privateConstructorUsedError;
-  String get proxy => throw _privateConstructorUsedError;
-  List<FilterLabel> get excludes => throw _privateConstructorUsedError;
-  String get dateLimit => throw _privateConstructorUsedError;
-  String get auth => throw _privateConstructorUsedError;
-  String get logLevel => throw _privateConstructorUsedError;
-  String get logOutput => throw _privateConstructorUsedError;
-  String get aiTagPath => throw _privateConstructorUsedError;
-  String get remoteHttp => throw _privateConstructorUsedError;
-
-  /// Serializes this UserConfig to a JSON map.
-  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
+  String get output;
+  int get maxTasks;
+  List<String> get languages;
+  String get proxy;
+  List<FilterLabel> get excludes;
+  String get dateLimit;
+  String get auth;
+  String get logLevel;
+  String get logOutput;
+  String get aiTagPath;
+  String get remoteHttp;
+  double get threshold;
 
   /// Create a copy of UserConfig
   /// with the given fields replaced by the non-null parameter values.
   @JsonKey(includeFromJson: false, includeToJson: false)
-  $UserConfigCopyWith<UserConfig> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-/// @nodoc
-abstract class $UserConfigCopyWith<$Res> {
-  factory $UserConfigCopyWith(
-          UserConfig value, $Res Function(UserConfig) then) =
-      _$UserConfigCopyWithImpl<$Res, UserConfig>;
-  @useResult
-  $Res call(
-      {String output,
-      int maxTasks,
-      List<String> languages,
-      String proxy,
-      List<FilterLabel> excludes,
-      String dateLimit,
-      String auth,
-      String logLevel,
-      String logOutput,
-      String aiTagPath,
-      String remoteHttp});
-}
-
-/// @nodoc
-class _$UserConfigCopyWithImpl<$Res, $Val extends UserConfig>
-    implements $UserConfigCopyWith<$Res> {
-  _$UserConfigCopyWithImpl(this._value, this._then);
-
-  // ignore: unused_field
-  final $Val _value;
-  // ignore: unused_field
-  final $Res Function($Val) _then;
-
-  /// Create a copy of UserConfig
-  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
+  $UserConfigCopyWith<UserConfig> get copyWith =>
+      _$UserConfigCopyWithImpl<UserConfig>(this as UserConfig, _$identity);
+
+  /// Serializes this UserConfig to a JSON map.
+  Map<String, dynamic> toJson();
+
   @override
-  $Res call({
-    Object? output = null,
-    Object? maxTasks = null,
-    Object? languages = null,
-    Object? proxy = null,
-    Object? excludes = null,
-    Object? dateLimit = null,
-    Object? auth = null,
-    Object? logLevel = null,
-    Object? logOutput = null,
-    Object? aiTagPath = null,
-    Object? remoteHttp = null,
-  }) {
-    return _then(_value.copyWith(
-      output: null == output
-          ? _value.output
-          : output // ignore: cast_nullable_to_non_nullable
-              as String,
-      maxTasks: null == maxTasks
-          ? _value.maxTasks
-          : maxTasks // ignore: cast_nullable_to_non_nullable
-              as int,
-      languages: null == languages
-          ? _value.languages
-          : languages // ignore: cast_nullable_to_non_nullable
-              as List<String>,
-      proxy: null == proxy
-          ? _value.proxy
-          : proxy // ignore: cast_nullable_to_non_nullable
-              as String,
-      excludes: null == excludes
-          ? _value.excludes
-          : excludes // ignore: cast_nullable_to_non_nullable
-              as List<FilterLabel>,
-      dateLimit: null == dateLimit
-          ? _value.dateLimit
-          : dateLimit // ignore: cast_nullable_to_non_nullable
-              as String,
-      auth: null == auth
-          ? _value.auth
-          : auth // ignore: cast_nullable_to_non_nullable
-              as String,
-      logLevel: null == logLevel
-          ? _value.logLevel
-          : logLevel // ignore: cast_nullable_to_non_nullable
-              as String,
-      logOutput: null == logOutput
-          ? _value.logOutput
-          : logOutput // ignore: cast_nullable_to_non_nullable
-              as String,
-      aiTagPath: null == aiTagPath
-          ? _value.aiTagPath
-          : aiTagPath // ignore: cast_nullable_to_non_nullable
-              as String,
-      remoteHttp: null == remoteHttp
-          ? _value.remoteHttp
-          : remoteHttp // ignore: cast_nullable_to_non_nullable
-              as String,
-    ) as $Val);
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is UserConfig &&
+            (identical(other.output, output) || other.output == output) &&
+            (identical(other.maxTasks, maxTasks) ||
+                other.maxTasks == maxTasks) &&
+            const DeepCollectionEquality().equals(other.languages, languages) &&
+            (identical(other.proxy, proxy) || other.proxy == proxy) &&
+            const DeepCollectionEquality().equals(other.excludes, excludes) &&
+            (identical(other.dateLimit, dateLimit) ||
+                other.dateLimit == dateLimit) &&
+            (identical(other.auth, auth) || other.auth == auth) &&
+            (identical(other.logLevel, logLevel) ||
+                other.logLevel == logLevel) &&
+            (identical(other.logOutput, logOutput) ||
+                other.logOutput == logOutput) &&
+            (identical(other.aiTagPath, aiTagPath) ||
+                other.aiTagPath == aiTagPath) &&
+            (identical(other.remoteHttp, remoteHttp) ||
+                other.remoteHttp == remoteHttp) &&
+            (identical(other.threshold, threshold) ||
+                other.threshold == threshold));
+  }
+
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  int get hashCode => Object.hash(
+      runtimeType,
+      output,
+      maxTasks,
+      const DeepCollectionEquality().hash(languages),
+      proxy,
+      const DeepCollectionEquality().hash(excludes),
+      dateLimit,
+      auth,
+      logLevel,
+      logOutput,
+      aiTagPath,
+      remoteHttp,
+      threshold);
+
+  @override
+  String toString() {
+    return 'UserConfig(output: $output, maxTasks: $maxTasks, languages: $languages, proxy: $proxy, excludes: $excludes, dateLimit: $dateLimit, auth: $auth, logLevel: $logLevel, logOutput: $logOutput, aiTagPath: $aiTagPath, remoteHttp: $remoteHttp, threshold: $threshold)';
   }
 }
 
 /// @nodoc
-abstract class _$$UserConfigImplCopyWith<$Res>
-    implements $UserConfigCopyWith<$Res> {
-  factory _$$UserConfigImplCopyWith(
-          _$UserConfigImpl value, $Res Function(_$UserConfigImpl) then) =
-      __$$UserConfigImplCopyWithImpl<$Res>;
-  @override
+abstract mixin class $UserConfigCopyWith<$Res> {
+  factory $UserConfigCopyWith(
+          UserConfig value, $Res Function(UserConfig) _then) =
+      _$UserConfigCopyWithImpl;
   @useResult
   $Res call(
       {String output,
@@ -157,16 +104,16 @@ abstract class _$$UserConfigImplCopyWith<$Res>
       String logLevel,
       String logOutput,
       String aiTagPath,
-      String remoteHttp});
+      String remoteHttp,
+      double threshold});
 }
 
 /// @nodoc
-class __$$UserConfigImplCopyWithImpl<$Res>
-    extends _$UserConfigCopyWithImpl<$Res, _$UserConfigImpl>
-    implements _$$UserConfigImplCopyWith<$Res> {
-  __$$UserConfigImplCopyWithImpl(
-      _$UserConfigImpl _value, $Res Function(_$UserConfigImpl) _then)
-      : super(_value, _then);
+class _$UserConfigCopyWithImpl<$Res> implements $UserConfigCopyWith<$Res> {
+  _$UserConfigCopyWithImpl(this._self, this._then);
+
+  final UserConfig _self;
+  final $Res Function(UserConfig) _then;
 
   /// Create a copy of UserConfig
   /// with the given fields replaced by the non-null parameter values.
@@ -184,60 +131,65 @@ class __$$UserConfigImplCopyWithImpl<$Res>
     Object? logOutput = null,
     Object? aiTagPath = null,
     Object? remoteHttp = null,
+    Object? threshold = null,
   }) {
-    return _then(_$UserConfigImpl(
-      null == output
-          ? _value.output
+    return _then(_self.copyWith(
+      output: null == output
+          ? _self.output
           : output // ignore: cast_nullable_to_non_nullable
               as String,
       maxTasks: null == maxTasks
-          ? _value.maxTasks
+          ? _self.maxTasks
           : maxTasks // ignore: cast_nullable_to_non_nullable
               as int,
       languages: null == languages
-          ? _value._languages
+          ? _self.languages
           : languages // ignore: cast_nullable_to_non_nullable
               as List<String>,
       proxy: null == proxy
-          ? _value.proxy
+          ? _self.proxy
           : proxy // ignore: cast_nullable_to_non_nullable
               as String,
       excludes: null == excludes
-          ? _value._excludes
+          ? _self.excludes
           : excludes // ignore: cast_nullable_to_non_nullable
               as List<FilterLabel>,
       dateLimit: null == dateLimit
-          ? _value.dateLimit
+          ? _self.dateLimit
           : dateLimit // ignore: cast_nullable_to_non_nullable
               as String,
       auth: null == auth
-          ? _value.auth
+          ? _self.auth
           : auth // ignore: cast_nullable_to_non_nullable
               as String,
       logLevel: null == logLevel
-          ? _value.logLevel
+          ? _self.logLevel
           : logLevel // ignore: cast_nullable_to_non_nullable
               as String,
       logOutput: null == logOutput
-          ? _value.logOutput
+          ? _self.logOutput
           : logOutput // ignore: cast_nullable_to_non_nullable
               as String,
       aiTagPath: null == aiTagPath
-          ? _value.aiTagPath
+          ? _self.aiTagPath
           : aiTagPath // ignore: cast_nullable_to_non_nullable
               as String,
       remoteHttp: null == remoteHttp
-          ? _value.remoteHttp
+          ? _self.remoteHttp
           : remoteHttp // ignore: cast_nullable_to_non_nullable
               as String,
+      threshold: null == threshold
+          ? _self.threshold
+          : threshold // ignore: cast_nullable_to_non_nullable
+              as double,
     ));
   }
 }
 
 /// @nodoc
 @JsonSerializable()
-class _$UserConfigImpl implements _UserConfig {
-  _$UserConfigImpl(this.output,
+class _UserConfig implements UserConfig {
+  _UserConfig(this.output,
       {this.maxTasks = 5,
       final List<String> languages = const ["japanese", "chinese"],
       this.proxy = "",
@@ -247,12 +199,12 @@ class _$UserConfigImpl implements _UserConfig {
       this.logLevel = "debug",
       this.logOutput = "",
       this.aiTagPath = "",
-      this.remoteHttp = "127.0.0.1:7890"})
+      this.remoteHttp = "127.0.0.1:7890",
+      this.threshold = 0.72})
       : _languages = languages,
         _excludes = excludes;
-
-  factory _$UserConfigImpl.fromJson(Map<String, dynamic> json) =>
-      _$$UserConfigImplFromJson(json);
+  factory _UserConfig.fromJson(Map<String, dynamic> json) =>
+      _$UserConfigFromJson(json);
 
   @override
   final String output;
@@ -298,17 +250,30 @@ class _$UserConfigImpl implements _UserConfig {
   @override
   @JsonKey()
   final String remoteHttp;
+  @override
+  @JsonKey()
+  final double threshold;
+
+  /// Create a copy of UserConfig
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @pragma('vm:prefer-inline')
+  _$UserConfigCopyWith<_UserConfig> get copyWith =>
+      __$UserConfigCopyWithImpl<_UserConfig>(this, _$identity);
 
   @override
-  String toString() {
-    return 'UserConfig(output: $output, maxTasks: $maxTasks, languages: $languages, proxy: $proxy, excludes: $excludes, dateLimit: $dateLimit, auth: $auth, logLevel: $logLevel, logOutput: $logOutput, aiTagPath: $aiTagPath, remoteHttp: $remoteHttp)';
+  Map<String, dynamic> toJson() {
+    return _$UserConfigToJson(
+      this,
+    );
   }
 
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
-            other is _$UserConfigImpl &&
+            other is _UserConfig &&
             (identical(other.output, output) || other.output == output) &&
             (identical(other.maxTasks, maxTasks) ||
                 other.maxTasks == maxTasks) &&
@@ -326,7 +291,9 @@ class _$UserConfigImpl implements _UserConfig {
             (identical(other.aiTagPath, aiTagPath) ||
                 other.aiTagPath == aiTagPath) &&
             (identical(other.remoteHttp, remoteHttp) ||
-                other.remoteHttp == remoteHttp));
+                other.remoteHttp == remoteHttp) &&
+            (identical(other.threshold, threshold) ||
+                other.threshold == threshold));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -343,67 +310,114 @@ class _$UserConfigImpl implements _UserConfig {
       logLevel,
       logOutput,
       aiTagPath,
-      remoteHttp);
-
-  /// Create a copy of UserConfig
-  /// with the given fields replaced by the non-null parameter values.
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  @override
-  @pragma('vm:prefer-inline')
-  _$$UserConfigImplCopyWith<_$UserConfigImpl> get copyWith =>
-      __$$UserConfigImplCopyWithImpl<_$UserConfigImpl>(this, _$identity);
+      remoteHttp,
+      threshold);
 
   @override
-  Map<String, dynamic> toJson() {
-    return _$$UserConfigImplToJson(
-      this,
-    );
+  String toString() {
+    return 'UserConfig(output: $output, maxTasks: $maxTasks, languages: $languages, proxy: $proxy, excludes: $excludes, dateLimit: $dateLimit, auth: $auth, logLevel: $logLevel, logOutput: $logOutput, aiTagPath: $aiTagPath, remoteHttp: $remoteHttp, threshold: $threshold)';
   }
 }
 
-abstract class _UserConfig implements UserConfig {
-  factory _UserConfig(final String output,
-      {final int maxTasks,
-      final List<String> languages,
-      final String proxy,
-      final List<FilterLabel> excludes,
-      final String dateLimit,
-      final String auth,
-      final String logLevel,
-      final String logOutput,
-      final String aiTagPath,
-      final String remoteHttp}) = _$UserConfigImpl;
+/// @nodoc
+abstract mixin class _$UserConfigCopyWith<$Res>
+    implements $UserConfigCopyWith<$Res> {
+  factory _$UserConfigCopyWith(
+          _UserConfig value, $Res Function(_UserConfig) _then) =
+      __$UserConfigCopyWithImpl;
+  @override
+  @useResult
+  $Res call(
+      {String output,
+      int maxTasks,
+      List<String> languages,
+      String proxy,
+      List<FilterLabel> excludes,
+      String dateLimit,
+      String auth,
+      String logLevel,
+      String logOutput,
+      String aiTagPath,
+      String remoteHttp,
+      double threshold});
+}
 
-  factory _UserConfig.fromJson(Map<String, dynamic> json) =
-      _$UserConfigImpl.fromJson;
+/// @nodoc
+class __$UserConfigCopyWithImpl<$Res> implements _$UserConfigCopyWith<$Res> {
+  __$UserConfigCopyWithImpl(this._self, this._then);
 
-  @override
-  String get output;
-  @override
-  int get maxTasks;
-  @override
-  List<String> get languages;
-  @override
-  String get proxy;
-  @override
-  List<FilterLabel> get excludes;
-  @override
-  String get dateLimit;
-  @override
-  String get auth;
-  @override
-  String get logLevel;
-  @override
-  String get logOutput;
-  @override
-  String get aiTagPath;
-  @override
-  String get remoteHttp;
+  final _UserConfig _self;
+  final $Res Function(_UserConfig) _then;
 
   /// Create a copy of UserConfig
   /// with the given fields replaced by the non-null parameter values.
   @override
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  _$$UserConfigImplCopyWith<_$UserConfigImpl> get copyWith =>
-      throw _privateConstructorUsedError;
+  @pragma('vm:prefer-inline')
+  $Res call({
+    Object? output = null,
+    Object? maxTasks = null,
+    Object? languages = null,
+    Object? proxy = null,
+    Object? excludes = null,
+    Object? dateLimit = null,
+    Object? auth = null,
+    Object? logLevel = null,
+    Object? logOutput = null,
+    Object? aiTagPath = null,
+    Object? remoteHttp = null,
+    Object? threshold = null,
+  }) {
+    return _then(_UserConfig(
+      null == output
+          ? _self.output
+          : output // ignore: cast_nullable_to_non_nullable
+              as String,
+      maxTasks: null == maxTasks
+          ? _self.maxTasks
+          : maxTasks // ignore: cast_nullable_to_non_nullable
+              as int,
+      languages: null == languages
+          ? _self._languages
+          : languages // ignore: cast_nullable_to_non_nullable
+              as List<String>,
+      proxy: null == proxy
+          ? _self.proxy
+          : proxy // ignore: cast_nullable_to_non_nullable
+              as String,
+      excludes: null == excludes
+          ? _self._excludes
+          : excludes // ignore: cast_nullable_to_non_nullable
+              as List<FilterLabel>,
+      dateLimit: null == dateLimit
+          ? _self.dateLimit
+          : dateLimit // ignore: cast_nullable_to_non_nullable
+              as String,
+      auth: null == auth
+          ? _self.auth
+          : auth // ignore: cast_nullable_to_non_nullable
+              as String,
+      logLevel: null == logLevel
+          ? _self.logLevel
+          : logLevel // ignore: cast_nullable_to_non_nullable
+              as String,
+      logOutput: null == logOutput
+          ? _self.logOutput
+          : logOutput // ignore: cast_nullable_to_non_nullable
+              as String,
+      aiTagPath: null == aiTagPath
+          ? _self.aiTagPath
+          : aiTagPath // ignore: cast_nullable_to_non_nullable
+              as String,
+      remoteHttp: null == remoteHttp
+          ? _self.remoteHttp
+          : remoteHttp // ignore: cast_nullable_to_non_nullable
+              as String,
+      threshold: null == threshold
+          ? _self.threshold
+          : threshold // ignore: cast_nullable_to_non_nullable
+              as double,
+    ));
+  }
 }
+
+// dart format on

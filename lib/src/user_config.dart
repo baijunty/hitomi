@@ -7,7 +7,7 @@ part 'user_config.g.dart';
 
 @immutable
 @freezed
-class UserConfig with _$UserConfig {
+abstract class UserConfig with _$UserConfig {
   factory UserConfig(
     String output, {
     @Default(5) int maxTasks,
@@ -20,6 +20,7 @@ class UserConfig with _$UserConfig {
     @Default("") String logOutput,
     @Default("") String aiTagPath,
     @Default("127.0.0.1:7890") String remoteHttp,
+    @Default(0.72) double threshold,
   }) = _UserConfig;
   factory UserConfig.fromJson(Map<String, Object> json) =>
       _$UserConfigFromJson(json);

@@ -308,7 +308,10 @@ class _LocalHitomiImpl implements Hitomi {
       {CancelToken? token}) {
     return fetchGalleryHash(gallery, _manager.down, adHashes: _manager.adHash)
         .then((value) => findDuplicateGalleryIds(
-            gallery: gallery, helper: _manager.helper, fileHashs: value.value))
+            gallery: gallery,
+            helper: _manager.helper,
+            threshold: _manager.config.threshold,
+            fileHashs: value.value))
         .then((value) => Future.wait(value.map((e) => fetchGallery(e))))
         .then((value) => DataResponse(value, totalCount: value.length));
   }

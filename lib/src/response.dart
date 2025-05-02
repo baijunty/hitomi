@@ -4,7 +4,7 @@ part 'response.freezed.dart';
 part 'response.g.dart';
 
 @Freezed(genericArgumentFactories: true)
-class DataResponse<T> with _$DataResponse<T> {
+abstract class DataResponse<T> with _$DataResponse<T> {
   factory DataResponse(
     T data, {
     @Default(0) int totalCount,
@@ -15,9 +15,4 @@ class DataResponse<T> with _$DataResponse<T> {
       _$DataResponseFromJson(json, fromJsonT);
   factory DataResponse.fromStr(String jsonStr, T Function(Object?) fromJsonT) =>
       _$DataResponseFromJson(json.decode(jsonStr), fromJsonT);
-
-  @override
-  Map<String, dynamic> toJson(Object? Function(T p1) toJsonT) {
-    return super.toJson(toJsonT);
-  }
 }
