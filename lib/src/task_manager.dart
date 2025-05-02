@@ -520,7 +520,7 @@ class TaskManager {
         });
   }
 
-  Future<bool> manageUserLog(List<Map<int, dynamic>> items, int type) async {
+  Future<bool> manageUserLog(List<Map<String, dynamic>> items, int type) async {
     return items
         .asStream()
         .asyncMap((item) => item['id'] > 0

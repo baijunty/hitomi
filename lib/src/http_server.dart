@@ -366,7 +366,7 @@ class _TaskWarp {
       } else if ([readHistoryMask, bookMarkMask, lateReadMark].contains(mark)) {
         return _manager
             .manageUserLog(
-                content.map((e) => e as Map<int, dynamic>).toList(), mark)
+                content.map((e) => e as Map<String, dynamic>).toList(), mark)
             .then((v) async => returnValue
                 ? await _manager.helper
                     .querySql(
