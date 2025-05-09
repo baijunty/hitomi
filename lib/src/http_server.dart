@@ -109,6 +109,8 @@ class _TaskWarp {
   Future<Response> _proxy(Request req) async {
     final task = await _authToken(req);
     final method = req.params['method'];
+    final ip = req.headers['x-real-ip'] ?? '';
+    _manager.logger.d('real ip $ip');
     if (task.key && method?.isNotEmpty == true) {
       switch (method!) {
         case 'fetchGallery':
@@ -170,7 +172,6 @@ class _TaskWarp {
           }
         default:
           {
-            _manager.logger.d('method $method');
             return Response.badRequest();
           }
       }
@@ -261,10 +262,10 @@ class _TaskWarp {
   Future<Response> _checkId(Request req) async {
     final task = await _authToken(req);
     if (task.key) {
-      int id = task.value['id'];
+      List<dynamic> ids = task.value['ids'];
       return _manager
-          .checkExistsId(id)
-          .then((value) => {'id': id, 'value': value})
+          .checkExistsId(ids)
+          .then((value) => {'success': true, 'value': value})
           .then((value) =>
               Response.ok(json.encode(value), headers: defaultRespHeader));
     }
@@ -381,16 +382,6 @@ class _TaskWarp {
     }
     return Response.unauthorized('Unauthorized');
   }
-}
-
-SecurityContext getSecurityContext() {
-  // Bind with a secure HTTPS connection
-  final chain = Platform.script.resolve('../server.crt').toFilePath();
-  final key = Platform.script.resolve('../server.key').toFilePath();
-
-  return SecurityContext()
-    ..useCertificateChain(chain)
-    ..usePrivateKey(key, password: 'bai551302');
 }
 
 Future<HttpServer> run_server(TaskManager manager) async {

@@ -214,7 +214,6 @@ class DownLoader {
       return false;
     }
     if (!(DateTime.parse(gallery.date).compareTo(limit) > 0 &&
-        (gallery.artists?.length ?? 0) <= 2 &&
         gallery.files.length >= 18)) {
       logger?.d('$gallery not match filter');
       return false;
@@ -629,7 +628,8 @@ class DownLoader {
       {void Function(bool success)? onFinish,
       bool Function(Gallery gallery)? where}) async {
     if (where == null) {
-      where = filter;
+      where = (Gallery gallery) =>
+          filter(gallery) && (gallery.artists?.length ?? 0) <= 2;
     }
     final results = await fetchGallerysByTags(tags, where, token, entry)
         .then((value) async {

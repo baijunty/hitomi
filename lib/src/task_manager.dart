@@ -224,16 +224,24 @@ class TaskManager {
     return [];
   }
 
-  Future<List<int>> checkExistsId(int id) async {
-    var row = await helper.querySql('select 1 from Gallery where id=?',
-        [id]).then((value) => value.firstOrNull);
+  Future<List<int>> checkExistsId(List<dynamic> ids) async {
+    var row = await helper
+        .selectSqlMultiResultAsync(
+            'select id from Gallery where id=?', ids.map((e) => [e]).toList())
+        .then((value) =>
+            value.values.firstWhereOrNull((set) => set.firstOrNull?['id']));
     if (row != null) {
-      return [id];
+      return row.first['id'];
     }
-    var value = await _api.fetchGallery(id, usePrefence: false);
-    return value.createDir(config.output, createDir: false).existsSync()
+    var values = await Future.wait(ids
+        .map((id) => _api.fetchGallery(id, usePrefence: id != ids.first))
+        .toList());
+    var exists = values.firstWhereOrNull((value) =>
+        value.createDir(config.output, createDir: false).existsSync());
+    var value = values.first;
+    return exists != null
         ? readGalleryFromPath(
-                value.createDir(config.output, createDir: false).path, logger)
+                exists.createDir(config.output, createDir: false).path, logger)
             .then((value) => [value.id])
         : !value.hasAuthor
             ? down.computeImageHash([
