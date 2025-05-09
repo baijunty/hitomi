@@ -231,7 +231,7 @@ class TaskManager {
         .then((value) => value.values
             .firstWhereOrNull((set) => set.firstOrNull?['id'] != null));
     if (row != null) {
-      return row.first['id'];
+      return [row.first['id']];
     }
     var values = await Future.wait(ids
         .map((id) => _api.fetchGallery(id, usePrefence: id != ids.first))
