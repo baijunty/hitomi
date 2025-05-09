@@ -228,8 +228,8 @@ class TaskManager {
     var row = await helper
         .selectSqlMultiResultAsync(
             'select id from Gallery where id=?', ids.map((e) => [e]).toList())
-        .then((value) =>
-            value.values.firstWhereOrNull((set) => set.firstOrNull?['id']));
+        .then((value) => value.values
+            .firstWhereOrNull((set) => set.firstOrNull?['id'] != null));
     if (row != null) {
       return row.first['id'];
     }
