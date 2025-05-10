@@ -272,13 +272,15 @@ class TaskManager {
                         MapEntry(v.key.id, v.value), hashes,
                         threshold: config.threshold));
               })
-            : fetchGalleryHash(value, down, adHashes: adHash).then((v) =>
-                findDuplicateGalleryIds(
-                    gallery: value,
-                    helper: helper,
-                    fileHashs: v.value,
-                    threshold: config.threshold,
-                    logger: logger));
+            : value.hasAuthor
+                ? fetchGalleryHash(value, down, adHashes: adHash).then((v) =>
+                    findDuplicateGalleryIds(
+                        gallery: value,
+                        helper: helper,
+                        fileHashs: v.value,
+                        threshold: config.threshold,
+                        logger: logger))
+                : [];
   }
 
   Future<List<int>> findSugguestGallery(int id) async {
