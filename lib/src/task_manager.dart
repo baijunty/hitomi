@@ -272,15 +272,19 @@ class TaskManager {
                         MapEntry(v.key.id, v.value), hashes,
                         threshold: config.threshold));
               })
-            : value.hasAuthor
-                ? fetchGalleryHash(value, down, adHashes: adHash).then((v) =>
-                    findDuplicateGalleryIds(
+            : fetchGalleryHashByAuthor(value, helper).then((hashes) async {
+                return hashes.isEmpty
+                    ? []
+                    : findDuplicateGalleryIds(
                         gallery: value,
                         helper: helper,
-                        fileHashs: v.value,
+                        fileHashs: await fetchGalleryHash(value, down,
+                                adHashes: adHash)
+                            .then((v) => v.value),
                         threshold: config.threshold,
-                        logger: logger))
-                : [];
+                        allFileHash: hashes,
+                        logger: logger);
+              });
   }
 
   Future<List<int>> findSugguestGallery(int id) async {

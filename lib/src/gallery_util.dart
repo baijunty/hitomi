@@ -214,14 +214,8 @@ bool chapterContains(List<int> chapters1, List<int> chapters2) {
   return same;
 }
 
-Future<List<int>> findDuplicateGalleryIds(
-    {required Gallery gallery,
-    required SqliteHelper helper,
-    required List<int> fileHashs,
-    required double threshold,
-    Logger? logger,
-    CancelToken? token,
-    bool reserved = false}) async {
+Future<Map<int, List<int>>> fetchGalleryHashByAuthor(
+    Gallery gallery, SqliteHelper helper) async {
   Map<int, List<int>> allFileHash = {};
   if (gallery.artists != null) {
     await gallery.artists!
@@ -235,6 +229,21 @@ Future<List<int>> findDuplicateGalleryIds(
         .asStream()
         .asyncMap((event) => helper.queryImageHashsByLabel('group', event.name))
         .fold(allFileHash, (previous, element) => previous..addAll(element));
+  }
+  return allFileHash;
+}
+
+Future<List<int>> findDuplicateGalleryIds(
+    {required Gallery gallery,
+    required SqliteHelper helper,
+    required List<int> fileHashs,
+    required double threshold,
+    Map<int, List<int>> allFileHash = const {},
+    Logger? logger,
+    CancelToken? token,
+    bool reserved = false}) async {
+  if (allFileHash.isEmpty) {
+    allFileHash = await fetchGalleryHashByAuthor(gallery, helper);
   }
   if (allFileHash.isNotEmpty == true) {
     var value = MapEntry(gallery.id, fileHashs);
