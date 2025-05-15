@@ -239,6 +239,9 @@ class TaskManager {
     var exists = values.firstWhereOrNull((value) =>
         value.createDir(config.output, createDir: false).existsSync());
     var value = values.first;
+    if (exists != null && !down.filter(value)) {
+      return [];
+    }
     return exists != null
         ? readGalleryFromPath(
                 exists.createDir(config.output, createDir: false).path, logger)
