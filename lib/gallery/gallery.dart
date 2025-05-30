@@ -279,15 +279,14 @@ class Gallery with Label {
 
   @override
   String get name {
-    var realName = (japaneseTitle ?? title)
+    var userName = (japaneseTitle ?? title);
+    var realName = userName
         .replaceAll("(Decensored)", '')
         .split('|')
         .map((s) => s.trim())
-        .where((s) => s.isNotEmpty);
-    return realName
-            .where((s) => zhAndJpCodeExp.matchAsPrefix(s) != null)
-            .firstOrNull ??
-        realName.first;
+        .where((s) => s.isNotEmpty)
+        .where((s) => zhAndJpCodeExp.matchAsPrefix(s) != null);
+    return realName.firstOrNull ?? userName;
   }
 
   String get nameFixed {

@@ -485,7 +485,7 @@ class SqliteHelper {
     var images = await queryImageHashsById(id);
     var row = await querySql('''select * from Gallery where id=?''', [id])
         .then((value) => value.first);
-    if (images.isEmpty) {
+    if (row['length'] != images.length) {
       return readGalleryFromPath(join(_dirPath, row['path']), _logger);
     }
     var tags = await querySql(
