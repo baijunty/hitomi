@@ -61,7 +61,7 @@ class TaskManager {
   late SimpleCache<Label, Map<String, dynamic>> _cache =
       SimpleCache<Label, Map<String, dynamic>>(storage: _storage);
   final _reg = RegExp(r'!?\[(?<name>.*?)\]\(#*\s*\"?(?<url>\S+?)\"?\)');
-  late IsolateManager<List<int>?, String> _manager;
+  late IsolateManager<List<int>?, String> manager;
   late _MemoryOutputWrap outputEvent;
   DownLoader get down => _downLoader;
   List<Map<String, dynamic>> get queryTask => _queryTasks
@@ -124,7 +124,7 @@ class TaskManager {
             printEmojis: false,
             dateTimeFormat: DateTimeFormat.dateAndTime,
             noBoxingByDefault: true));
-    _manager = IsolateManager<List<int>?, String>.create(_compressRunner,
+    manager = IsolateManager<List<int>?, String>.create(_compressRunner,
         concurrent: config.maxTasks * 2);
     helper = SqliteHelper(config.output, logger: logger);
     dio.httpClientAdapter = crateHttpClientAdapter(config.proxy);
@@ -135,10 +135,7 @@ class TaskManager {
         config: config,
         api: _api,
         helper: helper,
-        manager: this._manager,
-        logger: logger,
-        dio: dio,
-        adImage: this._adImage,
+        manager: this,
         taskObserver: (msg) {
           if (taskObserver.isNotEmpty) {
             taskObserver.forEach((element) => element(msg));
@@ -224,6 +221,69 @@ class TaskManager {
     return [];
   }
 
+  Future<List<int>> _findDuplicateByNmae(
+      Gallery gallery, List<int> hashes) async {
+    return helper
+        .querySql(
+            '''select gf.gid,gf.fileHash from Gallery g left join GalleryFile gf on g.id=gf.gid where g.title=?''',
+            [gallery.nameFixed])
+        .then((value) => value.fold(<int, List<int>>{}, (previous, element) {
+              previous[element['gid']] =
+                  ((previous[element['gid']] ?? [])..add(element['fileHash']));
+              return previous;
+            }))
+        .then((value) {
+          if (value.isEmpty) {
+            return [];
+          }
+          return fetchGalleryHash(gallery, down, adHashes: adHash).then((v) {
+            hashes.addAll(v.value);
+            return searchSimilerGaller(MapEntry(v.key.id, v.value), value,
+                threshold: config.threshold);
+          });
+        });
+  }
+
+  Future<List<int>> _findDuplicateByThumb(
+      Gallery gallery, List<int> galleryHahes) async {
+    return down.computeImageHash([
+      MultipartFile.fromBytes(
+          await _api
+              .fetchImageData(gallery.files.first)
+              .fold(<int>[], (acc, d) => acc..addAll(d)),
+          filename: gallery.files.first.name)
+    ], config.aiTagPath.isEmpty).then((hash) {
+      return helper.querySql(
+          '''SELECT gid FROM (SELECT gid, fileHash, ROW_NUMBER() OVER (PARTITION BY gid ORDER BY name) AS rn FROM GalleryFile where gid!=?) sub WHERE rn < 3 and hash_distance(fileHash,?) <5 limit 5''',
+          [
+            gallery.id,
+            hash[0]
+          ]).then((d) => d.map((r) => r['gid'] as int).toList());
+    }).then((list) async {
+      if (list.isEmpty) return [];
+      var hashes = await Future.wait(list.map((id) =>
+          _localApi
+              .fetchGallery(id)
+              .then((g) =>
+                  readGalleryFromPath(g.createDir(config.output).path, logger))
+              .then((g) => fetchGalleryHash(g, down))
+              .then((e) => MapEntry(e.key.id, e.value)))).then(
+          (l) => l.fold(<int, List<int>>{}, (m, e) => m..[e.key] = e.value));
+      return galleryHahes.isEmpty
+          ? fetchGalleryHash(gallery, down, adHashes: adHash).then((v) =>
+              searchSimilerGaller(MapEntry(v.key.id, v.value), hashes,
+                  threshold: config.threshold))
+          : searchSimilerGaller(MapEntry(gallery.id, galleryHahes), hashes,
+              threshold: config.threshold);
+    });
+  }
+
+  Future<List<int>> _findNonAuthorizedDuplicateId(Gallery gallery) async {
+    var hashes = <int>[];
+    return _findDuplicateByNmae(gallery, hashes)
+        .then((v) => v.isEmpty ? _findDuplicateByThumb(gallery, hashes) : v);
+  }
+
   Future<List<int>> checkExistsId(List<dynamic> ids) async {
     var row = await helper
         .selectSqlMultiResultAsync(
@@ -247,34 +307,7 @@ class TaskManager {
                 exists.createDir(config.output, createDir: false).path, logger)
             .then((value) => [value.id])
         : !value.hasAuthor
-            ? down.computeImageHash([
-                MultipartFile.fromBytes(
-                    await _api
-                        .fetchImageData(value.files.first)
-                        .fold(<int>[], (acc, d) => acc..addAll(d)),
-                    filename: value.files.first.name)
-              ], config.aiTagPath.isEmpty).then((hash) {
-                return helper.querySql(
-                    '''SELECT gid FROM (SELECT gid, fileHash, ROW_NUMBER() OVER (PARTITION BY gid ORDER BY name) AS rn FROM GalleryFile where gid!=?) sub WHERE rn < 3 and hash_distance(fileHash,?) <5 limit 5''',
-                    [
-                      value.id,
-                      hash[0]
-                    ]).then((d) => d.map((r) => r['gid'] as int).toList());
-              }).then((list) async {
-                if (list.isEmpty) return [];
-                var hashes = await Future.wait(list.map((id) =>
-                    _localApi
-                        .fetchGallery(id)
-                        .then((g) => readGalleryFromPath(
-                            g.createDir(config.output).path, logger))
-                        .then((g) => fetchGalleryHash(g, down))
-                        .then((e) => MapEntry(e.key.id, e.value)))).then((l) =>
-                    l.fold(<int, List<int>>{}, (m, e) => m..[e.key] = e.value));
-                return fetchGalleryHash(value, down, adHashes: adHash).then(
-                    (v) => searchSimilerGaller(
-                        MapEntry(v.key.id, v.value), hashes,
-                        threshold: config.threshold));
-              })
+            ? _findNonAuthorizedDuplicateId(value)
             : fetchGalleryHashByAuthor(value, helper).then((hashes) async {
                 return hashes.isEmpty
                     ? []
@@ -449,7 +482,7 @@ class TaskManager {
   }
 
   Future<int> _fixGallerys() async {
-    final count = await DirScanner(config, helper, _downLoader, _manager)
+    final count = await DirScanner(config, helper, _downLoader, manager)
         .listDirs()
         .filterNonNull()
         .fold(
@@ -649,11 +682,11 @@ class TaskManager {
         }
         return false;
       } else if (result['fixDb']) {
-        final count = await DirScanner(config, helper, _downLoader, _manager)
+        final count = await DirScanner(config, helper, _downLoader, manager)
             .fixMissDbRow();
         logger.d("database fix ${count}");
       } else if (result['fixDup']) {
-        final count = await DirScanner(config, helper, _downLoader, _manager)
+        final count = await DirScanner(config, helper, _downLoader, manager)
             .removeDupGallery();
         logger.d("database fix ${count}");
         return count;

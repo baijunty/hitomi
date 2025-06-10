@@ -88,7 +88,7 @@ class _LocalHitomiImpl implements Hitomi {
       }, test: (error) => true).whenComplete(() => stream.close());
     } else {
       origin
-          .then((value) => _manager.down.manager.compute(value))
+          .then((value) => _manager.manager.compute(value))
           .then((value) =>
               value != null ? stream.add(value) : stream.addError('empty data'))
           .catchError((e) => <int>[], test: (error) => true)

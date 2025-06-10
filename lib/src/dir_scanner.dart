@@ -293,8 +293,8 @@ class HitomiDir {
         .whereIndexed((index, img) =>
             !gallery.files.any((f) => f == img) ||
             (len - index) < 8 &&
-                _downLoader.adImage.any((entry) =>
-                    compareHashDistance(entry.key, img.fileHash ?? 0) < 3))
+                _downLoader.manager.adHash.any((entry) =>
+                    compareHashDistance(entry, img.fileHash ?? 0) < 3))
         .asStream()
         .asyncMap((img) {
       _downLoader.logger?.w(' ${gallery.id} remove db illegal file ${img}');
