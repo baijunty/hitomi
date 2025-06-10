@@ -301,11 +301,17 @@ class DownLoader {
       }
       return true;
     }
-    return Future.wait(ids.map((id) => helper.queryGalleryById(id))).then(
-        (list) =>
-            compareGallerWithOther(gallery, list, config.languages, logger)
-                .id ==
-            gallery.id);
+    return Future.wait(ids.map((id) => helper.queryGalleryById(id)))
+        .then((list) {
+      var exist =
+          compareGallerWithOther(gallery, list, config.languages, logger);
+      var r = exist.id == gallery.id;
+      if (r && exist.createDir(config.output).path != newDir.path) {
+        newDir.deleteSync(recursive: true);
+        exist.createDir(config.output).renameSync(newDir.path);
+      }
+      return r;
+    });
   }
 
   bool illeagalTagsCheck(Gallery gallery, List<FilterLabel> excludes) {
