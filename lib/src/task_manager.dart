@@ -226,7 +226,7 @@ class TaskManager {
     return helper
         .querySql(
             '''select gf.gid,gf.fileHash from Gallery g left join GalleryFile gf on g.id=gf.gid where g.title=?''',
-            [gallery.nameFixed])
+            [gallery.name])
         .then((value) => value.fold(<int, List<int>>{}, (previous, element) {
               previous[element['gid']] =
                   ((previous[element['gid']] ?? [])..add(element['fileHash']));

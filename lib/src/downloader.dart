@@ -306,9 +306,15 @@ class DownLoader {
       var exist =
           compareGallerWithOther(gallery, list, config.languages, logger);
       var r = exist.id == gallery.id;
-      if (r && exist.createDir(config.output).path != newDir.path) {
-        newDir.deleteSync(recursive: true);
-        exist.createDir(config.output).renameSync(newDir.path);
+      if (r) {
+        if (exist.createDir(config.output).path != newDir.path) {
+          newDir.deleteSync(recursive: true);
+          exist.createDir(config.output).renameSync(newDir.path);
+        } else {
+          list
+              .map((g) => HitomiDir(g.createDir(config.output), this, g))
+              .forEach((h) => h.deleteGallery(reason: 'duplicate gallery'));
+        }
       }
       return r;
     });
