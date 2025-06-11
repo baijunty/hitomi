@@ -90,21 +90,9 @@ class TaskManager {
   }
 
   TaskManager(this.config) {
-    Level level;
-    switch (config.logLevel) {
-      case 'debug':
-        level = Level.debug;
-      case 'none':
-        level = Level.off;
-      case 'warn':
-        level = Level.warning;
-      case 'error':
-        level = Level.error;
-      case 'trace':
-        level = Level.trace;
-      default:
-        level = Level.fatal;
-    }
+    Level level = Level.values
+            .firstWhereOrNull((element) => element.name == config.logLevel) ??
+        Level.debug;
     if (config.logOutput.isNotEmpty) {
       outputEvent = _MemoryOutputWrap(
           secondOutput: FileOutput(
