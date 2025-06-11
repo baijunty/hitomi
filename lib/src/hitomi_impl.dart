@@ -378,7 +378,6 @@ class _HitomiImpl implements Hitomi {
     await checkInit();
     final id = gallery.id;
     final outPath = outPut;
-    final preLength = gallery.files.length;
     Directory dir = gallery.createDir(outPath);
     bool allow = await _loopCallBack(TaskStartMessage(gallery, dir, gallery))
         .catchError((e) => false, test: (error) => true);
@@ -391,14 +390,6 @@ class _HitomiImpl implements Hitomi {
       return false;
     }
     logger?.i('down $id to ${dir.path} ${dir.existsSync()}');
-    try {
-      File(join(dir.path, 'meta.json'))
-          .writeAsStringSync(json.encode(gallery), flush: true);
-    } catch (e, stack) {
-      logger?.e('write json $e when $stack');
-      await _loopCallBack(DownLoadFinished(gallery, gallery, dir, false));
-      return false;
-    }
     final missImages = <Image>[];
     for (var i = 0; i < gallery.files.length; i++) {
       var success = await _downLoadImage(dir, gallery, i, token);
@@ -407,10 +398,11 @@ class _HitomiImpl implements Hitomi {
         missImages.add(gallery.files[i]);
       }
     }
-    if (gallery.files.length != preLength) {
-      logger?.w('${id} remove ${preLength - gallery.files.length} ad images');
+    try {
       File(join(dir.path, 'meta.json'))
           .writeAsStringSync(json.encode(gallery), flush: true);
+    } catch (e, stack) {
+      logger?.e('write json $e when $stack');
     }
     return await _loopCallBack(
             DownLoadFinished(missImages, gallery, dir, missImages.isEmpty)) &&
