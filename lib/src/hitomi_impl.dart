@@ -383,7 +383,7 @@ class _HitomiImpl implements Hitomi {
         .catchError((e) => false, test: (error) => true);
     if (!allow) {
       logger?.w('${id} test fiald,skip');
-      if (dir.listSync().isNotEmpty) {
+      if (dir.existsSync()) {
         dir.deleteSync(recursive: true);
       }
       await _loopCallBack(DownLoadFinished(gallery, gallery, dir, false));

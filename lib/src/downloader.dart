@@ -312,6 +312,7 @@ class DownLoader {
           exist.createDir(config.output).renameSync(newDir.path);
         } else {
           list
+              .where((g) => g.id != gallery.id)
               .map((g) => HitomiDir(g.createDir(config.output), this, g))
               .forEach((h) => h.deleteGallery(reason: 'duplicate gallery'));
         }
