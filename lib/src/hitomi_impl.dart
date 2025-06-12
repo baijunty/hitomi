@@ -378,31 +378,30 @@ class _HitomiImpl implements Hitomi {
     await checkInit();
     final id = gallery.id;
     final outPath = outPut;
-    Directory dir = gallery.createDir(outPath);
+    Directory dir = gallery.createDir(outPath, createDir: false);
     bool allow = await _loopCallBack(TaskStartMessage(gallery, dir, gallery))
         .catchError((e) => false, test: (error) => true);
     if (!allow) {
       logger?.w('${id} test fiald,skip');
-      if (dir.listSync().isEmpty) {
+      if (dir.listSync().isNotEmpty) {
         dir.deleteSync(recursive: true);
       }
       await _loopCallBack(DownLoadFinished(gallery, gallery, dir, false));
       return false;
     }
-    logger?.i('down $id to ${dir.path} ${dir.existsSync()}');
+    dir = gallery.createDir(outPath);
     final missImages = <Image>[];
     for (var i = 0; i < gallery.files.length; i++) {
       var success = await _downLoadImage(dir, gallery, i, token);
       if (!success) {
-        logger?.i('down image ${join(dir.path, gallery.files[i].name)} failed');
         missImages.add(gallery.files[i]);
       }
     }
     try {
       File(join(dir.path, 'meta.json'))
           .writeAsStringSync(json.encode(gallery), flush: true);
-    } catch (e, stack) {
-      logger?.e('write json $e when $stack');
+    } catch (e) {
+      logger?.e('write json $e');
     }
     return await _loopCallBack(
             DownLoadFinished(missImages, gallery, dir, missImages.isEmpty)) &&
@@ -436,7 +435,6 @@ class _HitomiImpl implements Hitomi {
                       now / 1024 / (realTime - startTime) * 1000, now, total),
                 );
                 lastTime = realTime;
-                logger?.t('image $index $now/$total ${now / total}');
               }
             }, token: token)
             .then((value) => value.stream
@@ -548,7 +546,6 @@ class _HitomiImpl implements Hitomi {
           langs!.firstWhereOrNull((e) => e.name == element) != null);
       final language = langs!.firstWhere((element) => element.name == f);
       if (id != language.galleryid) {
-        logger?.t('use language ${language}');
         var l = await _fetchGalleryJsonById(language.galleryid, token);
         if (l.files.length > 18) {
           return l;

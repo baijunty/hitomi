@@ -14,6 +14,7 @@ import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/downloader.dart';
 import 'package:isolate_manager/isolate_manager.dart';
 import 'package:logger/logger.dart';
+import 'package:path/path.dart' show join;
 import '../gallery/language.dart';
 import 'dir_scanner.dart';
 import 'gallery_util.dart';
@@ -290,7 +291,10 @@ class TaskManager {
     if (exists != null && !down.filter(value)) {
       return [];
     }
-    return exists != null
+    return exists != null &&
+            File(join(exists.createDir(config.output, createDir: false).path,
+                    'meta.json'))
+                .existsSync()
         ? readGalleryFromPath(
                 exists.createDir(config.output, createDir: false).path, logger)
             .then((value) => [value.id])
