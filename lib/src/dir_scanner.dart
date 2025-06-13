@@ -77,12 +77,21 @@ class DirScanner {
         // }
         return _parseFromDir(event.path).then((value) async {
           if (value == null) {
-            _downLoader.logger?.e('delete empty directory ${event.path}');
-            await event
-                .delete(recursive: true)
-                .then((r) => null)
-                .catchError((e) => null, test: (error) => true);
-            return null;
+            if (dir.listSync().isEmpty) {
+              _downLoader.logger?.e('delete empty directory ${event.path}');
+              await event
+                  .delete(recursive: true)
+                  .then((r) => null)
+                  .catchError((e) => null, test: (error) => true);
+              return null;
+            } else {
+              _downLoader.logger?.e('delete empty directory ${event.path}');
+              await event
+                  .rename(path.join(File(_downLoader.config.output).parent.path,
+                      'backup', path.basename(event.path)))
+                  .catchError((e) => event, test: (error) => true);
+              return null;
+            }
           }
           return HitomiDir(dir, _downLoader, value);
         });

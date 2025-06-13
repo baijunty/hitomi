@@ -1,12 +1,11 @@
 SELECT * from Tasks WHERE completed=1 order by id desc limit 20
 SELECT * FROM Tags WHERE type='language' limit 20
 SELECT gf.gid  from (SELECT DISTINCT(gid) from GalleryFile)  gf WHERE  not EXISTS (SELECT 1 from Gallery g WHERE g.id=gf.gid)
-select *  from Gallery g limit 20
+select *  from Gallery g where ( exists (select 1 from GalleryTagRelation r where r.gid = g.id and r.tid = (select id from Tags where type = 'artist' and name = 'yokoya manjirou')))
 select * from ( select count(gid) as count,* from GalleryFile where fileHash=-1 group by gid ) as g where g.count>4 order by count desc
 select ul.id,g.title from UserLog ul LEFT JOIN Gallery g on ul.id=g.id where ul.type=65536
-select g.feature is null,g.* from Gallery g  where g.id =2616344
-select path,id,feature is null as feat from Gallery limit 20
-select * from GalleryFile where gid=2343313  order by name
+select  count(1) from Gallery limit 20
+select * from GalleryFile where gid=3373859  order by name
 SELECT SUM("pgsize")/1024/1024,name FROM "dbstat" group by name
 SELECT gid, name, hash FROM (
     SELECT gid, name, hash, ROW_NUMBER() OVER (PARTITION BY gid ORDER BY name) AS rn
