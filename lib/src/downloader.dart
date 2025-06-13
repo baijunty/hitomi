@@ -71,11 +71,8 @@ class DownLoader {
                     return value;
                   })
                 : false;
-          } else if (target is Image) {
-            return !msg.file.existsSync() ||
-                (msg.file as File).lengthSync() == 0;
           }
-          return illeagalTagsCheck(msg.gallery, config.excludes);
+          return true;
         }
 
       /// Handles the completion of a download task and updates the database accordingly.

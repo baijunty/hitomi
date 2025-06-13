@@ -420,10 +420,11 @@ class _HitomiImpl implements Hitomi {
       var startTime = DateTime.now().millisecondsSinceEpoch;
       int lastTime = startTime;
       b = await _loopCallBack(TaskStartMessage(gallery, out, image)) &&
-          (token?.isCancelled ?? false) == false;
+          (token?.isCancelled ?? false) == false &&
+          (!out.existsSync() || out.lengthSync() == 0);
+      logger?.d('down image ${image.name} to ${out.path}  $b');
       if (b) {
         var writer = out.openWrite();
-        logger?.d('down image $url to ${out.path}');
         await _dio
             .httpInvoke<ResponseBody>(url,
                 headers: buildRequestHeader(url, referer),
