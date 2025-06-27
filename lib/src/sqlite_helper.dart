@@ -458,7 +458,9 @@ class SqliteHelper {
           gallery.name,
           gallery.date,
           gallery.type,
-          path.statSync().modified.millisecondsSinceEpoch,
+          path.existsSync()
+              ? path.statSync().modified.millisecondsSinceEpoch
+              : DateTime.now().millisecondsSinceEpoch,
           0,
           gallery.files.length,
           null

@@ -426,11 +426,12 @@ class HitomiDir {
     return _removeIllegalFiles(images)
         .then((value) => _tryFixMissingFile())
         .then((value) => _downLoader.helper.querySql(
-            'select feature,title from Gallery where id=? and length!=0',
+            'select feature,title,date from Gallery where id=? and length!=0',
             [gallery.id]))
         .then((set) async {
       if (set.firstOrNull == null ||
-          set.firstOrNull?['title'] != gallery.name) {
+          set.firstOrNull?['title'] != gallery.name ||
+          set.firstOrNull?['date'] == 0) {
         await _downLoader.helper.insertGallery(gallery, dir);
       }
       if (set.firstOrNull?['feature'] == null) {
