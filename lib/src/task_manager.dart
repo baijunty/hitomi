@@ -267,7 +267,7 @@ class TaskManager {
     });
   }
 
-  Future<List<int>> _findNonAuthorizedDuplicateId(Gallery gallery) async {
+  Future<List<int>> findNonAuthorizedDuplicateId(Gallery gallery) async {
     var hashes = <int>[];
     return _findDuplicateByNmae(gallery, hashes)
         .then((v) => v.isEmpty ? _findDuplicateByThumb(gallery, hashes) : v);
@@ -299,7 +299,7 @@ class TaskManager {
                 exists.createDir(config.output, createDir: false).path, logger)
             .then((value) => [value.id])
         : !value.hasAuthor
-            ? _findNonAuthorizedDuplicateId(value)
+            ? findNonAuthorizedDuplicateId(value)
             : fetchGalleryHashByAuthor(value, helper).then((hashes) async {
                 return hashes.isEmpty
                     ? []
@@ -474,41 +474,59 @@ class TaskManager {
   }
 
   Future<int> _fixGallerys() async {
-    final count = await DirScanner(config, helper, _downLoader, manager)
+    final scanner = DirScanner(config, helper, _downLoader, manager);
+    final count = await scanner
         .listDirs()
-        .filterNonNull()
-        .fold(
-            <String, List<HitomiDir>>{},
-            (previous, element) => previous
-              ..[element.gallery.id.toString()] =
-                  ((previous[element.gallery.id.toString()] ?? [])
-                    ..add(element)))
-        .then((value) {
-          return value
-              .map((key, event) {
-                var left = event.firstWhereOrNull((g) => g.gallery.hasAuthor) ??
-                    event.first;
-                event.removeWhere((g) => g == left);
-                if (event.isNotEmpty) {
-                  event.where((g) => g.dir.path != left.dir.path).forEach((e) {
-                    logger.d(
-                        'delete duplication ${e.gallery.id} with ${e.dir} left ${left.gallery}');
-                    try {
-                      e.dir.deleteSync(recursive: true);
-                    } catch (err) {
-                      logger.e('delete ${e.gallery.id} err ${err}');
-                    }
-                  });
+        .asyncMap((g) async {
+          var gallery = g.gallery;
+          if (!gallery.hasAuthor) {
+            var target = await _downLoader.manager
+                .findNonAuthorizedDuplicateId(gallery)
+                .then((ids) => Future.wait(ids
+                    .where((id) => id != gallery.id)
+                    .map((id) => _downLoader.manager
+                        .getApiDirect(local: true)
+                        .fetchGallery(id, usePrefence: false))))
+                .then((gs) => compareGallerWithOther(
+                    gallery, gs, _downLoader.config.languages))
+                .catchError((e) => gallery, test: (e) => true);
+            if (target.id != gallery.id) {
+              await g.deleteGallery(reason: 'duplicate id ${target.id}');
+              return null;
+            } else {
+              var v = await _downLoader.api
+                  .fetchGallery(gallery.id, usePrefence: false)
+                  .catchError((e) => gallery, test: (e) => true);
+              if (v.labels().length != gallery.labels().length) {
+                var d =
+                    v.createDir(_downLoader.config.output, createDir: false);
+                if (d.path != g.dir.path) {
+                  if (!d.existsSync() || d.listSync().isEmpty) {
+                    _downLoader.logger
+                        ?.i('rename dir from ${g.dir.path}} to ${d.path}');
+                    g.dir.renameSync(d.path);
+                  } else {
+                    g.deleteGallery(reason: 'dir name conflict with ${d.path}');
+                  }
                 }
-                return MapEntry(key, left);
-              })
-              .values
-              .toList();
+                if (v.id != gallery.id) {
+                  await _downLoader.helper.deleteGallery(gallery.id);
+                }
+                _downLoader.logger?.i(
+                    'fix meta date from ${gallery.dirName} to ${v.dirName}');
+                await File(join(d.path, 'meta.json'))
+                    .writeAsString(json.encode(v));
+                await _downLoader.helper.insertGallery(v, d);
+                return HitomiDir(d, _downLoader, v);
+              }
+            }
+          }
+          return g;
         })
-        .asStream()
-        .expand((l) => l)
+        .filterNonNull()
         .asyncMap((g) => g.fixGallery())
-        .length;
+        .length
+        .then((l) async => l + await scanner.removeDupGallery());
     logger.d("scan finishd ${count}");
     return count;
   }
@@ -673,15 +691,6 @@ class TaskManager {
           return _downLoader.cancelById(int.parse(id));
         }
         return false;
-      } else if (result['fixDb']) {
-        final count = await DirScanner(config, helper, _downLoader, manager)
-            .fixMissDbRow();
-        logger.d("database fix ${count}");
-      } else if (result['fixDup']) {
-        final count = await DirScanner(config, helper, _downLoader, manager)
-            .removeDupGallery();
-        logger.d("database fix ${count}");
-        return count;
       } else if (result['fix']) {
         return _fixGallerys().then((value) => value > 0);
       } else if (result['update']) {

@@ -89,7 +89,7 @@ Future<Gallery> readGalleryFromPath(String path, Logger? logger) {
       .readAsString()
       .then((value) => Gallery.fromJson(value))
       .catchError((e) {
-    logger?.e('open meta.json error $e');
+    logger?.e('open $path meta.json error');
     throw e;
   }, test: (error) => true);
 }
@@ -106,6 +106,12 @@ extension NullMapStream<E, R> on Stream<E> {
 extension NullFillterStream<E> on Stream<E?> {
   Stream<E> filterNonNull() =>
       this.where((element) => element != null).map((event) => event!);
+}
+
+extension FilterSteam<E> on Stream<E> {
+  Stream<T> filterInstance<T>() {
+    return where((element) => element is T).map((element) => element as T);
+  }
 }
 
 extension HttpInvoke<T> on Dio {

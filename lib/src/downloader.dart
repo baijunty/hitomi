@@ -116,7 +116,7 @@ class DownLoader {
                           config.aiTagPath.isEmpty)
                       .then((l) => l[0])
                       .catchError((e) {
-                    logger?.e('image file ${msg.file.path} hash error $e ');
+                    logger?.e('image file ${msg.file.path} hash error');
                     msg.file.deleteSync();
                     return 0;
                   }, test: (error) => true);
@@ -279,10 +279,7 @@ class DownLoader {
             if (chapterDown.isNotEmpty &&
                 exists.length == 1 &&
                 chapterContains(chapterDown, chapter(exists[0].name))) {
-              logger?.w('exist ${exists[0]} chapter upgrade to $gallery');
-              newDir.deleteSync(recursive: true);
               exists[0].createDir(config.output).renameSync(newDir.path);
-              return true;
             }
             await exists
                 .map((e) => HitomiDir(e.createDir(config.output), this, e,
@@ -300,13 +297,12 @@ class DownLoader {
     }
     return Future.wait(ids.map((id) => helper.queryGalleryById(id)))
         .then((list) {
-      var exist =
+      var target =
           compareGallerWithOther(gallery, list, config.languages, logger);
-      var r = exist.id == gallery.id;
+      var r = target.id == gallery.id;
       if (r) {
-        if (exist.createDir(config.output).path != newDir.path) {
-          newDir.deleteSync(recursive: true);
-          exist.createDir(config.output).renameSync(newDir.path);
+        if (target.createDir(config.output).path != newDir.path) {
+          target.createDir(config.output).renameSync(newDir.path);
         } else {
           list
               .where((g) => g.id != gallery.id)
@@ -486,8 +482,8 @@ class DownLoader {
                   if (gallery.id == event.key[0]) {
                     return gallery;
                   }
-                } catch (e, stack) {
-                  logger?.e('fetch gallery $e with $stack');
+                } catch (e) {
+                  logger?.e('fetch gallery $e');
                 }
               })
               .filterNonNull()

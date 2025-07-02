@@ -109,8 +109,6 @@ class _TaskWarp {
   Future<Response> _proxy(Request req) async {
     final task = await _authToken(req);
     final method = req.params['method'];
-    final ip = req.headers['x-real-ip'] ?? '';
-    _manager.logger.d('real ip $ip');
     if (task.key && method?.isNotEmpty == true) {
       switch (method!) {
         case 'fetchGallery':
@@ -146,6 +144,8 @@ class _TaskWarp {
           }
         case 'viewByTag':
           {
+            final ip = req.headers['x-real-ip'] ?? '';
+            _manager.logger.d('real ip $ip');
             List<dynamic> tags = task.value['tags'];
             var querySort = task.value['sort'];
             SortEnum? sort = SortEnum.values

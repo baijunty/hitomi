@@ -520,7 +520,9 @@ class SqliteHelper {
         [
           type,
           name
-        ]).then((value) => value.fold(<int, List<int>>{}, (previous, element) {
+        ]).then((value) => value
+            .where((row) => row['fileHash'] != null)
+            .fold(<int, List<int>>{}, (previous, element) {
           previous[element['gid']] =
               ((previous[element['gid']] ?? [])..add(element['fileHash']));
           return previous;

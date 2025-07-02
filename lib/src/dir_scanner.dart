@@ -25,138 +25,75 @@ class DirScanner {
   static final titleReg = RegExp(r'\((.+)\)(.+)');
   DirScanner(this._config, this._helper, this._downLoader, this.manager);
 
-  Stream<HitomiDir?> listDirs() {
-    return Directory(_config.output)
+  Stream<HitomiDir> listDirs() {
+    final stream = StreamController<HitomiDir>();
+    Directory(_config.output)
         .list()
-        .where((event) => event is Directory)
-        .asyncMap((event) async {
-      return readGalleryFromPath(event.path, _downLoader.logger)
-          .then((value) async {
-        if (!value.hasAuthor) {
-          var newGallery = await _downLoader.api.fetchGallery(value.id);
-          if (!value.hasAuthor && newGallery.hasAuthor ||
-              newGallery.language != value.language) {
-            var newDir = newGallery.createDir(_config.output);
-            _downLoader.logger?.d(
-                'fix ${value} label with path ${newDir.path} ${newGallery.id}');
-            File(path.join(newDir.path, 'meta.json'))
-                .writeAsStringSync(json.encode(newGallery), flush: true);
-            if (value.id != newGallery.id) {
-              await _downLoader.helper.deleteGallery(value.id);
-            }
-            await _downLoader.helper.insertGallery(newGallery, newDir);
-            value = newGallery;
-          }
-        }
-        final useDir = value.createDir(_config.output, createDir: false);
-        if (useDir.path.toLowerCase() != event.path.toLowerCase()) {
-          if (useDir.existsSync() &&
-              useDir.listSync().length - 1 >= value.files.length) {
-            _downLoader.logger?.w(
-                'delete ${value.id} path ${event.path} because exists $value');
-            event.deleteSync(recursive: true);
-            return null;
-          } else {
-            _downLoader.logger?.d(
-                'rename ${value.id} path ${event.path} from ${path.basename(event.path)} to ${path.basename(useDir.path)}');
-            await useDir
-                .delete(recursive: true)
-                .then((_) => event.rename(useDir.path))
-                .then((_) => _downLoader.helper.insertGallery(value, useDir))
-                .catchError((e) => false, test: (error) => true);
-          }
-          return HitomiDir(useDir, _downLoader, value);
-        } else {
-          return HitomiDir(event as Directory, _downLoader, value);
-        }
-      }).catchError((e) {
-        var dir = event as Directory;
-        _downLoader.logger?.e('$event error $e');
-        // if (dir.listSync().isEmpty) {
-        //   return HitomiDir(dir, _downLoader, null, manager);
-        // }
-        return _parseFromDir(event.path).then((value) async {
-          if (value == null) {
-            if (dir.listSync().isEmpty) {
-              _downLoader.logger?.e('delete empty directory ${event.path}');
-              await event
-                  .delete(recursive: true)
-                  .then((r) => null)
-                  .catchError((e) => null, test: (error) => true);
-              return null;
-            } else {
-              _downLoader.logger?.e('delete empty directory ${event.path}');
-              await event
-                  .rename(path.join(File(_downLoader.config.output).parent.path,
-                      'backup', path.basename(event.path)))
-                  .catchError((e) => event, test: (error) => true);
-              return null;
-            }
-          }
-          return HitomiDir(dir, _downLoader, value);
-        });
-      }, test: (error) => true);
-    });
-  }
-
-  Future<Map<bool, int>> fixMissDbRow() {
-    return _helper
-        .querySqlByCursor('select path,id,feature is null as feat from Gallery')
-        .then((value) => value.asyncMap((event) {
-              var id = event['id'];
-              var dir = Directory(
-                  path.join(_downLoader.config.output, event['path']));
-              return readGalleryFromPath(dir.path, _downLoader.logger)
-                  .then((value) async {
-                if (value.id.toString() != id.toString()) {
-                  _downLoader.logger?.i('db id $id found id ${value.id}');
-                  return await _helper.deleteGallery(id);
+        .filterInstance<Directory>()
+        .asyncMap((d) => readGalleryFromPath(d.path, _downLoader.logger)
+                .then((v) => stream.add(HitomiDir(d, _downLoader, v)))
+                .catchError((e) async {
+              _downLoader.logger?.e('read ${d.path} error');
+              return _parseFromDir(d.path).then((value) {
+                if (value == null) {
+                  _downLoader.logger
+                      ?.w('delete ${d.path} because has no metadata');
+                  d.deleteSync(recursive: true);
+                  return;
                 }
-                if (event['feat'] == 1) {
-                  await HitomiDir(dir, _downLoader, value).generateFuture();
-                }
-                var labels = await _helper
-                    .querySql(
-                        'select count(1) as count from Gallery g left join GalleryTagRelation r on r.gid=g.id where g.id=$id ')
-                    .then((s) => s.firstOrNull?['count'] as int? ?? 0);
-                if (labels != value.labels().length) {
-                  await _helper.insertGallery(value, dir);
-                }
-                return true;
-              }).catchError((e) {
-                _downLoader.logger?.e(' fix row $event error $e');
-                return _downLoader.api.fetchGallery(id).then((value) async {
-                  if (_downLoader.filter(value) &&
-                      !value
-                          .createDir(_downLoader.config.output,
-                              createDir: false)
-                          .existsSync()) {
-                    await _downLoader.addTask(value);
-                    return true;
+                stream.add(HitomiDir(d, _downLoader, value));
+              });
+            }, test: (error) => true))
+        .length
+        .then((l) => _helper
+            .querySqlByCursor('select path,id from Gallery')
+            .then((value) => value.asyncMap((row) async {
+                  final id = row['id'];
+                  var dir = Directory(
+                      path.join(_downLoader.config.output, row['path']));
+                  try {
+                    if (!dir.existsSync()) {
+                      var v = await _downLoader.api
+                          .fetchGallery(id, usePrefence: false);
+                      dir = v.createDir(_downLoader.config.output);
+                      if (dir.listSync().isEmpty) {
+                        _downLoader.logger
+                            ?.d('fix gallery ${id} with ${dir.path}');
+                        File(path.join(dir.path, 'meta.json'))
+                            .writeAsStringSync(json.encode(v), flush: true);
+                        stream.add(HitomiDir(dir, _downLoader, v));
+                      } else {
+                        _downLoader.logger
+                            ?.d('update gallery ${id} new dir ${dir.path}');
+                        await _helper.insertGallery(v, dir);
+                      }
+                    } else {
+                      var v = await readGalleryFromPath(
+                          dir.path, _downLoader.logger);
+                      if (v.id != id) {
+                        _downLoader.logger
+                            ?.d('delete gallery ${id} exits  ${dir.path}');
+                        await _helper.deleteGallery(id);
+                      }
+                    }
+                  } catch (e) {
+                    _downLoader.logger
+                        ?.e('fetch gallery $id path ${dir.path}  error $e');
                   }
-                  await _helper.deleteGallery(id);
-                  return false;
-                }).catchError((e) async {
-                  await _helper.deleteGallery(id);
-                  return false;
-                }, test: (error) => true);
-              }, test: (error) => true);
-            }).fold(
-                <bool, int>{},
-                (previous, element) =>
-                    previous..[element] = (previous[element] ?? 0) + 1));
+                }).length));
+    return stream.stream;
   }
 
   Future<int> removeDupGallery() async {
     return _helper
         .querySqlByCursor(
-            'select distinct(ja.value) as author from Gallery g,json_each(g.artist) ja where json_valid(g.artist)=1')
+            "select t.name,t.type from GalleryTagRelation r left join Tags t on r.tid = t.id where t.type='artist' or t.type='group' group by t.name having count(t.name)>1")
         .then((value) => value
-            .asyncMap((event) => _findDupByLaber('artist', event['author']))
+            .asyncMap((event) => _findDupByLaber(event['type'], event['name']))
             .where((event) => event.isNotEmpty)
             .asyncMap((event) => _collectionFromMap(event))
             .expand((element) => element.entries)
-            .asyncMap((event) => event.key.compareWithOther(event.value))
+            .asyncMap((event) => event.key._compareThenDel(event.value))
             .length);
   }
 
@@ -235,8 +172,8 @@ class DirScanner {
           TypeLabel('doujinshi'),
           TypeLabel('manga')
         ], (Gallery gallery) {
-          _downLoader.logger
-              ?.d('${gallery} match $name ${name.contains(gallery.dirName)}');
+          _downLoader.logger?.d(
+              '${gallery.name} match $name ${name.contains(gallery.dirName)}');
           return name.contains(gallery.dirName);
         }, CancelToken(), entry)
         .then((value) =>
@@ -335,7 +272,7 @@ class HitomiDir {
     }, test: (error) => true);
   }
 
-  Future<bool> compareWithOther(List<HitomiDir> others) async {
+  Future<bool> _compareThenDel(List<HitomiDir> others) async {
     var left = compareGallerWithOther(
         this.gallery,
         others
@@ -366,7 +303,7 @@ class HitomiDir {
         .then((value) => value ? dir.delete(recursive: true) : false)
         .then((value) => true)
         .catchError((e) {
-      _downLoader.logger?.e('del gallery faild $e');
+      _downLoader.logger?.e('del gallery $gallery faild');
       return false;
     }, test: (error) => true);
   }
@@ -385,7 +322,7 @@ class HitomiDir {
                 .asyncMap((f) => _downLoader.computeImageHash(
                         [MultipartFile.fromFileSync(f.path)],
                         _downLoader.config.aiTagPath.isEmpty).catchError((e) {
-                      _downLoader.logger?.e('compute $f hash err $e');
+                      _downLoader.logger?.i('compute $f hash err');
                       f.deleteSync();
                       return [null];
                     }, test: (e) => true))
@@ -426,8 +363,7 @@ class HitomiDir {
     return _removeIllegalFiles(images)
         .then((value) => _tryFixMissingFile())
         .then((value) => _downLoader.helper.querySql(
-            'select feature,title,date from Gallery where id=? and length!=0',
-            [gallery.id]))
+            'select feature,title,date from Gallery where id=?', [gallery.id]))
         .then((set) async {
       if (set.firstOrNull == null ||
           set.firstOrNull?['title'] != gallery.name ||
@@ -447,8 +383,8 @@ class HitomiDir {
         lost = await batchInsertImage(missing);
       }
       return lost;
-    }).catchError((e, stack) {
-      _downLoader.logger?.e('scan gallery faild $e $stack');
+    }).catchError((e) {
+      _downLoader.logger?.e('scan gallery faild');
       return false;
     }, test: (error) => true);
   }
