@@ -224,10 +224,28 @@ class HitomiDir {
         }
         return true;
       });
-      return await completer.future.then((value) {
-        _downLoader.logger?.d(
-            '${gallery.id} lost ${fileLost.map((e) => path.basename(e.path)).toList()} redownload $value');
-        return value;
+      return await completer.future.then((value) async {
+        if (value) {
+          _downLoader.logger?.d(
+              '${gallery.id} lost ${fileLost.map((e) => path.basename(e.path)).toList()} redownload $value');
+        } else {
+          try {
+            await _downLoader.api.fetchGallery(gallery.id, usePrefence: false);
+          } catch (_) {
+            if (gallery.files
+                        .map((e) => File(path.join(dir.path, e.name)))
+                        .where((element) =>
+                            !element.existsSync() || element.lengthSync() == 0)
+                        .length /
+                    gallery.files.length >=
+                0.5) {
+              await deleteGallery(
+                  reason: 'lost too many files and original fetch failed');
+              return false;
+            }
+          }
+        }
+        return true;
       });
     }
     return true;
@@ -321,7 +339,7 @@ class HitomiDir {
                 .asStream()
                 .asyncMap((f) => _downLoader.computeImageHash(
                         [MultipartFile.fromFileSync(f.path)],
-                        _downLoader.config.aiTagPath.isEmpty).catchError((e) {
+                        true).catchError((e) {
                       _downLoader.logger?.i('compute $f hash err');
                       f.deleteSync();
                       return [null];
@@ -362,27 +380,34 @@ class HitomiDir {
     var images = await _downLoader.helper.getImageListByGid(gallery.id);
     return _removeIllegalFiles(images)
         .then((value) => _tryFixMissingFile())
-        .then((value) => _downLoader.helper.querySql(
-            'select feature,title,date from Gallery where id=?', [gallery.id]))
-        .then((set) async {
-      if (set.firstOrNull == null ||
-          set.firstOrNull?['title'] != gallery.name ||
-          set.firstOrNull?['date'] == 0) {
-        await _downLoader.helper.insertGallery(gallery, dir);
+        .then((value) async {
+      if (value) {
+        return _downLoader.helper.querySql(
+            'select feature,title,date from Gallery where id=?',
+            [gallery.id]).then((set) async {
+          if (set.firstOrNull == null ||
+              set.firstOrNull?['title'] != gallery.name ||
+              set.firstOrNull?['date'] == 0) {
+            await _downLoader.helper.insertGallery(gallery, dir);
+          }
+          if (set.firstOrNull?['feature'] == null) {
+            await generateFuture();
+          }
+          var missing = gallery.files
+              .where((f) =>
+                  File(path.join(dir.path, f.name)).existsSync() &&
+                  images.every((i) => i.hash != f.hash))
+              .toList();
+          var lost = missing.isEmpty;
+          if (missing.isNotEmpty) {
+            _downLoader.logger?.d(
+                '${gallery} fix file missing ${missing.map((e) => e.name).toList()}');
+            lost = await batchInsertImage(missing);
+          }
+          return lost;
+        });
       }
-      if (set.firstOrNull?['feature'] == null) {
-        await generateFuture();
-      }
-      var missing = gallery.files
-          .where((f) => images.every((i) => i.hash != f.hash))
-          .toList();
-      var lost = missing.isEmpty;
-      if (missing.isNotEmpty) {
-        _downLoader.logger?.d(
-            '${gallery} fix file missing ${missing.map((e) => e.name).toList()}');
-        lost = await batchInsertImage(missing);
-      }
-      return lost;
+      return value;
     }).catchError((e) {
       _downLoader.logger?.e('scan gallery faild');
       return false;

@@ -156,7 +156,6 @@ extension HttpInvoke<T> on Dio {
       responseHead?.call(value.headers);
       return value.data!;
     }).catchError((e) {
-      print('$url throw $e');
       throw e;
     }, test: (e) => true);
   }

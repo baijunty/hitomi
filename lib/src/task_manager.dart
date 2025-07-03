@@ -526,7 +526,11 @@ class TaskManager {
         .filterNonNull()
         .asyncMap((g) => g.fixGallery())
         .length
-        .then((l) async => l + await scanner.removeDupGallery());
+        .then((l) async => l + await scanner.removeDupGallery())
+        .catchError((e) {
+          logger.e("fixGallerys error $e");
+          return 0;
+        }, test: (e) => true);
     logger.d("scan finishd ${count}");
     return count;
   }

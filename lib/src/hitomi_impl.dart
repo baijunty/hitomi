@@ -451,7 +451,7 @@ class _HitomiImpl implements Hitomi {
       }
       await _loopCallBack(DownLoadFinished(image, gallery, out, b));
     } catch (e) {
-      logger?.e('down image faild $e');
+      logger?.e('down image faild');
       await _loopCallBack(IlleagalGallery(gallery.id, e.toString(), index));
       b = false;
     }
