@@ -85,16 +85,15 @@ class DirScanner {
   }
 
   Future<int> removeDupGallery() async {
-    return _helper
-        .querySqlByCursor(
-            "select t.name,t.type from GalleryTagRelation r left join Tags t on r.tid = t.id where t.type='artist' or t.type='group' group by t.name having count(t.name)>1")
-        .then((value) => value
-            .asyncMap((event) => _findDupByLaber(event['type'], event['name']))
-            .where((event) => event.isNotEmpty)
-            .asyncMap((event) => _collectionFromMap(event))
-            .expand((element) => element.entries)
-            .asyncMap((event) => event.key._compareThenDel(event.value))
-            .length);
+    var cursor = await _helper.querySqlByCursor(
+        "select t.name,t.type from GalleryTagRelation r left join Tags t on r.tid = t.id where t.type='artist' or t.type='group' group by t.name having count(t.name)>1");
+    return cursor
+        .asyncMap((event) => _findDupByLaber(event['type'], event['name']))
+        .where((event) => event.isNotEmpty)
+        .asyncMap((event) => _collectionFromMap(event))
+        .expand((element) => element.entries)
+        .asyncMap((event) => event.key._compareThenDel(event.value))
+        .length;
   }
 
   Future<Map<int, List<int>>> _findDupByLaber(String type, String name) async {
@@ -226,7 +225,7 @@ class HitomiDir {
       });
       return await completer.future.then((value) async {
         if (value) {
-          _downLoader.logger?.d(
+          _downLoader.logger?.i(
               '${gallery.id} lost ${fileLost.map((e) => path.basename(e.path)).toList()} redownload $value');
         } else {
           try {
@@ -263,7 +262,7 @@ class HitomiDir {
         .asyncMap((img) {
       _downLoader.logger?.w(' ${gallery.id} remove db illegal file ${img}');
       gallery.files.removeWhere((s) => s == img);
-      return _downLoader.helper.deleteGalleryFile(gallery.id, img.hash);
+      return _downLoader.helper.deleteGalleryFile(gallery.id, img.name);
     }).fold(true, (pre, r) => pre && r);
     if (len != dbImages.length) {
       File(path.join(dir.path, 'meta.json'))
@@ -279,6 +278,8 @@ class HitomiDir {
             (value) async {
       if ((value.isNotEmpty)) {
         _downLoader.logger?.w('del ${dir.path} files ${value} from ${gallery}');
+        await Future.wait(value.map(
+            (img) => _downLoader.helper.deleteGalleryFile(gallery.id, img)));
         value.map((e) => File(path.join(dir.path, e))).forEach((element) {
           element.deleteSync();
         });
@@ -401,7 +402,7 @@ class HitomiDir {
           var lost = missing.isEmpty;
           if (missing.isNotEmpty) {
             _downLoader.logger?.i(
-                '${gallery} fix file missing ${missing.map((e) => e.name).toList()}');
+                '${gallery.dirName} fix file missing ${missing.map((e) => e.name).toList()}');
             lost = await batchInsertImage(missing);
           }
           return lost;

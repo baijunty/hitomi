@@ -17,7 +17,7 @@ import 'multi_paltform.dart' show openSqliteDb;
 
 class SqliteHelper {
   final String _dirPath;
-  static final _version = 14;
+  static final _version = 15;
   Logger? _logger = null;
   late CommonDatabase _db;
   CommonDatabase? __db;
@@ -151,7 +151,7 @@ class SqliteHelper {
       width integer,
       height integer,
       fileHash integer,
-      PRIMARY KEY(gid,hash),
+      PRIMARY KEY(gid,name),
       FOREIGN KEY(gid) REFERENCES Gallery(id)  ON DELETE CASCADE
       )''');
     db.execute('''create table if not exists Tasks(
@@ -344,6 +344,16 @@ class SqliteHelper {
               """insert into  UserLog(id,type,value,content,date,extension) 
               select id,type,mark,content,null,null  from UserLogTemp""");
           return 14;
+        }
+      case 14:
+        {
+          db.execute("drop table if exists GalleryFileTemp ");
+          db.execute("ALTER table GalleryFile rename to GalleryFileTemp");
+          createTables(db);
+          db.execute(
+              """insert into GalleryFile(gid,hash,name,width,height,fileHash) select gid,hash,name,width,height,fileHash from GalleryFileTemp""");
+          db.execute("drop table GalleryFileTemp");
+          return 15;
         }
     }
     return oldVersion;
@@ -564,8 +574,8 @@ class SqliteHelper {
             'delete from GalleryTagRelation where gid =?', [id]));
   }
 
-  Future<bool> deleteGalleryFile(dynamic id, String hash) async {
+  Future<bool> deleteGalleryFile(dynamic id, String name) async {
     return excuteSqlAsync(
-        'delete from GalleryFile where gid =? and hash=?', [id, hash]);
+        'delete from GalleryFile where gid =? and name=?', [id, name]);
   }
 }

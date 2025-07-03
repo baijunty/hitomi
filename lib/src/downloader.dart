@@ -105,9 +105,9 @@ class DownLoader {
             return await helper.removeTask(msg.id);
           } else if (msg.target is Image) {
             return helper.querySql(
-                'select * from GalleryFile where gid=? and hash=?', [
+                'select * from GalleryFile where gid=? and name=?', [
               msg.gallery.id,
-              (msg.target as Image).hash
+              (msg.target as Image).name
             ]).then((value) async {
               bool needInsert = value.firstOrNull == null;
               int hashValue = value.firstOrNull?['fileHash'] ??
