@@ -396,11 +396,11 @@ class HitomiDir {
           var missing = gallery.files
               .where((f) =>
                   File(path.join(dir.path, f.name)).existsSync() &&
-                  images.every((i) => i.hash != f.hash))
+                  images.every((i) => i.name != f.name))
               .toList();
           var lost = missing.isEmpty;
           if (missing.isNotEmpty) {
-            _downLoader.logger?.d(
+            _downLoader.logger?.i(
                 '${gallery} fix file missing ${missing.map((e) => e.name).toList()}');
             lost = await batchInsertImage(missing);
           }
