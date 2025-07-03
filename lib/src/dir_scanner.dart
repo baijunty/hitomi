@@ -80,7 +80,14 @@ class DirScanner {
                     _downLoader.logger
                         ?.e('fetch gallery $id path ${dir.path}  error $e');
                   }
-                }).length));
+                }).length))
+        .whenComplete(() => stream.close())
+        .catchError((e) {
+      _downLoader.logger?.e('list dirs error $e');
+      stream.addError(e);
+      stream.close();
+      return 0;
+    }, test: (e) => true);
     return stream.stream;
   }
 
