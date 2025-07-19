@@ -309,7 +309,7 @@ class HitomiDir {
             .toList(),
         _downLoader.config.languages,
         _downLoader.logger);
-    if (left.id == this.gallery.id) {
+    if (left.id == this.gallery.id && dir.existsSync()) {
       return others
           .asStream()
           .asyncMap((event) =>
