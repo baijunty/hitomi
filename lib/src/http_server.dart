@@ -136,8 +136,7 @@ class _TaskWarp {
                     exclude: exclude != null
                         ? _mapFromRequest(exclude)
                         : _manager.config.excludes,
-                    sort: sort,
-                    page: task.value['page'] ?? 1)
+                    sort: sort)
                 .then((value) => Response.ok(
                     json.encode(value.toJson((p1) => p1)),
                     headers: defaultRespHeader));

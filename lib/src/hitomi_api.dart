@@ -18,7 +18,6 @@ abstract class Hitomi {
       {bool usePrefence = true, CancelToken? token});
   Future<DataResponse<List<int>>> search(List<Label> include,
       {List<Label> exclude,
-      int page = 1,
       CancelToken? token,
       SortEnum sort = SortEnum.Default});
   Future<List<Map<String, dynamic>>> fetchSuggestions(String key);

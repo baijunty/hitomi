@@ -128,7 +128,6 @@ class _LocalHitomiImpl implements Hitomi {
   Future<DataResponse<List<int>>> search(
     List<Label> include, {
     List<Label> exclude = const [],
-    int page = 1,
     SortEnum sort = SortEnum.Default,
     CancelToken? token,
   }) async {
@@ -237,7 +236,6 @@ class _LocalHitomiImpl implements Hitomi {
       default:
         break;
     }
-    sql.write(' limit 25 offset ${(page - 1) * 25}');
     _manager.logger.d('sql is ${sql} parms = ${params}');
     int count = 0;
     return _helper.querySql(sql.toString(), params).then((value) {
@@ -626,7 +624,6 @@ class _HitomiImpl implements Hitomi {
   @override
   Future<DataResponse<List<int>>> search(List<Label> include,
       {List<Label> exclude = const [],
-      int page = 1,
       usePrefence = true,
       SortEnum sort = SortEnum.Default,
       CancelToken? token}) async {
@@ -1094,7 +1091,6 @@ class WebHitomi implements Hitomi {
   @override
   Future<DataResponse<List<int>>> search(List<Label> include,
       {List<Label> exclude = const [],
-      int page = 1,
       SortEnum sort = SortEnum.Default,
       CancelToken? token}) {
     return dio
@@ -1102,7 +1098,6 @@ class WebHitomi implements Hitomi {
             data: json.encode({
               'include': include,
               'excludes': exclude,
-              'page': page,
               'auth': auth,
               'sort': sort.name,
               'local': localDb
