@@ -384,7 +384,7 @@ class SqliteHelper {
   Future<Map<Label, int>> queryOrInsertTagTable(List<Label> params) async {
     return await selectSqlMultiResultAsync(
             'select id,type,name from Tags where type=? and name=?',
-            params.map((e) => [e.type, e.name]).toList())
+            params.map((e) => e.params).toList())
         .then((sets) async {
       return await Future.wait(sets.entries.map((e) async {
         var id = e.value.firstOrNull?['id'] as int?;

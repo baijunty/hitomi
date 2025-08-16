@@ -379,59 +379,38 @@ class TaskManager {
         : [];
   }
 
-  Future<Map<Label, Map<String, dynamic>>> collectedInfo(List<Label> keys) {
-    return keys
-        .where((element) => !_cache.containsKey(element))
-        .groupListsBy((element) => element.localSqlType)
-        .entries
-        .asStream()
-        .asyncMap((entry) async {
-      return helper
-          .selectSqlMultiResultAsync(
-              'select count(1) as count,g.date as date from Gallery g where exists (select 1 from GalleryTagRelation r where r.gid = g.id and r.tid = (select id from Tags where type = ? and name = ?))',
-              entry.value.map((e) => [e.type, e.name]).toList())
-          .then((value) {
-        return value.entries.fold(<Label, Map<String, dynamic>>{},
-            (previousValue, element) {
-          final row = element.value.firstOrNull;
-          if (row != null && row['date'] != null) {
-            previousValue[fromString(element.key[0], element.key[1])] = {
-              'count': row['count'],
-              'date':
-                  DateTime.fromMillisecondsSinceEpoch(row['date']).toString()
-            };
-          }
-          return previousValue;
-        });
-      });
-    }).fold(<Label, Map<String, dynamic>>{},
-            (previous, element) => previous..addAll(element));
+  void countChange(List<Label> keys, int count) {
+    keys.where((e) => _cache.containsKey(e)).forEach((element) {
+      _cache[element]?['count'] += count;
+    });
   }
 
   Future<Map<Label, Map<String, dynamic>>> translateLabel(
       List<Label> keys) async {
-    var count = await collectedInfo(keys);
-    var missed =
-        keys.groupListsBy((element) => _cache[element] != null)[false] ?? [];
+    var missed = keys.where((l) => !_cache.containsKey(l));
     if (missed.isNotEmpty) {
-      var result = await helper.selectSqlMultiResultAsync(
-          'select translate,intro,links from Tags where type=? and name=?',
-          missed.map((e) => e.params).toList());
-      missed.fold(_cache, (previousValue, element) {
-        final v = result.entries
-            .firstWhereOrNull((e) => e.key.equals(element.params))
+      var resultData = await helper.selectSqlMultiResultAsync(
+          '''select t.translate, t.intro, t.links, (select count(1) as count from Gallery g where exists (select 1 from GalleryTagRelation r where r.gid = g.id and r.tid = t.id)) as count,
+         (select g.date from Gallery g where exists (select 1 from GalleryTagRelation r where r.gid = g.id and r.tid = t.id) order by g.date desc limit 1) as date 
+         from Tags t where t.type=? and t.name=?''',
+          keys.map((e) => e.params).toList());
+      var result = keys.fold(<Label, Map<String, dynamic>>{}, (map, element) {
+        var row = resultData.entries
+            .firstWhereOrNull((entry) => entry.key.equals(element.params))
             ?.value
             .firstOrNull;
-        if (v != null) {
-          previousValue[element] = {...v, ...element.toMap()};
-        } else {
-          previousValue[element] = {
-            'translate': element.name,
-            ...element.toMap()
-          };
-        }
-        previousValue[element]!.addAll(count[element] ?? {});
-        return previousValue;
+        map[element] = {
+          'translate': row?['translate'] ?? element.name,
+          'count': row?['count'] ?? 0,
+          'date': row != null && row['date'] != null
+              ? DateTime.fromMillisecondsSinceEpoch(row['date']).toString()
+              : DateTime.now().toString(),
+          ...element.toMap(),
+        };
+        return map;
+      });
+      result.entries.fold(_cache, (previousValue, element) {
+        return previousValue..[element.key] = element.value;
       });
     }
     final r =

@@ -81,6 +81,11 @@ class DownLoader {
           if (msg.target is List) {
             if (msg.success) {
               await helper.removeTask(msg.id);
+              if (msg.gallery.hasAuthor) {
+                manager.countChange(
+                    [...msg.gallery.artists ?? [], ...msg.gallery.groups ?? []],
+                    1);
+              }
             } else {
               await helper.updateTask(
                   msg.gallery.id,

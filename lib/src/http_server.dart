@@ -187,6 +187,33 @@ class _TaskWarp {
     return MapEntry(false, Map());
   }
 
+  /// Fetches image data from the API based on query parameters.
+  ///
+  /// This method retrieves an image file from either a local or remote source
+  /// using the provided image metadata and query parameters. It supports caching
+  /// via ETag and handles conditional requests for improved performance.
+  ///
+  /// Parameters:
+  ///   - [req]: The incoming Shelf Request object containing URL query parameters
+  ///            and headers.
+  ///
+  /// Query Parameters:
+  ///   - id: The gallery ID (required).
+  ///   - hash: The image hash (required, must be 64 characters).
+  ///   - name: The image filename (required).
+  ///   - size: The thumbnail size (required).
+  ///   - local: Boolean flag to indicate if the request is for a local source.
+  ///   - translate: Boolean flag to indicate if translation is requested.
+  ///   - lang: Language code for translation (defaults to 'ja').
+  ///   - referer: Referrer URL for the request.
+  ///
+  /// Headers:
+  ///   - If-None-Match: ETag header to support conditional requests.
+  ///
+  /// Returns:
+  ///   A Future<Response> that completes with a Shelf Response containing
+  ///   the image data and appropriate headers, or an error response if the
+  ///   request parameters are invalid.
   Future<Response> _image(Request req) async {
     var id = req.url.queryParameters['id'];
     var hash = req.url.queryParameters['hash'];
@@ -227,6 +254,26 @@ class _TaskWarp {
                 }));
   }
 
+  /// Translates labels from the request body using the task manager.
+  ///
+  /// This method handles a POST request to translate labels. It expects an
+  /// authentication token in the request body and processes the 'tags' field
+  /// to convert them into translated labels. Only labels that are not of type
+  /// QueryText are included in the translation process.
+  ///
+  /// Parameters:
+  ///   - [req]: The incoming Shelf Request object containing the body with
+  ///            authentication token and tags to translate.
+  ///
+  /// Request Body Format:
+  ///   A JSON object with:
+  ///   - auth: Authentication token for authorization.
+  ///   - tags: List of tag objects (or strings) to be translated.
+  ///
+  /// Returns:
+  ///   A Future<Response> that completes with a Shelf Response containing
+  ///   the translated labels in JSON format if authentication is successful,
+  ///   or an unauthorized response otherwise.
   Future<Response> _translate(Request req) async {
     final task = await _authToken(req);
     if (task.key) {
@@ -246,11 +293,34 @@ class _TaskWarp {
     return Response.unauthorized('unauth');
   }
 
+  /// Adds a new task to the task manager after authentication and IP validation.
+  ///
+  /// This method handles a POST request to add a new task. It verifies the
+  /// authentication token and checks if the request is coming from a local or
+  /// LAN IP address. If both conditions are met, it parses the task command
+  /// and executes it using the task manager.
+  ///
+  /// Parameters:
+  ///   - [req]: The incoming Shelf Request object containing the body with
+  ///            authentication token and task details.
+  ///
+  /// Request Body Format:
+  ///   A JSON object with:
+  ///   - auth: Authentication token for authorization.
+  ///   - task: The command or task to be executed.
+  ///
+  /// Headers:
+  ///   - x-real-ip: The real IP address of the client making the request.
+  ///
+  /// Returns:
+  ///   A Future<Response> that completes with a Shelf Response indicating
+  ///   success if authentication and IP validation pass, or an unauthorized
+  ///   response otherwise.
   Future<Response> _addTask(Request req) async {
     final task = await _authToken(req);
     final ip = req.headers['x-real-ip'] ?? '';
     _manager.logger.d('real ip $ip');
-    if (task.key && (ip.isEmpty || isLocalOrLAN(InternetAddress(ip)))) {
+    if (task.key && _isLocalOrLAN(InternetAddress(ip))) {
       _manager.parseCommandAndRun(task.value['task']);
       return Response.ok(json.encode({'success': true}),
           headers: defaultRespHeader);
@@ -288,7 +358,7 @@ class _TaskWarp {
     final task = await _authToken(req);
     final ip = req.headers['x-real-ip'] ?? '';
     _manager.logger.d('real ip $ip');
-    if (task.key && (ip.isEmpty || isLocalOrLAN(InternetAddress(ip)))) {
+    if (task.key && _isLocalOrLAN(InternetAddress(ip))) {
       return _manager.parseCommandAndRun('-p ${task.value['id']}').then(
           (value) => Response.ok(json.encode({'success': value}),
               headers: defaultRespHeader));
@@ -300,7 +370,7 @@ class _TaskWarp {
     final task = await _authToken(req);
     final ip = req.headers['x-real-ip'] ?? '';
     _manager.logger.d('real ip $ip');
-    if (task.key && (ip.isEmpty || isLocalOrLAN(InternetAddress(ip)))) {
+    if (task.key && _isLocalOrLAN(InternetAddress(ip))) {
       return _manager.parseCommandAndRun('-d ${task.value['id']}').then(
           (value) => Response.ok(json.encode({'success': value}),
               headers: defaultRespHeader));
@@ -308,7 +378,7 @@ class _TaskWarp {
     return Response.unauthorized('unauth');
   }
 
-  bool isLocalOrLAN(InternetAddress address) {
+  bool _isLocalOrLAN(InternetAddress address) {
     // 检查环回地址
     if (address.isLoopback) return true;
 
@@ -350,7 +420,7 @@ class _TaskWarp {
     final ip = req.headers['x-real-ip'] ?? '';
     _manager.logger
         .d('real ip $ip ${task.value['mark']} ${task.value['content'].length}');
-    if (task.key && (ip.isEmpty || isLocalOrLAN(InternetAddress(ip)))) {
+    if (task.key && _isLocalOrLAN(InternetAddress(ip))) {
       int mark = task.value['mark'];
       bool returnValue = task.value['returnValue'] ?? false;
       List<dynamic> content = task.value['content'];

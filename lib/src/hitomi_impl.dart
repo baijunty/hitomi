@@ -264,7 +264,7 @@ class _LocalHitomiImpl implements Hitomi {
     } else {
       sql =
           'select COUNT(*) OVER() AS total_count,g.id from Gallery g where exists (select 1 from GalleryTagRelation r where r.gid = g.id and r.tid = (select id from Tags where type = ? and name = ?)) ';
-      params.addAll([tag.type, tag.name]);
+      params.addAll(tag.params);
     }
     switch (sort) {
       case SortEnum.ID_ASC:
@@ -715,7 +715,7 @@ class _HitomiImpl implements Hitomi {
             .map((element) => element as List)
             .map((m) => fromString(m[2], m[0]))
             .toList())
-        .then((value) => manager.collectedInfo(value))
+        .then((value) => manager.translateLabel(value))
         .then((value) => value.values.toList());
   }
 

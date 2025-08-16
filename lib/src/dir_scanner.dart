@@ -327,8 +327,13 @@ class HitomiDir {
         .deleteGallery(gallery.id)
         .then((value) => dir.exists())
         .then((value) => value ? dir.delete(recursive: true) : false)
-        .then((value) => true)
-        .catchError((e) {
+        .then((value) {
+      if (gallery.hasAuthor) {
+        _downLoader.manager.countChange(
+            [...gallery.artists ?? [], ...gallery.groups ?? []], -1);
+      }
+      return true;
+    }).catchError((e) {
       _downLoader.logger?.e('del gallery $gallery faild');
       return false;
     }, test: (error) => true);
