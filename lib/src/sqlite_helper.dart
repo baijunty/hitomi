@@ -409,10 +409,29 @@ class SqliteHelper {
   }
 
   Future<List<Map<String, dynamic>>> fetchLabelsFromSql(String name) async {
-    var sets = await querySql(
-        'select type,name,translate,intro,links from Tags where name like ? or translate like ? limit 30',
-        [name.toLowerCase(), name.toLowerCase()]);
-    return sets.toList();
+    // 先查询所有匹配的type
+    var types = await querySql(
+        'select distinct type from Tags where name like ? or translate like ?',
+        ['%${name.toLowerCase()}%', '%${name.toLowerCase()}%']);
+
+    List<Map<String, dynamic>> result = [];
+    // 对每种type，最多取20个结果，完全匹配的优先
+    for (var type in types) {
+      var sets = await querySql('''select type, name, translate, intro, links 
+             from Tags 
+             where (name like ? or translate like ?) and type = ? 
+             order by case when name = ? then 0 else 1 end, 
+                      case when translate = ? then 0 else 1 end
+             limit 20''', [
+        '%${name.toLowerCase()}%',
+        '%${name.toLowerCase()}%',
+        type['type'],
+        name,
+        name,
+      ]);
+      result.addAll(sets.toList());
+    }
+    return result;
   }
 
   Future<ResultSet> querySql(String sql,

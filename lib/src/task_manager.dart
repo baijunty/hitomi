@@ -400,8 +400,7 @@ class TaskManager {
             ?.value
             .firstOrNull;
         map[element] = {
-          'translate': row?['translate'] ?? element.name,
-          'count': row?['count'] ?? 0,
+          ...row ?? {},
           'date': row != null && row['date'] != null
               ? DateTime.fromMillisecondsSinceEpoch(row['date']).toString()
               : DateTime.now().toString(),

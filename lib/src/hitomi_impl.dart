@@ -297,7 +297,7 @@ class _LocalHitomiImpl implements Hitomi {
 
   @override
   Future<List<Map<String, dynamic>>> fetchSuggestions(String key) {
-    return _manager.helper.fetchLabelsFromSql('%$key%');
+    return _manager.helper.fetchLabelsFromSql(key);
   }
 
   @override
