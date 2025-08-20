@@ -56,9 +56,6 @@ class Tag with Label {
   String get name => tag;
 
   @override
-  String get localSqlType => 'tag';
-
-  @override
   String urlEncode({SortEnum? sort}) {
     String? sexTag = (male ?? female)?.toString();
     return 'tag/${sort == null || sort == SortEnum.Default ? '' : 'popular/${sort.name}/'}${sexTag == null ? '' : '${'1' == (male?.toString()) ? 'male' : 'female'}:'}${Uri.encodeComponent(name.toLowerCase())}';

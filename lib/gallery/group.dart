@@ -30,8 +30,5 @@ class Group with Label {
   String get type => 'group';
 
   @override
-  String get localSqlType => 'groupes';
-
-  @override
   String get name => group;
 }

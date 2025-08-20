@@ -159,7 +159,7 @@ class _LocalHitomiImpl implements Hitomi {
               if (index != 0) {
                 previousValue.write('or ');
               }
-              return previousValue..write('${element.localSqlType} =? ');
+              return previousValue..write('${element.type} =? ');
             });
             previousValue.write(') and ');
           }
@@ -203,7 +203,7 @@ class _LocalHitomiImpl implements Hitomi {
               if (index != 0) {
                 previousValue.write('or ');
               }
-              return previousValue..write('${element.localSqlType} =? ');
+              return previousValue..write('${element.type} =? ');
             });
             previousValue.write(') and ');
           }

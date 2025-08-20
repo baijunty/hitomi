@@ -36,9 +36,6 @@ class Parody with Label {
 
   @override
   String get sqlType => 'parody';
-
-  @override
-  String get localSqlType => type;
   @override
   String get name => parody;
 }

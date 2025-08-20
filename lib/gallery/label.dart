@@ -13,7 +13,6 @@ abstract mixin class Label {
   String get type;
   String get name;
   String get sqlType => type;
-  String get localSqlType => type;
   Map<String, dynamic>? translate;
   List<String> get params => [sqlType, name];
   Map<String, dynamic> toMap() => {'type': type, 'name': name, type: name};

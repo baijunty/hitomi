@@ -406,6 +406,7 @@ class TaskManager {
               : DateTime.now().toString(),
           ...element.toMap(),
         };
+        logger.d('translate $element $row');
         return map;
       });
       result.entries.fold(_cache, (previousValue, element) {
