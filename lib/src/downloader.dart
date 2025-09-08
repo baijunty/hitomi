@@ -108,7 +108,7 @@ class DownLoader {
           } else if (msg.target is Gallery) {
             logger?.w('illeagal gallery ${msg}');
             return await helper.removeTask(msg.id);
-          } else if (msg.target is Image) {
+          } else if (msg.target is Image && msg.success) {
             return helper.querySql(
                 'select * from GalleryFile where gid=? and name=?', [
               msg.gallery.id,

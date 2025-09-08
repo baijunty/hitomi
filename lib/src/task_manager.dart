@@ -381,7 +381,7 @@ class TaskManager {
 
   void countChange(List<Label> keys, int count) {
     keys.where((e) => _cache.containsKey(e)).forEach((element) {
-      _cache[element]?['count'] += count;
+      _cache[element]?['count'] = _cache[element]?['count'] ?? 0 + count;
     });
   }
 
@@ -394,23 +394,20 @@ class TaskManager {
          (select g.date from Gallery g where exists (select 1 from GalleryTagRelation r where r.gid = g.id and r.tid = t.id) order by g.date desc limit 1) as date 
          from Tags t where t.type=? and t.name=?''',
           keys.map((e) => e.params).toList());
-      var result = keys.fold(<Label, Map<String, dynamic>>{}, (map, element) {
+      keys.fold(_cache, (map, element) {
         var row = resultData.entries
             .firstWhereOrNull((entry) => entry.key.equals(element.params))
             ?.value
             .firstOrNull;
-        map[element] = {
-          ...row ?? {},
-          'date': row != null && row['date'] != null
-              ? DateTime.fromMillisecondsSinceEpoch(row['date']).toString()
-              : DateTime.now().toString(),
-          ...element.toMap(),
-        };
+        if (row != null) {
+          map[element] = {
+            ...row,
+            'date': DateTime.fromMillisecondsSinceEpoch(row['date']).toString(),
+            ...element.toMap(),
+          };
+        }
         logger.d('translate $element $row');
         return map;
-      });
-      result.entries.fold(_cache, (previousValue, element) {
-        return previousValue..[element.key] = element.value;
       });
     }
     final r =
