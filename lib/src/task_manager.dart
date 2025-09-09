@@ -402,7 +402,10 @@ class TaskManager {
         if (row != null) {
           map[element] = {
             ...row,
-            'date': DateTime.fromMillisecondsSinceEpoch(row['date']).toString(),
+            'count': row['count'] ?? 0,
+            'date': row['date'] != null
+                ? DateTime.fromMillisecondsSinceEpoch(row['date']).toString()
+                : DateTime.now().toString(),
             ...element.toMap(),
           };
         }
