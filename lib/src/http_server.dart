@@ -502,7 +502,7 @@ Future<HttpServer> run_server(TaskManager manager) async {
   final handler = Pipeline()
       .addMiddleware(logRequests(
           logger: (message, isError) =>
-              isError ? manager.logger.e(message) : manager.logger.t(message)))
+              isError ? manager.logger.e(message) : manager.logger.d(message)))
       .addMiddleware((innerHandler) => (req) {
             return Future.sync(() => innerHandler(req)).then((value) =>
                 value.statusCode == 404 && staticHandle != null
