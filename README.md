@@ -4,6 +4,37 @@
 - flutter前端
 [ayaka](https://github.com/baijunty/ayaka)
 
+## 功能特性
+- 支持从hitomi.la网站下载漫画
+- 本地数据库存储漫画信息
+- 图片特征识别和标签管理
+- 多平台支持（Windows, macOS, Linux）
+- 支持批量下载和管理
+
+## Docker部署
+使用Docker可以轻松部署此应用：
+
+1. 构建Docker镜像：
+   ```bash
+   docker build -t hitomi .
+   ```
+
+2. 运行容器：
+   ```bash
+   docker run -p 7890:7890 hitomi
+   ```
+
+3. 访问服务：
+   在浏览器中访问 `http://localhost:7890`
+
+## 支持功能
+- [x] 漫画信息获取与解析
+- [x] 漫画图片下载
+- [x] 本地数据库存储
+- [x] 图片特征提取与标签匹配
+- [x] 多平台支持
+- [x] 批量操作支持
+
 [MIT](https://choosealicense.com/licenses/mit/)
 
 Copyright (c) 

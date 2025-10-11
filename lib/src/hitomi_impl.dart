@@ -252,14 +252,14 @@ class _LocalHitomiImpl implements Hitomi {
     if (tag is QueryText) {
       if (tag.name.isNotEmpty) {
         sql =
-            'select COUNT(*) OVER() AS total_count,g.* from Gallery g where g.title like ? ';
+            'select COUNT(*) OVER() AS total_count,g.id from Gallery g where g.title like ? ';
         params.add('%${tag.name}%');
       } else {
-        sql = 'select COUNT(*) OVER() AS total_count,g.* from Gallery g ';
+        sql = 'select COUNT(*) OVER() AS total_count,g.id from Gallery g ';
       }
     } else if (tag is TypeLabel) {
       sql =
-          'select COUNT(*) OVER() AS total_count,g.* from Gallery g where type =? ';
+          'select COUNT(*) OVER() AS total_count,g.id from Gallery g where type =? ';
       params.add(tag.name);
     } else {
       sql =
@@ -268,10 +268,11 @@ class _LocalHitomiImpl implements Hitomi {
     }
     switch (sort) {
       case SortEnum.ID_ASC:
-        sql = '${sql}';
+        sql = '${sql} order by g.id asc';
         break;
       case SortEnum.ADD_TIME:
         sql = '${sql} order by date desc';
+        break;
       default:
         sql = '${sql} order by g.id desc';
         break;
@@ -279,14 +280,26 @@ class _LocalHitomiImpl implements Hitomi {
     sql = '$sql limit 25 offset ${(page - 1) * 25}';
     var count = 0;
     _manager.logger.d('$sql with $params');
+    
+    // 优化：一次性获取所有Gallery对象，避免N+1查询问题
     return _helper
         .querySqlByCursor(sql, params)
-        .then((value) => value.asyncMap((row) {
+        .then((value) => value.fold(<Map<String, dynamic>>[], (previous, row) {
               if (count <= 0) {
                 count = row['total_count'];
               }
-              return _helper.queryGalleryById(row['id']);
-            }).fold(<Gallery>[], (previous, element) => previous..add(element)))
+              previous.add({'id': row['id']});
+              return previous;
+            }))
+        .then((rows) async {
+          // 批量获取Gallery对象
+          var galleries = <Gallery>[];
+          for (var row in rows) {
+            var gallery = await _helper.queryGalleryById(row['id']);
+            galleries.add(gallery);
+          }
+          return galleries;
+        })
         .then((data) => DataResponse(data, totalCount: count));
   }
 

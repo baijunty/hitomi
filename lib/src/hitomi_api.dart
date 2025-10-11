@@ -40,6 +40,8 @@ abstract class Hitomi {
 
 enum SortEnum { Default, ID_ASC, ADD_TIME }
 
+enum HitomiType { Local, Remote, PROXY }
+
 sealed class Message<T> {
   final T id;
   Message({required this.id});

@@ -68,12 +68,15 @@ class TaskManager {
   List<Map<String, dynamic>> get queryTask => _queryTasks
       .map((e) => {'href': '/${e.urlEncode()}-all.html', ...e.toMap()})
       .toList();
-  Hitomi getApiDirect({bool local = false}) {
-    return local ? _localApi : _api;
-  }
-
-  Hitomi getApiFromProxy(String auth, String proxyAddr) {
-    return _webHitomi;
+  Hitomi getApiDirect(HitomiType type) {
+    switch (type) {
+      case HitomiType.Local:
+        return _localApi;
+      case HitomiType.PROXY:
+        return _webHitomi;
+      default:
+        return _api;
+    }
   }
 
   List<String> get adImage =>
@@ -317,7 +320,9 @@ class TaskManager {
 
   Future<List<int>> findSugguestGallery(int id) async {
     return config.aiTagPath.isNotEmpty
-        ? await getApiDirect().fetchGallery(id).then((gallery) async {
+        ? await getApiDirect(HitomiType.Remote)
+            .fetchGallery(id)
+            .then((gallery) async {
             var idTitleMap = Map<int, String>();
             var ids = <int>[];
             if (gallery.artists != null) {
@@ -387,12 +392,13 @@ class TaskManager {
 
   Future<Map<Label, Map<String, dynamic>>> translateLabel(
       List<Label> keys) async {
-    var missed = keys.where((l) => !_cache.containsKey(l));
+    var missed = keys.toSet().where((l) => !_cache.containsKey(l)).toList();
     if (missed.isNotEmpty) {
+      var start = DateTime.now();
       var resultData = await helper.selectSqlMultiResultAsync(
-          '''select t.translate, t.intro, t.links, (select count(1) as count from Gallery g where exists (select 1 from GalleryTagRelation r where r.gid = g.id and r.tid = t.id)) as count,
-         (select g.date from Gallery g where exists (select 1 from GalleryTagRelation r where r.gid = g.id and r.tid = t.id) order by g.date desc limit 1) as date 
-         from Tags t where t.type=? and t.name=?''',
+          '''SELECT t.translate,t.intro, t.links,(SELECT COUNT(g.id) FROM Gallery g JOIN GalleryTagRelation r ON r.gid = g.id WHERE r.tid = t.id) AS count,
+          (SELECT g.date FROM Gallery g JOIN GalleryTagRelation r ON r.gid = g.id WHERE r.tid = t.id ORDER BY g.date DESC LIMIT 1) AS date
+          FROM Tags t WHERE t.type = ? AND t.name = ?''',
           keys.map((e) => e.params).toList());
       keys.fold(_cache, (map, element) {
         var row = resultData.entries
@@ -409,9 +415,10 @@ class TaskManager {
             ...element.toMap(),
           };
         }
-        logger.d('translate $element $row');
         return map;
       });
+      logger.d(
+          'translate ${missed.length} time ${DateTime.now().difference(start).inSeconds}');
     }
     final r =
         keys.fold(<Label, Map<String, dynamic>>{}, (previousValue, element) {
@@ -464,7 +471,7 @@ class TaskManager {
                 .then((ids) => Future.wait(ids
                     .where((id) => id != gallery.id)
                     .map((id) => _downLoader.manager
-                        .getApiDirect(local: true)
+                        .getApiDirect(HitomiType.Local)
                         .fetchGallery(id, usePrefence: false))))
                 .then((gs) => compareGallerWithOther(
                     gallery, gs, _downLoader.config.languages))
