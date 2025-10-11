@@ -114,12 +114,9 @@ class _TaskWarp {
         case 'fetchGallery':
           {
             var id = req.url.queryParameters['id'];
-            var local = req.url.queryParameters['local'] == 'true';
             var usePrefence = req.url.queryParameters['usePrefence'] == 'true';
-            return _manager
-                .getApiDirect(local ? HitomiType.Local : HitomiType.Remote)
-                .fetchGallery(id, usePrefence: usePrefence)
-                .then((value) => Response.ok(json.encode(value),
+            return localHitomi.fetchGallery(id, usePrefence: usePrefence).then(
+                (value) => Response.ok(json.encode(value),
                     headers: defaultRespHeader));
           }
         case 'search':
@@ -130,10 +127,7 @@ class _TaskWarp {
             SortEnum sort = SortEnum.values
                     .firstWhereOrNull((element) => element.name == querySort) ??
                 SortEnum.Default;
-            return _manager
-                .getApiDirect(task.value['local'] == 'true'
-                    ? HitomiType.Local
-                    : HitomiType.Remote)
+            return localHitomi
                 .search(_mapFromRequest(tags),
                     exclude: exclude != null
                         ? _mapFromRequest(exclude)
@@ -151,10 +145,7 @@ class _TaskWarp {
             var querySort = task.value['sort'];
             SortEnum? sort = SortEnum.values
                 .firstWhereOrNull((element) => element.name == querySort);
-            return _manager
-                .getApiDirect(task.value['local'] == 'true'
-                    ? HitomiType.Local
-                    : HitomiType.Remote)
+            return localHitomi
                 .viewByTag(_mapFromRequest(tags).first,
                     page: task.value['page'] ?? 1, sort: sort)
                 .then((value) => Response.ok(
@@ -164,10 +155,7 @@ class _TaskWarp {
         case 'findSimilar':
           {
             String string = task.value['gallery'];
-            return _manager
-                .getApiDirect(task.value['local'] == 'true'
-                    ? HitomiType.Local
-                    : HitomiType.Remote)
+            return localHitomi
                 .findSimilarGalleryBySearch(Gallery.fromJson(string))
                 .then((value) => Response.ok(
                     json.encode(value.toJson((p1) => p1)),
@@ -237,8 +225,7 @@ class _TaskWarp {
     if (before != null && before == hash) {
       return Response.notModified();
     }
-    return _manager
-        .getApiDirect(local ? HitomiType.Local : HitomiType.Remote)
+    return localHitomi
         .fetchImageData(
             Image(hash: hash!, hasavif: 0, width: 0, name: name, height: 0),
             refererUrl: req.url.queryParameters['referer'] ?? '',
