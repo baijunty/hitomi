@@ -110,6 +110,7 @@ class _TaskWarp {
     final task = await _authToken(req);
     final method = req.params['method'];
     if (task.key && method?.isNotEmpty == true) {
+      _manager.logger.d('proxy $method task $task');
       switch (method!) {
         case 'fetchGallery':
           {
@@ -409,8 +410,8 @@ class _TaskWarp {
   Future<Response> _sync(Request req) async {
     final task = await _authToken(req);
     final ip = req.headers['x-real-ip'] ?? '';
-    _manager.logger
-        .d('real ip $ip ${task.value['mark']} ${task.value['content'].length}');
+    _manager.logger.d(
+        'real ip $ip mark ${task.value['mark']} content ${task.value['content'].length}');
     if (task.key && _isLocalOrLAN(InternetAddress(ip))) {
       int mark = task.value['mark'];
       bool returnValue = task.value['returnValue'] ?? false;

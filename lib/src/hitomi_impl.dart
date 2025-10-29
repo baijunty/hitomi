@@ -167,7 +167,7 @@ class _LocalHitomiImpl implements Hitomi {
           {
             previousValue.write('( ');
             element.value.foldIndexed(sql, (index, previousValue, element) {
-              params.addAll([element.type, element.name]);
+              params.addAll(element.params);
               if (index != 0) {
                 previousValue.write('and ');
               }
@@ -211,7 +211,7 @@ class _LocalHitomiImpl implements Hitomi {
           {
             previousValue.write('( ');
             element.value.foldIndexed(sql, (index, previousValue, element) {
-              params.addAll([element.type, element.name]);
+              params.addAll(element.params);
               if (index != 0) {
                 previousValue.write('and ');
               }
@@ -280,7 +280,7 @@ class _LocalHitomiImpl implements Hitomi {
     sql = '$sql limit 25 offset ${(page - 1) * 25}';
     var count = 0;
     _manager.logger.d('$sql with $params');
-    
+
     // 优化：一次性获取所有Gallery对象，避免N+1查询问题
     return _helper
         .querySqlByCursor(sql, params)
@@ -292,15 +292,14 @@ class _LocalHitomiImpl implements Hitomi {
               return previous;
             }))
         .then((rows) async {
-          // 批量获取Gallery对象
-          var galleries = <Gallery>[];
-          for (var row in rows) {
-            var gallery = await _helper.queryGalleryById(row['id']);
-            galleries.add(gallery);
-          }
-          return galleries;
-        })
-        .then((data) => DataResponse(data, totalCount: count));
+      // 批量获取Gallery对象
+      var galleries = <Gallery>[];
+      for (var row in rows) {
+        var gallery = await _helper.queryGalleryById(row['id']);
+        galleries.add(gallery);
+      }
+      return galleries;
+    }).then((data) => DataResponse(data, totalCount: count));
   }
 
   @override
