@@ -483,7 +483,7 @@ class SqliteHelper {
         [
           gallery.id,
           basename(path.path),
-          gallery.language,
+          gallery.language ?? '',
           gallery.name,
           gallery.date,
           gallery.type,

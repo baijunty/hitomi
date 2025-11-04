@@ -351,7 +351,7 @@ class DownLoader {
   Future<IdentifyToken> addTask(Gallery gallery,
       {Future<bool> Function(Message msg)? handle,
       bool immediately = true}) async {
-    logger!.d('add task ${gallery.id}');
+    logger?.d('add task ${gallery.id}');
     var token = IdentifyToken(gallery);
     token.handle = handle;
     _pendingTask.add(token);
