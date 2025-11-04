@@ -135,8 +135,6 @@ class TaskManager {
         });
     _parser = ArgParser()
       ..addFlag('fix')
-      ..addFlag('fixDb')
-      ..addFlag('fixDup')
       ..addFlag('update', abbr: 'u')
       ..addFlag('continue', abbr: 'c')
       ..addOption('pause', abbr: 'p')
