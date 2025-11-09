@@ -97,19 +97,18 @@ class TypeLabel extends Label {
 class FilterLabel with Label {
   final String _type;
   final String _name;
-  final double weight;
 
-  FilterLabel(
-      {required String type, required String name, required this.weight})
+  FilterLabel({required String type, required String name})
       : _type = type,
         _name = name;
-  Map<String, dynamic> toMap() =>
-      {'type': type, 'name': name, 'weight': weight};
+  Map<String, dynamic> toMap() => {
+        'type': type,
+        'name': name,
+      };
 
   factory FilterLabel.fromMap(Map<String, dynamic> data) => FilterLabel(
         type: data['type'] as String,
         name: data['name'] as String,
-        weight: data['weight'] as double,
       );
 
   factory FilterLabel.fromJson(String data) {

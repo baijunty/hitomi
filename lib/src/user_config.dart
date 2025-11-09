@@ -13,7 +13,7 @@ abstract class UserConfig with _$UserConfig {
     @Default(5) int maxTasks,
     @Default(["japanese", "chinese"]) List<String> languages,
     @Default("") String proxy,
-    @Default([]) List<FilterLabel> excludes,
+    @Default([]) List<List<FilterLabel>> excludes,
     @Default("2013-01-01") String dateLimit,
     @Default("12345678") String auth,
     @Default("debug") String logLevel,

@@ -1,6 +1,5 @@
-// dart format width=80
-// coverage:ignore-file
 // GENERATED CODE - DO NOT MODIFY BY HAND
+// coverage:ignore-file
 // ignore_for_file: type=lint
 // ignore_for_file: unused_element, deprecated_member_use, deprecated_member_use_from_same_package, use_function_type_syntax_for_parameters, unnecessary_const, avoid_init_to_null, invalid_override_different_default_values_named, prefer_expression_function_bodies, annotate_overrides, invalid_annotation_target, unnecessary_question_mark
 
@@ -19,7 +18,7 @@ mixin _$UserConfig {
   int get maxTasks;
   List<String> get languages;
   String get proxy;
-  List<FilterLabel> get excludes;
+  List<List<FilterLabel>> get excludes;
   String get dateLimit;
   String get auth;
   String get logLevel;
@@ -98,7 +97,7 @@ abstract mixin class $UserConfigCopyWith<$Res> {
       int maxTasks,
       List<String> languages,
       String proxy,
-      List<FilterLabel> excludes,
+      List<List<FilterLabel>> excludes,
       String dateLimit,
       String auth,
       String logLevel,
@@ -153,7 +152,7 @@ class _$UserConfigCopyWithImpl<$Res> implements $UserConfigCopyWith<$Res> {
       excludes: null == excludes
           ? _self.excludes
           : excludes // ignore: cast_nullable_to_non_nullable
-              as List<FilterLabel>,
+              as List<List<FilterLabel>>,
       dateLimit: null == dateLimit
           ? _self.dateLimit
           : dateLimit // ignore: cast_nullable_to_non_nullable
@@ -186,6 +185,238 @@ class _$UserConfigCopyWithImpl<$Res> implements $UserConfigCopyWith<$Res> {
   }
 }
 
+/// Adds pattern-matching-related methods to [UserConfig].
+extension UserConfigPatterns on UserConfig {
+  /// A variant of `map` that fallback to returning `orElse`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>(
+    TResult Function(_UserConfig value)? $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _UserConfig() when $default != null:
+        return $default(_that);
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// Callbacks receives the raw object, upcasted.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case final Subclass2 value:
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>(
+    TResult Function(_UserConfig value) $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _UserConfig():
+        return $default(_that);
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `map` that fallback to returning `null`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>(
+    TResult? Function(_UserConfig value)? $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _UserConfig() when $default != null:
+        return $default(_that);
+      case _:
+        return null;
+    }
+  }
+
+  /// A variant of `when` that fallback to an `orElse` callback.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>(
+    TResult Function(
+            String output,
+            int maxTasks,
+            List<String> languages,
+            String proxy,
+            List<List<FilterLabel>> excludes,
+            String dateLimit,
+            String auth,
+            String logLevel,
+            String logOutput,
+            String aiTagPath,
+            String remoteHttp,
+            double threshold)?
+        $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _UserConfig() when $default != null:
+        return $default(
+            _that.output,
+            _that.maxTasks,
+            _that.languages,
+            _that.proxy,
+            _that.excludes,
+            _that.dateLimit,
+            _that.auth,
+            _that.logLevel,
+            _that.logOutput,
+            _that.aiTagPath,
+            _that.remoteHttp,
+            _that.threshold);
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// As opposed to `map`, this offers destructuring.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case Subclass2(:final field2):
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>(
+    TResult Function(
+            String output,
+            int maxTasks,
+            List<String> languages,
+            String proxy,
+            List<List<FilterLabel>> excludes,
+            String dateLimit,
+            String auth,
+            String logLevel,
+            String logOutput,
+            String aiTagPath,
+            String remoteHttp,
+            double threshold)
+        $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _UserConfig():
+        return $default(
+            _that.output,
+            _that.maxTasks,
+            _that.languages,
+            _that.proxy,
+            _that.excludes,
+            _that.dateLimit,
+            _that.auth,
+            _that.logLevel,
+            _that.logOutput,
+            _that.aiTagPath,
+            _that.remoteHttp,
+            _that.threshold);
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `when` that fallback to returning `null`
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>(
+    TResult? Function(
+            String output,
+            int maxTasks,
+            List<String> languages,
+            String proxy,
+            List<List<FilterLabel>> excludes,
+            String dateLimit,
+            String auth,
+            String logLevel,
+            String logOutput,
+            String aiTagPath,
+            String remoteHttp,
+            double threshold)?
+        $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _UserConfig() when $default != null:
+        return $default(
+            _that.output,
+            _that.maxTasks,
+            _that.languages,
+            _that.proxy,
+            _that.excludes,
+            _that.dateLimit,
+            _that.auth,
+            _that.logLevel,
+            _that.logOutput,
+            _that.aiTagPath,
+            _that.remoteHttp,
+            _that.threshold);
+      case _:
+        return null;
+    }
+  }
+}
+
 /// @nodoc
 @JsonSerializable()
 class _UserConfig implements UserConfig {
@@ -193,7 +424,7 @@ class _UserConfig implements UserConfig {
       {this.maxTasks = 5,
       final List<String> languages = const ["japanese", "chinese"],
       this.proxy = "",
-      final List<FilterLabel> excludes = const [],
+      final List<List<FilterLabel>> excludes = const [],
       this.dateLimit = "2013-01-01",
       this.auth = "12345678",
       this.logLevel = "debug",
@@ -223,10 +454,10 @@ class _UserConfig implements UserConfig {
   @override
   @JsonKey()
   final String proxy;
-  final List<FilterLabel> _excludes;
+  final List<List<FilterLabel>> _excludes;
   @override
   @JsonKey()
-  List<FilterLabel> get excludes {
+  List<List<FilterLabel>> get excludes {
     if (_excludes is EqualUnmodifiableListView) return _excludes;
     // ignore: implicit_dynamic_type
     return EqualUnmodifiableListView(_excludes);
@@ -332,7 +563,7 @@ abstract mixin class _$UserConfigCopyWith<$Res>
       int maxTasks,
       List<String> languages,
       String proxy,
-      List<FilterLabel> excludes,
+      List<List<FilterLabel>> excludes,
       String dateLimit,
       String auth,
       String logLevel,
@@ -387,7 +618,7 @@ class __$UserConfigCopyWithImpl<$Res> implements _$UserConfigCopyWith<$Res> {
       excludes: null == excludes
           ? _self._excludes
           : excludes // ignore: cast_nullable_to_non_nullable
-              as List<FilterLabel>,
+              as List<List<FilterLabel>>,
       dateLimit: null == dateLimit
           ? _self.dateLimit
           : dateLimit // ignore: cast_nullable_to_non_nullable

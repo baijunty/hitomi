@@ -15,7 +15,9 @@ _UserConfig _$UserConfigFromJson(Map<String, dynamic> json) => _UserConfig(
           const ["japanese", "chinese"],
       proxy: json['proxy'] as String? ?? "",
       excludes: (json['excludes'] as List<dynamic>?)
-              ?.map((e) => FilterLabel.fromJson(e as String))
+              ?.map((e) => (e as List<dynamic>)
+                  .map((e) => FilterLabel.fromJson(e as String))
+                  .toList())
               .toList() ??
           const [],
       dateLimit: json['dateLimit'] as String? ?? "2013-01-01",

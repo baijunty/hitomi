@@ -19,7 +19,7 @@ final defaultRespHeader = {
   HttpHeaders.accessControlAllowMethodsHeader: 'GET, POST',
   HttpHeaders.accessControlAllowHeadersHeader: '*',
   HttpHeaders.accessControlAllowCredentialsHeader: 'true',
-  HttpHeaders.contentTypeHeader: 'application/json'
+  HttpHeaders.contentTypeHeader: 'application/json',
 };
 
 class _TaskWarp {
@@ -31,11 +31,12 @@ class _TaskWarp {
       ..get('/', (req) => Response.movedPermanently('/index.html'))
       ..post('/translate', _translate)
       ..get(
-          '/test',
-          (req) => Response.ok(
-              json.encode(
-                  {'success': true, 'feature': _manager.config.aiTagPath}),
-              headers: defaultRespHeader))
+        '/test',
+        (req) => Response.ok(
+          json.encode({'success': true, 'feature': _manager.config.aiTagPath}),
+          headers: defaultRespHeader,
+        ),
+      )
       ..options('/translate', _optionsOk)
       ..post('/addTask', _addTask)
       ..options('/addTask', _optionsOk)
@@ -48,42 +49,60 @@ class _TaskWarp {
         if (id.isEmpty == true || int.tryParse(id) == null) {
           return Response.badRequest(body: 'missing id');
         }
-        return _manager.findSugguestGallery(id.toInt()).then(
-            (ids) => Response.ok(json.encode(ids), headers: defaultRespHeader));
+        return _manager
+            .findSugguestGallery(id.toInt())
+            .then(
+              (ids) =>
+                  Response.ok(json.encode(ids), headers: defaultRespHeader),
+            );
       })
       ..options('/suggest', _optionsOk)
       ..post('/fetchTag/<key>', _fetchTag)
       ..options('/fetchTag/<key>', _optionsOk)
       ..post('/proxy/<method>', _proxy)
-      ..options('/proxy/<method>',
-          (req) => Response.ok(null, headers: defaultRespHeader))
+      ..options(
+        '/proxy/<method>',
+        (req) => Response.ok(null, headers: defaultRespHeader),
+      )
       ..get('/fetchImageData', _image)
       ..options(
-          '/fetchImageData',
-          (req) => Response.ok(null, headers: {
-                ...defaultRespHeader,
-                HttpHeaders.contentTypeHeader: 'application/octet-stream'
-              }))
+        '/fetchImageData',
+        (req) => Response.ok(
+          null,
+          headers: {
+            ...defaultRespHeader,
+            HttpHeaders.contentTypeHeader: 'application/octet-stream',
+          },
+        ),
+      )
       ..post('/cancel', _cancel)
       ..options('/cancel', _optionsOk)
       ..post('/delete', _delete)
       ..options('/delete', _optionsOk)
       ..get('/ip', (req) {
         return NetworkInterface.list()
-            .then((value) => value.firstOrNull?.addresses
-                .where((element) =>
-                    element.type == InternetAddressType.IPv6 &&
-                    element.address.startsWith('2'))
-                .map((e) => e.address)
-                .toList())
-            .then((rep) =>
-                Response.ok(json.encode(rep), headers: defaultRespHeader));
+            .then(
+              (value) => value.firstOrNull?.addresses
+                  .where(
+                    (element) =>
+                        element.type == InternetAddressType.IPv6 &&
+                        element.address.startsWith('2'),
+                  )
+                  .map((e) => e.address)
+                  .toList(),
+            )
+            .then(
+              (rep) =>
+                  Response.ok(json.encode(rep), headers: defaultRespHeader),
+            );
       })
       ..post('/excludes', (req) async {
         var succ = await _authToken(req);
         if (succ.key) {
-          return Response.ok(json.encode(_manager.config.excludes),
-              headers: defaultRespHeader);
+          return Response.ok(
+            json.encode(_manager.config.excludes),
+            headers: defaultRespHeader,
+          );
         }
         return Response.unauthorized('unauth');
       });
@@ -91,10 +110,13 @@ class _TaskWarp {
   }
 
   Future<Response> _optionsOk(Request req) async {
-    return Response.ok(null, headers: {
-      ...defaultRespHeader,
-      HttpHeaders.contentTypeHeader: 'application/json'
-    });
+    return Response.ok(
+      null,
+      headers: {
+        ...defaultRespHeader,
+        HttpHeaders.contentTypeHeader: 'application/json',
+      },
+    );
   }
 
   List<Label> _mapFromRequest(List<dynamic> params) {
@@ -116,27 +138,43 @@ class _TaskWarp {
           {
             var id = req.url.queryParameters['id'];
             var usePrefence = req.url.queryParameters['usePrefence'] == 'true';
-            return localHitomi.fetchGallery(id, usePrefence: usePrefence).then(
-                (value) => Response.ok(json.encode(value),
-                    headers: defaultRespHeader));
+            return localHitomi
+                .fetchGallery(id, usePrefence: usePrefence)
+                .then(
+                  (value) => Response.ok(
+                    json.encode(value),
+                    headers: defaultRespHeader,
+                  ),
+                );
           }
         case 'search':
           {
             List<dynamic> tags = task.value['include'];
             List<dynamic>? exclude = task.value['excludes'];
             var querySort = task.value['sort'];
-            SortEnum sort = SortEnum.values
-                    .firstWhereOrNull((element) => element.name == querySort) ??
+            SortEnum sort =
+                SortEnum.values.firstWhereOrNull(
+                  (element) => element.name == querySort,
+                ) ??
                 SortEnum.Default;
             return localHitomi
-                .search(_mapFromRequest(tags),
-                    exclude: exclude != null
-                        ? _mapFromRequest(exclude)
-                        : _manager.config.excludes,
-                    sort: sort)
-                .then((value) => Response.ok(
+                .search(
+                  _mapFromRequest(tags),
+                  exclude: exclude != null
+                      ? _mapFromRequest(exclude)
+                      : _manager.config.excludes.fold(
+                          <Label>[],
+                          (acc, l) => acc
+                            ..addAll(l.map((e) => fromString(e.type, e.name))),
+                        ),
+                  sort: sort,
+                )
+                .then(
+                  (value) => Response.ok(
                     json.encode(value.toJson((p1) => p1)),
-                    headers: defaultRespHeader));
+                    headers: defaultRespHeader,
+                  ),
+                );
           }
         case 'viewByTag':
           {
@@ -144,23 +182,33 @@ class _TaskWarp {
             _manager.logger.d('real ip $ip');
             List<dynamic> tags = task.value['tags'];
             var querySort = task.value['sort'];
-            SortEnum? sort = SortEnum.values
-                .firstWhereOrNull((element) => element.name == querySort);
+            SortEnum? sort = SortEnum.values.firstWhereOrNull(
+              (element) => element.name == querySort,
+            );
             return localHitomi
-                .viewByTag(_mapFromRequest(tags).first,
-                    page: task.value['page'] ?? 1, sort: sort)
-                .then((value) => Response.ok(
+                .viewByTag(
+                  _mapFromRequest(tags).first,
+                  page: task.value['page'] ?? 1,
+                  sort: sort,
+                )
+                .then(
+                  (value) => Response.ok(
                     json.encode(value.toJson((p1) => p1)),
-                    headers: defaultRespHeader));
+                    headers: defaultRespHeader,
+                  ),
+                );
           }
         case 'findSimilar':
           {
             String string = task.value['gallery'];
             return localHitomi
                 .findSimilarGalleryBySearch(Gallery.fromJson(string))
-                .then((value) => Response.ok(
+                .then(
+                  (value) => Response.ok(
                     json.encode(value.toJson((p1) => p1)),
-                    headers: defaultRespHeader));
+                    headers: defaultRespHeader,
+                  ),
+                );
           }
         default:
           {
@@ -228,22 +276,29 @@ class _TaskWarp {
     }
     return localHitomi
         .fetchImageData(
-            Image(hash: hash!, hasavif: 0, width: 0, name: name, height: 0),
-            refererUrl: req.url.queryParameters['referer'] ?? '',
-            size: ThumbnaiSize.values
-                .firstWhere((element) => element.name == size),
-            lang: lang,
-            translate: translate,
-            id: int.parse(id))
-        .fold(<int>[], (acc, l) => acc..addAll(l)).then(
-            (value) => Response.ok(Stream.value(value), headers: {
-                  ...defaultRespHeader,
-                  HttpHeaders.cacheControlHeader: 'public, max-age=259200',
-                  HttpHeaders.etagHeader: hash,
-                  HttpHeaders.contentTypeHeader:
-                      'image/${extension(name).substring(1)}',
-                  HttpHeaders.contentLengthHeader: value.length.toString(),
-                }));
+          Image(hash: hash!, hasavif: 0, width: 0, name: name, height: 0),
+          refererUrl: req.url.queryParameters['referer'] ?? '',
+          size: ThumbnaiSize.values.firstWhere(
+            (element) => element.name == size,
+          ),
+          lang: lang,
+          translate: translate,
+          id: int.parse(id),
+        )
+        .fold(<int>[], (acc, l) => acc..addAll(l))
+        .then(
+          (value) => Response.ok(
+            Stream.value(value),
+            headers: {
+              ...defaultRespHeader,
+              HttpHeaders.cacheControlHeader: 'public, max-age=259200',
+              HttpHeaders.etagHeader: hash,
+              HttpHeaders.contentTypeHeader:
+                  'image/${extension(name).substring(1)}',
+              HttpHeaders.contentLengthHeader: value.length.toString(),
+            },
+          ),
+        );
   }
 
   /// Translates labels from the request body using the task manager.
@@ -270,8 +325,10 @@ class _TaskWarp {
     final task = await _authToken(req);
     if (task.key) {
       Set<Label> keys = (task.value['tags'] as List<dynamic>)
-          .map((e) =>
-              (e is Map<String, dynamic>) ? e : (json.decode(e.toString())))
+          .map(
+            (e) =>
+                (e is Map<String, dynamic>) ? e : (json.decode(e.toString())),
+          )
           .map((e) => fromString(e['type'], e['name']))
           .where((element) => element.runtimeType != QueryText)
           .toSet();
@@ -279,8 +336,10 @@ class _TaskWarp {
       return _manager
           .translateLabel(keys.toList())
           .then((value) => value.values.toList())
-          .then((value) =>
-              Response.ok(json.encode(value), headers: defaultRespHeader));
+          .then(
+            (value) =>
+                Response.ok(json.encode(value), headers: defaultRespHeader),
+          );
     }
     return Response.unauthorized('unauth');
   }
@@ -314,8 +373,10 @@ class _TaskWarp {
     _manager.logger.d('real ip $ip');
     if (task.key && _isLocalOrLAN(InternetAddress(ip))) {
       _manager.parseCommandAndRun(task.value['task']);
-      return Response.ok(json.encode({'success': true}),
-          headers: defaultRespHeader);
+      return Response.ok(
+        json.encode({'success': true}),
+        headers: defaultRespHeader,
+      );
     }
     return Response.unauthorized('unauth');
   }
@@ -327,8 +388,10 @@ class _TaskWarp {
       return _manager
           .checkExistsId(ids)
           .then((value) => {'success': true, 'value': value})
-          .then((value) =>
-              Response.ok(json.encode(value), headers: defaultRespHeader));
+          .then(
+            (value) =>
+                Response.ok(json.encode(value), headers: defaultRespHeader),
+          );
     }
     return Response.unauthorized('unauth');
   }
@@ -340,8 +403,12 @@ class _TaskWarp {
     }
     final task = await _authToken(req);
     if (task.key) {
-      return localHitomi.fetchSuggestions(key).then((value) =>
-          Response.ok(json.encode(value), headers: defaultRespHeader));
+      return localHitomi
+          .fetchSuggestions(key)
+          .then(
+            (value) =>
+                Response.ok(json.encode(value), headers: defaultRespHeader),
+          );
     }
     return Response.unauthorized('unauth');
   }
@@ -351,9 +418,14 @@ class _TaskWarp {
     final ip = req.headers['x-real-ip'] ?? '';
     _manager.logger.d('real ip $ip');
     if (task.key && _isLocalOrLAN(InternetAddress(ip))) {
-      return _manager.parseCommandAndRun('-p ${task.value['id']}').then(
-          (value) => Response.ok(json.encode({'success': value}),
-              headers: defaultRespHeader));
+      return _manager
+          .parseCommandAndRun('-p ${task.value['id']}')
+          .then(
+            (value) => Response.ok(
+              json.encode({'success': value}),
+              headers: defaultRespHeader,
+            ),
+          );
     }
     return Response.unauthorized('unauth');
   }
@@ -363,9 +435,14 @@ class _TaskWarp {
     final ip = req.headers['x-real-ip'] ?? '';
     _manager.logger.d('real ip $ip');
     if (task.key && _isLocalOrLAN(InternetAddress(ip))) {
-      return _manager.parseCommandAndRun('-d ${task.value['id']}').then(
-          (value) => Response.ok(json.encode({'success': value}),
-              headers: defaultRespHeader));
+      return _manager
+          .parseCommandAndRun('-d ${task.value['id']}')
+          .then(
+            (value) => Response.ok(
+              json.encode({'success': value}),
+              headers: defaultRespHeader,
+            ),
+          );
     }
     return Response.unauthorized('unauth');
   }
@@ -411,7 +488,8 @@ class _TaskWarp {
     final task = await _authToken(req);
     final ip = req.headers['x-real-ip'] ?? '';
     _manager.logger.d(
-        'real ip $ip mark ${task.value['mark']} content ${task.value['content'].length}');
+      'real ip $ip mark ${task.value['mark']} content ${task.value['content'].length}',
+    );
     if (task.key && _isLocalOrLAN(InternetAddress(ip))) {
       int mark = task.value['mark'];
       bool returnValue = task.value['returnValue'] ?? false;
@@ -419,25 +497,47 @@ class _TaskWarp {
       if (mark == admarkMask) {
         return _manager
             .addAdMark(content.map((e) => e as String).toList())
-            .then((value) => Response.ok(
+            .then(
+              (value) => Response.ok(
                 json.encode({
                   'success': value,
-                  'content': returnValue ? _manager.adImage : []
+                  'content': returnValue
+                      ? _manager.adImage.where((s) => !content.contains(s))
+                      : [],
                 }),
-                headers: defaultRespHeader));
+                headers: defaultRespHeader,
+              ),
+            );
       } else if ([readHistoryMask, bookMarkMask, lateReadMark].contains(mark)) {
+        var list = content.map((e) => e as Map<String, dynamic>).toList();
         return _manager
-            .manageUserLog(
-                content.map((e) => e as Map<String, dynamic>).toList(), mark)
-            .then((v) async => returnValue
-                ? await _manager.helper
-                    .querySql(
-                        'select id,value,type,content,date from UserLog where type = $mark')
-                    .then((set) => set.map((r) => r).toList())
-                : [])
-            .then((value) => Response.ok(
+            .manageUserLog(list, mark)
+            .then(
+              (v) async => returnValue
+                  ? await _manager.helper
+                        .querySql(
+                          'select id,value,type,content,date from UserLog where type = $mark',
+                        )
+                        .then(
+                          (set) => set
+                              .where(
+                                (r) => !list.any(
+                                  (m) =>
+                                      m['id'] == r['id'] &&
+                                      m['value'] == r['value'],
+                                ),
+                              )
+                              .map((r) => r)
+                              .toList(),
+                        )
+                  : [],
+            )
+            .then(
+              (value) => Response.ok(
                 json.encode({'success': true, 'content': value}),
-                headers: defaultRespHeader));
+                headers: defaultRespHeader,
+              ),
+            );
       }
       return Response.badRequest();
     }
@@ -459,59 +559,80 @@ Future<HttpServer> run_server(TaskManager manager) async {
     };
     manager.logger.d('income websocket');
     stream.listen((message) {
-      manager.logger.d('receive message $message');
-      try {
-        var msg = json.decode(message) as Map<String, dynamic>;
-        if (msg['auth'] == manager.config.auth) {
-          switch (msg['type']) {
-            case 'list':
-              webSocket.sink.add(json.encode({
-                'type': 'list',
-                "queryTask": manager.queryTask,
-                ...manager.down.allTask
-              }));
-              manager.addTaskObserver(observer);
-            case 'log':
-              webSocket.sink.add(json.encode(
-                  manager.outputEvent.buffer.map((e) => e.lines).toList()));
-            default:
-              {
-                manager.parseCommandAndRun(msg['command']).then(
-                    (r) => webSocket.sink.add(json.encode({'result': r})));
-              }
+        manager.logger.d('receive message $message');
+        try {
+          var msg = json.decode(message) as Map<String, dynamic>;
+          if (msg['auth'] == manager.config.auth) {
+            switch (msg['type']) {
+              case 'list':
+                webSocket.sink.add(
+                  json.encode({
+                    'type': 'list',
+                    "queryTask": manager.queryTask,
+                    ...manager.down.allTask,
+                  }),
+                );
+                manager.addTaskObserver(observer);
+              case 'log':
+                webSocket.sink.add(
+                  json.encode(
+                    manager.outputEvent.buffer.map((e) => e.lines).toList(),
+                  ),
+                );
+              default:
+                {
+                  manager
+                      .parseCommandAndRun(msg['command'])
+                      .then(
+                        (r) => webSocket.sink.add(json.encode({'result': r})),
+                      );
+                }
+            }
+          } else {
+            webSocket.sink.add(json.encode({'success': false}));
           }
-        } else {
+        } catch (e) {
+          manager.logger.e(e);
           webSocket.sink.add(json.encode({'success': false}));
         }
-      } catch (e) {
-        manager.logger.e(e);
-        webSocket.sink.add(json.encode({'success': false}));
-      }
-    })
+      })
       ..onDone(() => manager.removeTaskObserver(observer))
       ..onError((e) => manager.removeTaskObserver(observer));
   });
   final handler = Pipeline()
-      .addMiddleware(logRequests(
+      .addMiddleware(
+        logRequests(
           logger: (message, isError) =>
-              isError ? manager.logger.e(message) : manager.logger.d(message)))
-      .addMiddleware((innerHandler) => (req) {
-            return Future.sync(() => innerHandler(req)).then((value) =>
-                value.statusCode == 404 && staticHandle != null
-                    ? staticHandle(req)
-                    : value);
-          })
-      .addMiddleware((innerHandler) => (req) {
-            webSocket(req);
-            return innerHandler(req);
-          })
+              isError ? manager.logger.e(message) : manager.logger.d(message),
+        ),
+      )
+      .addMiddleware(
+        (innerHandler) => (req) {
+          return Future.sync(() => innerHandler(req)).then(
+            (value) => value.statusCode == 404 && staticHandle != null
+                ? staticHandle(req)
+                : value,
+          );
+        },
+      )
+      .addMiddleware(
+        (innerHandler) => (req) {
+          webSocket(req);
+          return innerHandler(req);
+        },
+      )
       .addHandler(_TaskWarp(manager).router);
   // For running in containers, we respect the PORT environment variable.
   final socketPort = int.parse(Platform.environment['PORT'] ?? '7890');
-  final servers = await serve(handler, InternetAddress.anyIPv6, socketPort,
-      poweredByHeader: 'ayaka');
+  final servers = await serve(
+    handler,
+    InternetAddress.anyIPv6,
+    socketPort,
+    poweredByHeader: 'ayaka',
+  );
   servers.autoCompress = true;
-  manager.logger
-      .i('Server run on http://${servers.address.address}:${servers.port}');
+  manager.logger.i(
+    'Server run on http://${servers.address.address}:${servers.port}',
+  );
   return servers;
 }
