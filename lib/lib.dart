@@ -51,7 +51,7 @@ extension CursorCover on IteratingCursor {
     late StreamController<Row> controller;
     var launch = true;
     void stop() {
-      statement.dispose();
+      statement.close();
     }
 
     void start() {
@@ -78,17 +78,20 @@ extension CursorCover on IteratingCursor {
     }
 
     controller = StreamController<Row>(
-        onListen: start, onCancel: stop, onPause: onPause, onResume: onResume);
+      onListen: start,
+      onCancel: stop,
+      onPause: onPause,
+      onResume: onResume,
+    );
 
     return controller.stream;
   }
 }
 
 Future<Gallery> readGalleryFromPath(String path, Logger? logger) {
-  return File(p.join(path, 'meta.json'))
-      .readAsString()
-      .then((value) => Gallery.fromJson(value))
-      .catchError((e) {
+  return File(
+    p.join(path, 'meta.json'),
+  ).readAsString().then((value) => Gallery.fromJson(value)).catchError((e) {
     logger?.e('open $path meta.json error');
     throw e;
   }, test: (error) => true);
@@ -115,17 +118,19 @@ extension FilterSteam<E> on Stream<E> {
 }
 
 extension HttpInvoke<T> on Dio {
-  Future<T> httpInvoke<T>(String url,
-      {Map<String, dynamic>? headers = null,
-      CancelToken? token,
-      void onProcess(int now, int total)?,
-      String method = "get",
-      Object? data = null,
-      Logger? logger,
-      void Function(Headers)? responseHead = null}) async {
+  Future<T> httpInvoke<T>(
+    String url, {
+    Map<String, dynamic>? headers = null,
+    CancelToken? token,
+    void onProcess(int now, int total)?,
+    String method = "get",
+    Object? data = null,
+    Logger? logger,
+    void Function(Headers)? responseHead = null,
+  }) async {
     final ua = {
       'user-agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36 Edg/106.0.1370.47'
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36 Edg/106.0.1370.47',
     };
     headers?.addAll(ua);
     ResponseType responseType;
@@ -141,36 +146,48 @@ extension HttpInvoke<T> on Dio {
     // logger?.d('$url with $responseType');
     final useHeader = headers ?? ua;
     return (method == 'get'
-            ? this.get<T>(url,
-                options:
-                    Options(headers: useHeader, responseType: responseType),
+            ? this.get<T>(
+                url,
+                options: Options(
+                  headers: useHeader,
+                  responseType: responseType,
+                ),
                 cancelToken: token,
-                onReceiveProgress: onProcess)
-            : this.post<T>(url,
-                options:
-                    Options(headers: useHeader, responseType: responseType),
+                onReceiveProgress: onProcess,
+              )
+            : this.post<T>(
+                url,
+                options: Options(
+                  headers: useHeader,
+                  responseType: responseType,
+                ),
                 data: data,
                 cancelToken: token,
-                onReceiveProgress: onProcess))
+                onReceiveProgress: onProcess,
+              ))
         .then((value) {
-      responseHead?.call(value.headers);
-      return value.data!;
-    }).catchError((e) {
-      throw e;
-    }, test: (e) => true);
+          responseHead?.call(value.headers);
+          return value.data!;
+        })
+        .catchError((e) {
+          throw e;
+        }, test: (e) => true);
   }
 }
 
-Map<String, String> buildRequestHeader(String url, String referer,
-    {MapEntry<int, int>? range = null,
-    void append(Map<String, String> header)?}) {
+Map<String, String> buildRequestHeader(
+  String url,
+  String referer, {
+  MapEntry<int, int>? range = null,
+  void append(Map<String, String> header)?,
+}) {
   Uri uri = Uri.parse(url);
   final headers = {
     'referer': referer,
     'authority': uri.authority,
     'path': uri.path,
     'user-agent':
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36 Edg/106.0.1370.47'
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36 Edg/106.0.1370.47',
   };
   if (range != null) {
     headers.putIfAbsent('range', () => 'bytes=${range.key}-${range.value}');
@@ -192,12 +209,13 @@ final imageExtension = [
   '.bmp',
   '.avif',
   '.gif',
-  '.bmp'
+  '.bmp',
 ];
 
 final zhNum = '零〇一二三四五六七八九十';
 final chapterRex = RegExp(
-    r'第?\s*(?<start>[零〇一二三四五六七八九十|\d]{1,})\s*-?\s*(?<end>[零〇一二三四五六七八九十|\d]*)\s*(?<unit>[章|回|话|話|編|巻|集]*)');
+  r'第?\s*(?<start>[零〇一二三四五六七八九十|\d]{1,})\s*-?\s*(?<end>[零〇一二三四五六七八九十|\d]*)\s*(?<unit>[章|回|话|話|編|巻|集]*)',
+);
 const int readHistoryMask = 1 << 13;
 const int bookMarkMask = 1 << 14;
 const int lateReadMark = 1 << 16;

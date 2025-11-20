@@ -10,7 +10,7 @@ RUN dart pub get
 COPY . .
 # Ensure packages are still up-to-date if anything has changed
 RUN dart pub get --offline
-RUN dart compile exe bin/main.dart -o bin/hitomi
+RUN dart compile exe bin/main.dart -o build
 RUN echo "Asia/shanghai" > /etc/timezone
 
 # Build minimal serving image from AOT-compiled `/server` and required system
@@ -18,7 +18,7 @@ RUN echo "Asia/shanghai" > /etc/timezone
 FROM scratch
 COPY --from=build /runtime/ /
 COPY --from=build /usr/lib/x86_64-linux-gnu/libsqlite3* /usr/lib/x86_64-linux-gnu/
-COPY --from=build /hitomi/bin/hitomi /bin/hitomi
+COPY --from=build /hitomi/build/bin/mian.exe /bin/hitomi
 EXPOSE 7890/tcp
 # Start server.
 ENTRYPOINT ["/bin/hitomi"]

@@ -32,20 +32,24 @@ class SqliteHelper {
 
   Future<void> checkInit() async {
     if (__db == null) {
-      await openSqliteDb(_dirPath, dbName).then((value) {
-        __db = value;
-        _db = value;
-      }).then((value) => init());
+      await openSqliteDb(_dirPath, dbName)
+          .then((value) {
+            __db = value;
+            _db = value;
+          })
+          .then((value) => init());
     }
   }
 
   double vectorDistance(List<Object?> arguments) {
     if (arguments.length == 2 && arguments.every((args) => args != null)) {
       try {
-        var v1 =
-            Vector.fromList(_uint8ListToDoubleList(arguments[0] as List<int>));
-        var v2 =
-            Vector.fromList(_uint8ListToDoubleList(arguments[1] as List<int>));
+        var v1 = Vector.fromList(
+          _uint8ListToDoubleList(arguments[0] as List<int>),
+        );
+        var v2 = Vector.fromList(
+          _uint8ListToDoubleList(arguments[1] as List<int>),
+        );
         return v1.distanceTo(v2, distance: Distance.cosine);
       } catch (e) {
         _logger?.e('args ${arguments.sublist(2)} occus $e');
@@ -77,17 +81,20 @@ class SqliteHelper {
     createTables(_db);
     final stmt = _db.prepare('PRAGMA user_version;');
     _db.createFunction(
-        functionName: 'vector_distance',
-        function: vectorDistance,
-        argumentCount: AllowedArgumentCount.any());
+      functionName: 'vector_distance',
+      function: vectorDistance,
+      argumentCount: AllowedArgumentCount.any(),
+    );
     _db.createFunction(
-        functionName: 'title_fixed',
-        function: pureTitle,
-        argumentCount: AllowedArgumentCount(2));
+      functionName: 'title_fixed',
+      function: pureTitle,
+      argumentCount: AllowedArgumentCount(2),
+    );
     _db.createFunction(
-        functionName: 'hash_distance',
-        function: hashDistance,
-        argumentCount: AllowedArgumentCount(2));
+      functionName: 'hash_distance',
+      function: hashDistance,
+      argumentCount: AllowedArgumentCount(2),
+    );
     final result = stmt.select();
     var version = result.first.columnAt(0) as int;
     while (version > 0 && version != _version) {
@@ -104,8 +111,10 @@ class SqliteHelper {
   }
 
   Future<T> databaseOpera<T>(
-      String sql, T operate(CommonPreparedStatement statement),
-      {bool releaseOnce = true}) async {
+    String sql,
+    T operate(CommonPreparedStatement statement), {
+    bool releaseOnce = true,
+  }) async {
     CommonPreparedStatement? stam;
     try {
       await checkInit();
@@ -116,7 +125,7 @@ class SqliteHelper {
       return Future.error('$sql error', stack);
     } finally {
       if (releaseOnce) {
-        stam?.dispose();
+        stam?.close();
       }
     }
   }
@@ -179,37 +188,51 @@ class SqliteHelper {
       )''');
   }
 
-  Future<bool> insertUserLog(int id, int type,
-      {int value = 0,
-      String? content,
-      int? date,
-      List<int> extension = const []}) async {
+  Future<bool> insertUserLog(
+    int id,
+    int type, {
+    int value = 0,
+    String? content,
+    int? date,
+    List<int> extension = const [],
+  }) async {
     return excuteSqlAsync(
-        'replace into UserLog(id,value,type,content,date,extension) values (?,?,?,?,?,?)',
-        [
-          id,
-          value,
-          type,
-          content,
-          date ?? DateTime.now().millisecondsSinceEpoch,
-          extension
-        ]);
+      'replace into UserLog(id,value,type,content,date,extension) values (?,?,?,?,?,?)',
+      [
+        id,
+        value,
+        type,
+        content,
+        date ?? DateTime.now().millisecondsSinceEpoch,
+        extension,
+      ],
+    );
   }
 
   Future<T?> readlData<T>(
-      String tableNmae, String name, Map<String, dynamic> params) async {
+    String tableNmae,
+    String name,
+    Map<String, dynamic> params,
+  ) async {
     var where = params.entries.fold(
-        StringBuffer(), (acc, element) => acc..write('${element.key}=? and '));
-    return querySql('select $name from $tableNmae where $where 1=1',
-            params.values.toList())
-        .then((value) => value.firstOrNull?['$name'] as T?);
+      StringBuffer(),
+      (acc, element) => acc..write('${element.key}=? and '),
+    );
+    return querySql(
+      'select $name from $tableNmae where $where 1=1',
+      params.values.toList(),
+    ).then((value) => value.firstOrNull?['$name'] as T?);
   }
 
   Future<bool> delete(String tableNmae, Map<String, dynamic> params) async {
     var where = params.entries.fold(
-        StringBuffer(), (acc, element) => acc..write('${element.key}=? and '));
+      StringBuffer(),
+      (acc, element) => acc..write('${element.key}=? and '),
+    );
     return excuteSqlAsync(
-        'delete from $tableNmae where $where 1=1', params.values.toList());
+      'delete from $tableNmae where $where 1=1',
+      params.values.toList(),
+    );
   }
 
   int dataBaseUpgrade(CommonDatabase db, int oldVersion) {
@@ -223,7 +246,8 @@ class SqliteHelper {
           db.execute("ALTER table Gallery rename to GalleryTemp");
           createTables(db);
           db.execute(
-              """insert into  Gallery(id,path,author,groupes,serial,character,language,title,tags,createDate,date,mark,length) select id,path,author,groupes,serial,null,language,title,null,null,0,0,0 from GalleryTemp""");
+            """insert into  Gallery(id,path,author,groupes,serial,character,language,title,tags,createDate,date,mark,length) select id,path,author,groupes,serial,null,language,title,null,null,0,0,0 from GalleryTemp""",
+          );
           db.execute("drop table GalleryTemp");
           return 4;
         }
@@ -233,7 +257,8 @@ class SqliteHelper {
           db.execute("ALTER table Gallery rename to GalleryTemp");
           createTables(db);
           db.execute(
-              """insert into  Gallery(id,path,artist,groupes,series,character,language,title,tag,createDate,date,mark,length) select id,path,author,groupes,serial,character,language,title,tags,createDate,date,mark,length from GalleryTemp""");
+            """insert into  Gallery(id,path,artist,groupes,series,character,language,title,tag,createDate,date,mark,length) select id,path,author,groupes,serial,character,language,title,tags,createDate,date,mark,length from GalleryTemp""",
+          );
           db.execute("drop table GalleryTemp");
           return 5;
         }
@@ -243,7 +268,8 @@ class SqliteHelper {
           db.execute("ALTER table Gallery rename to GalleryTemp");
           createTables(db);
           db.execute(
-              """insert into  Gallery(id,path,artist,groupes,series,character,language,title,tag,createDate,type,date,mark,length) select id,path,artist,groupes,series,character,language,title,tag,createDate,null,date,mark,length from GalleryTemp""");
+            """insert into  Gallery(id,path,artist,groupes,series,character,language,title,tag,createDate,type,date,mark,length) select id,path,artist,groupes,series,character,language,title,tag,createDate,null,date,mark,length from GalleryTemp""",
+          );
           db.execute("drop table GalleryTemp");
           return 6;
         }
@@ -253,7 +279,8 @@ class SqliteHelper {
           db.execute("ALTER table Tags rename to TagsTemp");
           createTables(db);
           db.execute(
-              """insert into  Tags(id,type,name,translate,intro,links,superior) select id,type,name,translate,intro,null,null from TagsTemp""");
+            """insert into  Tags(id,type,name,translate,intro,links,superior) select id,type,name,translate,intro,null,null from TagsTemp""",
+          );
           db.execute("drop table TagsTemp");
           return 7;
         }
@@ -263,7 +290,8 @@ class SqliteHelper {
           db.execute("ALTER table UserLog rename to UserLogTemp");
           createTables(db);
           db.execute(
-              """insert into  UserLog(id,mark,type,content,extension) select id,mark,0,content,extension from UserLogTemp""");
+            """insert into  UserLog(id,mark,type,content,extension) select id,mark,0,content,extension from UserLogTemp""",
+          );
           db.execute("drop table UserLogTemp");
           return 8;
         }
@@ -273,7 +301,8 @@ class SqliteHelper {
           db.execute("ALTER table GalleryFile rename to GalleryFileTemp");
           createTables(db);
           db.execute(
-              """insert into GalleryFile(gid,hash,name,width,height,fileHash,tag) select gid,hash,name,width,height,fileHash,null from GalleryFileTemp""");
+            """insert into GalleryFile(gid,hash,name,width,height,fileHash,tag) select gid,hash,name,width,height,fileHash,null from GalleryFileTemp""",
+          );
           db.execute("drop table GalleryFileTemp");
           return 9;
         }
@@ -283,8 +312,9 @@ class SqliteHelper {
           db.execute("ALTER table Gallery rename to GalleryTemp");
           createTables(db);
           db.execute(
-              """insert into  Gallery(id,path,artist,groupes,series,character,language,title,tag,createDate,type,date,mark,length,feature) 
-              select id,path,artist,groupes,series,character,language,title,tag,createDate,type,date,mark,length,null from GalleryTemp""");
+            """insert into  Gallery(id,path,artist,groupes,series,character,language,title,tag,createDate,type,date,mark,length,feature) 
+              select id,path,artist,groupes,series,character,language,title,tag,createDate,type,date,mark,length,null from GalleryTemp""",
+          );
           db.execute("drop table GalleryTemp");
           return 10;
         }
@@ -294,7 +324,8 @@ class SqliteHelper {
           db.execute("ALTER table GalleryFile rename to GalleryFileTemp");
           createTables(db);
           db.execute(
-              """insert into GalleryFile(gid,hash,name,width,height,fileHash) select gid,hash,name,width,height,fileHash from GalleryFileTemp""");
+            """insert into GalleryFile(gid,hash,name,width,height,fileHash) select gid,hash,name,width,height,fileHash from GalleryFileTemp""",
+          );
           db.execute("drop table GalleryFileTemp");
           return 11;
         }
@@ -304,8 +335,9 @@ class SqliteHelper {
           db.execute("ALTER table Gallery rename to GalleryTemp");
           createTables(db);
           db.execute(
-              """insert into  Gallery(id,path,artist,groupes,series,character,language,title,tag,createDate,type,date,mark,length,feature) 
-              select id,path,artist,groupes,series,character,language,title,tag,createDate,type,date,mark,length,null from GalleryTemp""");
+            """insert into  Gallery(id,path,artist,groupes,series,character,language,title,tag,createDate,type,date,mark,length,feature) 
+              select id,path,artist,groupes,series,character,language,title,tag,createDate,type,date,mark,length,null from GalleryTemp""",
+          );
           var stmt = db.prepare('select id,feature from GalleryTemp');
           var cursor = stmt.selectCursor();
           while (cursor.moveNext()) {
@@ -315,12 +347,15 @@ class SqliteHelper {
             if (feature != null && feature.isNotEmpty) {
               var data = json.decode(feature) as List<dynamic>;
               var list = Float64List.fromList(
-                  data.map((element) => element as double).toList());
-              db.execute("update Gallery set feature = ? where id = ?",
-                  [list.buffer.asUint8List(), id]);
+                data.map((element) => element as double).toList(),
+              );
+              db.execute("update Gallery set feature = ? where id = ?", [
+                list.buffer.asUint8List(),
+                id,
+              ]);
             }
           }
-          stmt.dispose();
+          stmt.close();
           db.execute("drop table if exists GalleryTemp ");
           return 12;
         }
@@ -330,8 +365,9 @@ class SqliteHelper {
           db.execute("ALTER table Gallery rename to GalleryTemp");
           createTables(db);
           db.execute(
-              """insert into  Gallery(id,path,language,title,createDate,type,date,mark,length,feature) 
-              select id,path,language,title,createDate,type,date,mark,length,feature from GalleryTemp""");
+            """insert into  Gallery(id,path,language,title,createDate,type,date,mark,length,feature) 
+              select id,path,language,title,createDate,type,date,mark,length,feature from GalleryTemp""",
+          );
           db.execute("drop table if exists GalleryTemp ");
           return 13;
         }
@@ -341,8 +377,9 @@ class SqliteHelper {
           db.execute("ALTER table UserLog rename to UserLogTemp");
           createTables(db);
           db.execute(
-              """insert into  UserLog(id,type,value,content,date,extension) 
-              select id,type,mark,content,null,null  from UserLogTemp""");
+            """insert into  UserLog(id,type,value,content,date,extension) 
+              select id,type,mark,content,null,null  from UserLogTemp""",
+          );
           return 14;
         }
       case 14:
@@ -351,7 +388,8 @@ class SqliteHelper {
           db.execute("ALTER table GalleryFile rename to GalleryFileTemp");
           createTables(db);
           db.execute(
-              """insert into GalleryFile(gid,hash,name,width,height,fileHash) select gid,hash,name,width,height,fileHash from GalleryFileTemp""");
+            """insert into GalleryFile(gid,hash,name,width,height,fileHash) select gid,hash,name,width,height,fileHash from GalleryFileTemp""",
+          );
           db.execute("drop table GalleryFileTemp");
           return 15;
         }
@@ -364,10 +402,14 @@ class SqliteHelper {
   }
 
   Future<Map<List<dynamic>, ResultSet>> selectSqlMultiResultAsync(
-      String sql, List<List<dynamic>> params) async {
+    String sql,
+    List<List<dynamic>> params,
+  ) async {
     var r = databaseOpera(sql, (stmt) {
-      return params.fold(<List<dynamic>, ResultSet>{},
-          (previousValue, element) {
+      return params.fold(<List<dynamic>, ResultSet>{}, (
+        previousValue,
+        element,
+      ) {
         try {
           ResultSet r = stmt.select(element);
           previousValue[element] = r;
@@ -383,72 +425,87 @@ class SqliteHelper {
 
   Future<Map<Label, int>> queryOrInsertTagTable(List<Label> params) async {
     return await selectSqlMultiResultAsync(
-            'select id,type,name from Tags where type=? and name=?',
-            params.map((e) => e.params).toList())
-        .then((sets) async {
-      return await Future.wait(sets.entries.map((e) async {
-        var id = e.value.firstOrNull?['id'] as int?;
-        var label = fromString(e.key[0], e.key[1]);
-        if (label is QueryText) {
-          id = -1;
-        } else if (id == null) {
-          await updateTagTable([
-            [null, e.key[0], e.key[1], e.key[1], e.key[1], null, null]
-          ]);
-          id = this._db.lastInsertRowId;
-        }
-        return MapEntry(label, id);
-      })).then((entries) => Map.fromEntries(entries));
+      'select id,type,name from Tags where type=? and name=?',
+      params.map((e) => e.params).toList(),
+    ).then((sets) async {
+      return await Future.wait(
+        sets.entries.map((e) async {
+          var id = e.value.firstOrNull?['id'] as int?;
+          var label = fromString(e.key[0], e.key[1]);
+          if (label is QueryText) {
+            id = -1;
+          } else if (id == null) {
+            await updateTagTable([
+              [null, e.key[0], e.key[1], e.key[1], e.key[1], null, null],
+            ]);
+            id = this._db.lastInsertRowId;
+          }
+          return MapEntry(label, id);
+        }),
+      ).then((entries) => Map.fromEntries(entries));
     });
   }
 
   Future<bool> updateTagTable(List<List<dynamic>> params) async {
     return excuteSqlMultiParams(
-        'REPLACE INTO Tags(id,type,name,translate,intro,links,superior) values(?,?,?,?,?,?,?) on Conflict(type,name) DO UPDATE SET translate=excluded.translate,intro=excluded.intro,links=excluded.links,superior=excluded.superior',
-        params);
+      'REPLACE INTO Tags(id,type,name,translate,intro,links,superior) values(?,?,?,?,?,?,?) on Conflict(type,name) DO UPDATE SET translate=excluded.translate,intro=excluded.intro,links=excluded.links,superior=excluded.superior',
+      params,
+    );
   }
 
   Future<List<Map<String, dynamic>>> fetchLabelsFromSql(String name) async {
     // 先查询所有匹配的type
     var types = await querySql(
-        'select distinct type from Tags where name like ? or translate like ?',
-        ['%${name.toLowerCase()}%', '%${name.toLowerCase()}%']);
+      'select distinct type from Tags where name like ? or translate like ?',
+      ['%${name.toLowerCase()}%', '%${name.toLowerCase()}%'],
+    );
 
     List<Map<String, dynamic>> result = [];
     // 对每种type，最多取20个结果，完全匹配的优先
     for (var type in types) {
-      var sets = await querySql('''select type, name, translate, intro, links 
+      var sets = await querySql(
+        '''select type, name, translate, intro, links 
              from Tags 
              where (name like ? or translate like ?) and type = ? 
              order by case when name = ? then 0 else 1 end, 
                       case when translate = ? then 0 else 1 end
-             limit 20''', [
-        '%${name.toLowerCase()}%',
-        '%${name.toLowerCase()}%',
-        type['type'],
-        name,
-        name,
-      ]);
+             limit 20''',
+        [
+          '%${name.toLowerCase()}%',
+          '%${name.toLowerCase()}%',
+          type['type'],
+          name,
+          name,
+        ],
+      );
       result.addAll(sets.toList());
     }
     return result;
   }
 
-  Future<ResultSet> querySql(String sql,
-      [List<dynamic> params = const []]) async {
+  Future<ResultSet> querySql(
+    String sql, [
+    List<dynamic> params = const [],
+  ]) async {
     return databaseOpera(sql, (stmt) => stmt.select(params));
   }
 
-  Future<Stream<Row>> querySqlByCursor(String sql,
-      [List<dynamic> params = const []]) async {
+  Future<Stream<Row>> querySqlByCursor(
+    String sql, [
+    List<dynamic> params = const [],
+  ]) async {
     return databaseOpera(
-        sql, (stmt) => stmt.selectCursor(params).asStream(stmt),
-        releaseOnce: false);
+      sql,
+      (stmt) => stmt.selectCursor(params).asStream(stmt),
+      releaseOnce: false,
+    );
   }
 
   Future<List<Label>> mapToLabel(List<String> names) async {
     var set = await selectSqlMultiResultAsync(
-        'select * from Tags where name = ?', names.map((e) => [e]).toList());
+      'select * from Tags where name = ?',
+      names.map((e) => [e]).toList(),
+    );
     return names.map((e) {
       var f = set.entries
           .firstWhereOrNull((element) => element.key.equals([e]))
@@ -467,113 +524,133 @@ class SqliteHelper {
   }
 
   Future<bool> excuteSqlMultiParams(
-      String sql, List<List<dynamic>> params) async {
+    String sql,
+    List<List<dynamic>> params,
+  ) async {
     await databaseOpera(
-        sql,
-        (stmt) => params.forEach((element) {
-              stmt.execute(element);
-            }));
+      sql,
+      (stmt) => params.forEach((element) {
+        stmt.execute(element);
+      }),
+    );
     return true;
   }
 
   Future<bool> insertGallery(Gallery gallery, FileSystemEntity path) async {
     var idMap = await queryOrInsertTagTable(gallery.labels());
     return await excuteSqlAsync(
-        'replace into Gallery(id,path,language,title,createDate,type,date,mark,length,feature) values(?,?,?,?,?,?,?,?,?,?)',
-        [
-          gallery.id,
-          basename(path.path),
-          gallery.language ?? '',
-          gallery.name,
-          gallery.date,
-          gallery.type,
-          path.existsSync()
-              ? path.statSync().modified.millisecondsSinceEpoch
-              : DateTime.now().millisecondsSinceEpoch,
-          0,
-          gallery.files.length,
-          null
-        ]).then((b) => excuteSqlMultiParams(
+      'replace into Gallery(id,path,language,title,createDate,type,date,mark,length,feature) values(?,?,?,?,?,?,?,?,?,?)',
+      [
+        gallery.id,
+        basename(path.path),
+        gallery.language ?? '',
+        gallery.name,
+        gallery.date,
+        gallery.type,
+        path.existsSync()
+            ? path.statSync().modified.millisecondsSinceEpoch
+            : DateTime.now().millisecondsSinceEpoch,
+        0,
+        gallery.files.length,
+        null,
+      ],
+    ).then(
+      (b) => excuteSqlMultiParams(
         'replace into GalleryTagRelation(gid,tid) values (?,?)',
-        idMap.values.map((e) => [gallery.id, e]).toList()));
+        idMap.values.map((e) => [gallery.id, e]).toList(),
+      ),
+    );
   }
 
   //通过id更新Gallery表的feature
   Future<bool> updateGalleryFeatureById(int id, List<double> feature) async {
     var list = Float64List.fromList(feature);
     var buffer = list.buffer;
-    return await excuteSqlAsync('UPDATE Gallery SET feature = ? WHERE id = ?',
-        [buffer.asUint8List(), id]);
+    return await excuteSqlAsync('UPDATE Gallery SET feature = ? WHERE id = ?', [
+      buffer.asUint8List(),
+      id,
+    ]);
   }
 
   Future<ResultSet> queryGalleryByLabel(String type, Label label) async {
     return querySql(
-        'select g.* from Gallery g where exists (select 1 from GalleryTagRelation r where r.gid = g.id and r.tid = (select id from Tags where type = ? and name = ?))',
-        [type, label.name]);
+      'select g.* from Gallery g where exists (select 1 from GalleryTagRelation r where r.gid = g.id and r.tid = (select id from Tags where type = ? and name = ?))',
+      [type, label.name],
+    );
   }
 
   Future<Gallery> queryGalleryById(dynamic id) async {
     var images = await queryImageHashsById(id);
-    var row = await querySql('''select * from Gallery where id=?''', [id])
-        .then((value) => value.first);
+    var row = await querySql(
+      '''select * from Gallery where id=?''',
+      [id],
+    ).then((value) => value.first);
     if (row['length'] != images.length &&
         File(join(_dirPath, row['path'])).existsSync()) {
       return readGalleryFromPath(join(_dirPath, row['path']), _logger);
     }
     var tags = await querySql(
-        'select t.type,t.name from Tags t where exists (select 1 from GalleryTagRelation r where r.tid = t.id and r.gid = ?)',
-        [
-          id
-        ]).then(
-        (set) => set.map((r) => fromString(r['type'], r['name'])).toList());
+      'select t.type,t.name from Tags t where exists (select 1 from GalleryTagRelation r where r.tid = t.id and r.gid = ?)',
+      [id],
+    ).then((set) => set.map((r) => fromString(r['type'], r['name'])).toList());
     return Gallery.fromRow(row, tags, images);
   }
 
   Future<List<Image>> queryImageHashsById(dynamic id) async {
     return querySql(
-            '''select * from GalleryFile where gid=? order by name''', [id])
-        .then((set) => set.map((r) => Image.fromRow(r)).toList());
+      '''select * from GalleryFile where gid=? order by name''',
+      [id],
+    ).then((set) => set.map((r) => Image.fromRow(r)).toList());
   }
 
   //通过gid查询GalleryFile表并转换为Image List后返回
   Future<List<Image>> getImageListByGid(int gid) async {
-    return querySql('''
+    return querySql(
+      '''
         select * from GalleryFile where gid=? order by name
-    ''', [gid]).then((set) => set.map((r) => Image.fromRow(r)).toList());
+    ''',
+      [gid],
+    ).then((set) => set.map((r) => Image.fromRow(r)).toList());
   }
 
   Future<Map<int, List<int>>> queryImageHashsByLabel(String type, String name) {
     return querySqlByCursor(
-        '''select gf.gid,gf.fileHash,gf.name,g.path,g.length from Gallery g left join GalleryFile gf on g.id=gf.gid 
+      '''select gf.gid,gf.fileHash,gf.name,g.path,g.length from Gallery g left join GalleryFile gf on g.id=gf.gid 
         where exists (select 1 from GalleryTagRelation r where r.gid = g.id and r.tid = (select id from Tags where type = ? and name = ?)) and gf.gid is not null order by gf.gid,gf.name''',
-        [
-          type,
-          name
-        ]).then((value) => value
-            .where((row) => row['fileHash'] != null)
-            .fold(<int, List<int>>{}, (previous, element) {
-          previous[element['gid']] =
-              ((previous[element['gid']] ?? [])..add(element['fileHash']));
+      [type, name],
+    ).then(
+      (value) => value.where((row) => row['fileHash'] != null).fold(
+        <int, List<int>>{},
+        (previous, element) {
+          previous[element['gid']] = ((previous[element['gid']] ?? [])
+            ..add(element['fileHash']));
           return previous;
-        }));
+        },
+      ),
+    );
   }
 
   Future<bool> insertGalleryFile(
-      Gallery gallery, Image image, int? hash) async {
+    Gallery gallery,
+    Image image,
+    int? hash,
+  ) async {
     return excuteSqlAsync(
-        'replace into GalleryFile(gid,hash,name,width,height,fileHash) values(?,?,?,?,?,?)',
-        [gallery.id, image.hash, image.name, image.width, image.height, hash]);
+      'replace into GalleryFile(gid,hash,name,width,height,fileHash) values(?,?,?,?,?,?)',
+      [gallery.id, image.hash, image.name, image.width, image.height, hash],
+    );
   }
 
   Future<void> updateTask(
-      dynamic id, String title, String path, bool complete) async {
+    dynamic id,
+    String title,
+    String path,
+    bool complete,
+  ) async {
     await excuteSqlAsync(
-        'replace into Tasks(id,title,path,completed) values(?,?,?,?)', [
-      id,
-      title,
-      path,
-      complete,
-    ]);
+      'replace into Tasks(id,title,path,completed) values(?,?,?,?)',
+      [id, title, path, complete],
+    );
   }
 
   Future<bool> removeTask(dynamic id, {bool withGaller = false}) async {
@@ -587,14 +664,22 @@ class SqliteHelper {
   Future<bool> deleteGallery(dynamic id) async {
     _logger?.w('del gallery with id $id');
     return excuteSqlAsync('delete from Gallery where id =?', [id])
-        .then((value) =>
-            excuteSqlAsync('delete from GalleryFile where gid =?', [id]))
-        .then((value) => excuteSqlAsync(
-            'delete from GalleryTagRelation where gid =?', [id]));
+        .then(
+          (value) =>
+              excuteSqlAsync('delete from GalleryFile where gid =?', [id]),
+        )
+        .then(
+          (value) => excuteSqlAsync(
+            'delete from GalleryTagRelation where gid =?',
+            [id],
+          ),
+        );
   }
 
   Future<bool> deleteGalleryFile(dynamic id, String name) async {
-    return excuteSqlAsync(
-        'delete from GalleryFile where gid =? and name=?', [id, name]);
+    return excuteSqlAsync('delete from GalleryFile where gid =? and name=?', [
+      id,
+      name,
+    ]);
   }
 }
