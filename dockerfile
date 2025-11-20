@@ -19,6 +19,7 @@ FROM scratch
 COPY --from=build /runtime/ /
 COPY --from=build /usr/lib/x86_64-linux-gnu/libsqlite3* /usr/lib/x86_64-linux-gnu/
 COPY --from=build /hitomi/build/cli/linux_x64/bundle/bin/main /bin/main
+COPY --from=build hitomi/build/cli/linux_x64/bundle/lib/libsqlite3.x64.linux.so /lib/libsqlite3.x64.linux.so
 EXPOSE 7890/tcp
 # Start server.
 ENTRYPOINT ["/bin/main"]
