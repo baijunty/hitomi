@@ -139,19 +139,8 @@ class DownLoader {
                         msg.file.deleteSync();
                         return 0;
                       }, test: (error) => true);
-                  if (msg.gallery.language != 'japanese' &&
-                      msg.gallery.files.length -
-                              msg.gallery.files.indexWhere(
-                                (f) => f.name == msg.target.name,
-                              ) <=
-                          8 &&
-                      manager.adHash.any(
-                        (hash) => compareHashDistance(hash, hashValue) < 4,
-                      )) {
-                    logger?.w('fount ad image ${msg.file.path}');
-                    msg.gallery.files.removeWhere((f) => f == msg.target);
-                    return msg.file.delete().then((_) => false);
-                  } else if (needInsert) {
+                  msg.target.fileHash = hashValue;
+                  if (needInsert) {
                     if (msg.target == msg.gallery.files.first) {
                       await autoTagImages(msg.file.path, feature: true)
                           .then((l) => l.firstOrNull)
@@ -163,13 +152,12 @@ class DownLoader {
                           )
                           .catchError((e) => true, test: (error) => true);
                     }
-                    return helper.insertGalleryFile(
-                      msg.gallery,
-                      msg.target,
-                      hashValue,
-                    );
                   }
-                  return needInsert;
+                  return helper.insertGalleryFile(
+                    msg.gallery,
+                    msg.target,
+                    hashValue,
+                  );
                 });
           }
         }
