@@ -139,7 +139,6 @@ class DownLoader {
                         msg.file.deleteSync();
                         return 0;
                       }, test: (error) => true);
-                  msg.target.fileHash = hashValue;
                   if (needInsert) {
                     if (msg.target == msg.gallery.files.first) {
                       await autoTagImages(msg.file.path, feature: true)
