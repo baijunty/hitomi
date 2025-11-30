@@ -686,19 +686,18 @@ class TaskManager {
               .where(
                 (e) =>
                     e.value != null &&
-                    _adImage.every(
-                      (i) => compareHashDistance(e.value!, i.key) > 3,
-                    ),
+                    adHash.every((i) => compareHashDistance(e.value!, i) > 3),
               )
               .asStream()
-              .asyncMap(
-                (e) => helper.insertUserLog(
+              .asyncMap((e) {
+                logger.d('addAdMark ${e.key} ${e.value}');
+                return helper.insertUserLog(
                   e.key.hashCode.abs() * -1,
                   admarkMask,
                   value: e.value!,
                   content: e.key,
-                ),
-              )
+                );
+              })
               .fold(true, (acc, i) => acc && i);
         });
   }
@@ -724,9 +723,7 @@ class TaskManager {
     if (gallery.language == 'chinese' ||
         gallery.tags?.any((element) => element.name == 'extraneous ads') ==
             true) {
-      gallery.files.removeWhere(
-        (image) => _adImage.any((element) => element.value == image.hash),
-      );
+      gallery.files.removeWhere((image) => adImage.contains(image.hash));
     }
   }
 

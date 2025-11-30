@@ -319,10 +319,15 @@ class HitomiDir {
   }
 
   Future<bool> deleteAdImages(List<Image> dbImages) async {
-    final adLabel = fromString('tag', 'extraneous ads');
-    if (gallery.language != 'japanese' || gallery.labels().contains(adLabel)) {
-      dbImages
-          .sublist(dbImages.length - 8, dbImages.length)
+    final containsAd = gallery.labels().contains(
+      fromString('tag', 'extraneous ads'),
+    );
+    if (gallery.language != 'japanese' || containsAd) {
+      await dbImages
+          .sublist(
+            containsAd ? dbImages.length - 8 : dbImages.length - 2,
+            dbImages.length,
+          )
           .asStream()
           .asyncMap((img) async {
             if (_downLoader.manager.adHash.any(
@@ -336,18 +341,19 @@ class HitomiDir {
                             img.name,
                           ),
                         )
-                        .then(
-                          (resp) => resp.any(
+                        .then((resp) {
+                          return resp.any(
                             (d) => d.tags?.keys.contains('qr code') ?? false,
-                          ),
-                        )) {
+                          );
+                        })) {
               _downLoader.logger?.w(
                 ' ${gallery.id} remove db illegal file ${img}',
               );
               gallery.files.removeWhere((s) => s == img);
               return _downLoader.helper.deleteGalleryFile(gallery.id, img.name);
             }
-          });
+          })
+          .length;
     }
     return true;
   }
