@@ -28,69 +28,88 @@ class _LocalHitomiImpl implements Hitomi {
   }
 
   @override
-  Stream<List<int>> fetchImageData(Image image,
-      {String refererUrl = 'https://hitomi.la',
-      CancelToken? token,
-      int id = 0,
-      bool translate = false,
-      String lang = 'ja',
-      ThumbnaiSize size = ThumbnaiSize.smaill,
-      void Function(int now, int total)? onProcess}) {
+  Stream<List<int>> fetchImageData(
+    Image image, {
+    String refererUrl = 'https://hitomi.la',
+    CancelToken? token,
+    int id = 0,
+    bool translate = false,
+    String lang = 'ja',
+    ThumbnaiSize size = ThumbnaiSize.smaill,
+    void Function(int now, int total)? onProcess,
+  }) {
     var origin = _helper
-        .querySql('select g.path from Gallery g where g.id=?', [id]).then(
-            (value) =>
-                join(_manager.config.output, value.first['path'], image.name));
+        .querySql('select g.path from Gallery g where g.id=?', [id])
+        .then(
+          (value) =>
+              join(_manager.config.output, value.first['path'], image.name),
+        );
     final stream = StreamController<List<int>>();
     if (size == ThumbnaiSize.origin) {
-      origin.then((value) async {
-        var f = File(value);
-        var length = f.lengthSync();
-        var count = 0;
-        if (translate) {
-          await _manager.dio
-              .post<ResponseBody>('${_manager.config.aiTagPath}/evaluate',
-                  data: FormData.fromMap({
-                    'file': MultipartFile.fromStream(() => f.openRead(), length,
-                        filename: image.name),
-                    'lang': lang,
-                    'process': 'translate'
-                  }),
-                  options: Options(responseType: ResponseType.stream),
-                  onReceiveProgress: onProcess)
-              .then((resp) => stream.addStream(resp.data!.stream));
-        } else {
-          await f.openRead().fold(stream, (previous, element) {
-            count += element.length;
-            onProcess?.call(count, length);
-            previous.add(element);
-            return previous;
-          });
-        }
-        stream.close();
-      }).catchError((e) {
-        stream.addError(e);
-        stream.close();
-      }, test: (error) => true);
+      origin
+          .then((value) async {
+            var f = File(value);
+            var length = f.lengthSync();
+            var count = 0;
+            if (translate) {
+              await _manager.dio
+                  .post<ResponseBody>(
+                    '${_manager.config.aiTagPath}/evaluate',
+                    data: FormData.fromMap({
+                      'file': MultipartFile.fromStream(
+                        () => f.openRead(),
+                        length,
+                        filename: image.name,
+                      ),
+                      'lang': lang,
+                      'process': 'translate',
+                    }),
+                    options: Options(responseType: ResponseType.stream),
+                    onReceiveProgress: onProcess,
+                  )
+                  .then((resp) => stream.addStream(resp.data!.stream));
+            } else {
+              await f.openRead().fold(stream, (previous, element) {
+                count += element.length;
+                onProcess?.call(count, length);
+                previous.add(element);
+                return previous;
+              });
+            }
+            stream.close();
+          })
+          .catchError((e) {
+            stream.addError(e);
+            stream.close();
+          }, test: (error) => true);
     } else if (_manager.config.aiTagPath.isNotEmpty) {
       origin
-          .then((value) => _manager.dio.get<ResponseBody>(
+          .then(
+            (value) => _manager.dio.get<ResponseBody>(
               '${_manager.config.aiTagPath}/resize',
               options: Options(responseType: ResponseType.stream),
-              queryParameters: {'file': value}))
+              queryParameters: {'file': value},
+            ),
+          )
           .then((body) {
-        onProcess?.call(0, body.data?.contentLength ?? 0);
-        return body.data != null
-            ? stream.addStream(body.data!.stream)
-            : stream.addError('empty data');
-      }).catchError((e) {
-        stream.addError(e);
-        _manager.logger.e('download error: $e');
-      }, test: (error) => true).whenComplete(() => stream.close());
+            onProcess?.call(0, body.data?.contentLength ?? 0);
+            return body.data != null
+                ? stream.addStream(body.data!.stream)
+                : stream.addError('empty data');
+          })
+          .catchError((e) {
+            stream.addError(e);
+            _manager.logger.e('download error: $e');
+          }, test: (error) => true)
+          .whenComplete(() => stream.close());
     } else {
       origin
           .then((value) => _manager.manager.compute(value))
-          .then((value) =>
-              value != null ? stream.add(value) : stream.addError('empty data'))
+          .then(
+            (value) => value != null
+                ? stream.add(value)
+                : stream.addError('empty data'),
+          )
           .catchError((e) => <int>[], test: (error) => true)
           .whenComplete(() => stream.close());
     }
@@ -98,22 +117,33 @@ class _LocalHitomiImpl implements Hitomi {
   }
 
   @override
-  Future<bool> downloadImages(Gallery gallery,
-      {bool usePrefence = true, CancelToken? token}) {
-    return _hitomiImpl.downloadImages(gallery,
-        usePrefence: usePrefence, token: token);
+  Future<bool> downloadImages(
+    Gallery gallery, {
+    bool usePrefence = true,
+    CancelToken? token,
+  }) {
+    return _hitomiImpl.downloadImages(
+      gallery,
+      usePrefence: usePrefence,
+      token: token,
+    );
   }
 
   @override
   Future<Gallery> fetchGallery(id, {usePrefence = true, CancelToken? token}) {
-    return _helper.queryGalleryById(id).catchError(
-        (e) => _hitomiImpl.fetchGallery(id, usePrefence: usePrefence),
-        test: (error) => true);
+    return _helper
+        .queryGalleryById(id)
+        .catchError(
+          (e) => _hitomiImpl.fetchGallery(id, usePrefence: usePrefence),
+          test: (error) => true,
+        );
   }
 
   @override
-  Future<List<Map<String, dynamic>>> translate(List<Label> labels,
-      {CancelToken? token}) {
+  Future<List<Map<String, dynamic>>> translate(
+    List<Label> labels, {
+    CancelToken? token,
+  }) {
     return _manager
         .translateLabel(labels)
         .then((value) => value.values.toList());
@@ -134,7 +164,8 @@ class _LocalHitomiImpl implements Hitomi {
     var group = include.groupListsBy((element) => element.runtimeType);
     var excludeGroups = exclude.groupListsBy((element) => element.runtimeType);
     final sql = StringBuffer(
-        'select COUNT(*) OVER() AS total_count,g.id from Gallery g where ');
+      'select COUNT(*) OVER() AS total_count,g.id from Gallery g where ',
+    );
     final params = [];
     group.entries.fold(sql, (previousValue, element) {
       switch (element.key) {
@@ -171,9 +202,9 @@ class _LocalHitomiImpl implements Hitomi {
               if (index != 0) {
                 previousValue.write('and ');
               }
-              return previousValue
-                ..write(
-                    'exists (select 1 from GalleryTagRelation r where r.gid = g.id and r.tid = (select id from Tags where type = ? and name = ?))');
+              return previousValue..write(
+                'exists (select 1 from GalleryTagRelation r where r.gid = g.id and r.tid = (select id from Tags where type = ? and name = ?))',
+              );
             });
             previousValue.write(') and ');
           }
@@ -215,9 +246,9 @@ class _LocalHitomiImpl implements Hitomi {
               if (index != 0) {
                 previousValue.write('and ');
               }
-              return previousValue
-                ..write(
-                    'not exists (select 1 from GalleryTagRelation r where r.gid = g.id and r.tid = (select id from Tags where type = ? and name = ?))');
+              return previousValue..write(
+                'not exists (select 1 from GalleryTagRelation r where r.gid = g.id and r.tid = (select id from Tags where type = ? and name = ?))',
+              );
             });
             previousValue.write(') and ');
           }
@@ -238,15 +269,22 @@ class _LocalHitomiImpl implements Hitomi {
     }
     _manager.logger.d('sql is ${sql} parms = ${params}');
     int count = 0;
-    return _helper.querySql(sql.toString(), params).then((value) {
-      count = value.firstOrNull?['total_count'] ?? 0;
-      return value.map((element) => element['id'] as int).toList();
-    }).then((value) => DataResponse(value, totalCount: count));
+    return _helper
+        .querySql(sql.toString(), params)
+        .then((value) {
+          count = value.firstOrNull?['total_count'] ?? 0;
+          return value.map((element) => element['id'] as int).toList();
+        })
+        .then((value) => DataResponse(value, totalCount: count));
   }
 
   @override
-  Future<DataResponse<List<Gallery>>> viewByTag(Label tag,
-      {int page = 1, CancelToken? token, SortEnum? sort}) async {
+  Future<DataResponse<List<Gallery>>> viewByTag(
+    Label tag, {
+    int page = 1,
+    CancelToken? token,
+    SortEnum? sort,
+  }) async {
     var sql = '';
     var params = <dynamic>[];
     if (tag is QueryText) {
@@ -284,22 +322,25 @@ class _LocalHitomiImpl implements Hitomi {
     // 优化：一次性获取所有Gallery对象，避免N+1查询问题
     return _helper
         .querySqlByCursor(sql, params)
-        .then((value) => value.fold(<Map<String, dynamic>>[], (previous, row) {
-              if (count <= 0) {
-                count = row['total_count'];
-              }
-              previous.add({'id': row['id']});
-              return previous;
-            }))
+        .then(
+          (value) => value.fold(<Map<String, dynamic>>[], (previous, row) {
+            if (count <= 0) {
+              count = row['total_count'];
+            }
+            previous.add({'id': row['id']});
+            return previous;
+          }),
+        )
         .then((rows) async {
-      // 批量获取Gallery对象
-      var galleries = <Gallery>[];
-      for (var row in rows) {
-        var gallery = await _helper.queryGalleryById(row['id']);
-        galleries.add(gallery);
-      }
-      return galleries;
-    }).then((data) => DataResponse(data, totalCount: count));
+          // 批量获取Gallery对象
+          var galleries = <Gallery>[];
+          for (var row in rows) {
+            var gallery = await _helper.queryGalleryById(row['id']);
+            galleries.add(gallery);
+          }
+          return galleries;
+        })
+        .then((data) => DataResponse(data, totalCount: count));
   }
 
   @override
@@ -314,14 +355,18 @@ class _LocalHitomiImpl implements Hitomi {
 
   @override
   Future<DataResponse<List<Gallery>>> findSimilarGalleryBySearch(
-      Gallery gallery,
-      {CancelToken? token}) {
+    Gallery gallery, {
+    CancelToken? token,
+  }) {
     return fetchGalleryHash(gallery, _manager.down, adHashes: _manager.adHash)
-        .then((value) => findDuplicateGalleryIds(
+        .then(
+          (value) => findDuplicateGalleryIds(
             gallery: gallery,
             helper: _manager.helper,
             threshold: _manager.config.threshold,
-            fileHashs: value.value))
+            fileHashs: value.value,
+          ),
+        )
         .then((value) => Future.wait(value.map((e) => fetchGallery(e))))
         .then((value) => DataResponse(value, totalCount: value.length));
   }
@@ -357,16 +402,20 @@ class _HitomiImpl implements Hitomi {
 
   Future<Gallery> _fetchGalleryJsonById(dynamic id, CancelToken? token) async {
     return _dio
-        .httpInvoke<String>('https://ltn.$apiDomain/galleries/$id.js',
-            token: token)
-        .then((value) => value.indexOf("{") >= 0
-            ? value.substring(value.indexOf("{"))
-            : value)
+        .httpInvoke<String>(
+          'https://ltn.$apiDomain/galleries/$id.js',
+          token: token,
+        )
+        .then(
+          (value) => value.indexOf("{") >= 0
+              ? value.substring(value.indexOf("{"))
+              : value,
+        )
         .then((value) {
-      final gallery = Gallery.fromJson(value);
-      manager.removeAdImages(gallery);
-      return gallery;
-    });
+          final gallery = Gallery.fromJson(value);
+          manager.removeAdImages(gallery);
+          return gallery;
+        });
   }
 
   Future<bool> _loopCallBack(Message msg) async {
@@ -383,14 +432,18 @@ class _HitomiImpl implements Hitomi {
   }
 
   @override
-  Future<bool> downloadImages(Gallery gallery,
-      {usePrefence = true, CancelToken? token}) async {
+  Future<bool> downloadImages(
+    Gallery gallery, {
+    usePrefence = true,
+    CancelToken? token,
+  }) async {
     await checkInit();
     final id = gallery.id;
     final outPath = outPut;
     Directory dir = gallery.createDir(outPath, createDir: false);
-    bool allow = await _loopCallBack(TaskStartMessage(gallery, dir, gallery))
-        .catchError((e) => false, test: (error) => true);
+    bool allow = await _loopCallBack(
+      TaskStartMessage(gallery, dir, gallery),
+    ).catchError((e) => false, test: (error) => true);
     if (!allow) {
       logger?.w('${id} test fiald,skip');
       if (dir.existsSync()) {
@@ -408,54 +461,102 @@ class _HitomiImpl implements Hitomi {
       }
     }
     try {
-      File(join(dir.path, 'meta.json'))
-          .writeAsStringSync(json.encode(gallery), flush: true);
+      File(
+        join(dir.path, 'meta.json'),
+      ).writeAsStringSync(json.encode(gallery), flush: true);
     } catch (e) {
       logger?.e('write json $e');
     }
     return await _loopCallBack(
-            DownLoadFinished(missImages, gallery, dir, missImages.isEmpty)) &&
+          DownLoadFinished(missImages, gallery, dir, missImages.isEmpty),
+        ) &&
         missImages.isEmpty;
   }
 
   Future<bool> _downLoadImage(
-      Directory dir, Gallery gallery, int index, CancelToken? token) async {
+    Directory dir,
+    Gallery gallery,
+    int index,
+    CancelToken? token,
+  ) async {
     bool b = false;
     try {
       final referer = 'https://hitomi.la${Uri.encodeFull(gallery.galleryurl!)}';
       Image image = gallery.files[index];
       final out = File(join(dir.path, image.name));
-      final url =
-          buildImageUrl(image, size: ThumbnaiSize.origin, id: gallery.id);
+      final url = buildImageUrl(
+        image,
+        size: ThumbnaiSize.origin,
+        id: gallery.id,
+      );
       var startTime = DateTime.now().millisecondsSinceEpoch;
       int lastTime = startTime;
-      b = await _loopCallBack(TaskStartMessage(gallery, out, image)) &&
+      int? expectedTotalSize; // 存储服务器返回的文件总大小
+
+      b =
+          await _loopCallBack(TaskStartMessage(gallery, out, image)) &&
           (token?.isCancelled ?? false) == false &&
           (!out.existsSync() || out.lengthSync() == 0);
       logger?.d('down image ${image.name} to ${out.path}  $b');
       if (b) {
         var writer = out.openWrite();
         await _dio
-            .httpInvoke<ResponseBody>(url,
-                headers: buildRequestHeader(url, referer),
-                onProcess: (now, total) async {
-              final realTime = DateTime.now().millisecondsSinceEpoch;
-              if ((realTime - lastTime) >= 250) {
-                await _loopCallBack(
-                  DownLoadingMessage(gallery, index,
-                      now / 1024 / (realTime - startTime) * 1000, now, total),
-                );
-                lastTime = realTime;
-              }
-            }, token: token)
-            .then((value) => value.stream
-                .fold(writer, (previous, element) => previous..add(element)))
+            .httpInvoke<ResponseBody>(
+              url,
+              headers: buildRequestHeader(url, referer),
+              onProcess: (now, total) async {
+                // 捕获服务器返回的文件总大小
+                if (expectedTotalSize == null && total > 0) {
+                  expectedTotalSize = total;
+                }
+                final realTime = DateTime.now().millisecondsSinceEpoch;
+                if ((realTime - lastTime) >= 250) {
+                  await _loopCallBack(
+                    DownLoadingMessage(
+                      gallery,
+                      index,
+                      now / 1024 / (realTime - startTime) * 1000,
+                      now,
+                      total,
+                    ),
+                  );
+                  lastTime = realTime;
+                }
+              },
+              token: token,
+            )
+            .then(
+              (value) => value.stream.fold(
+                writer,
+                (previous, element) => previous..add(element),
+              ),
+            )
             .then((value) async {
               await value.flush();
             })
             .whenComplete(() => writer.close());
       }
+
+      // 检查文件是否存在且大小大于0
       b = out.existsSync() && out.lengthSync() > 0;
+
+      // 如果文件存在，进行大小校验
+      if (b && expectedTotalSize != null && expectedTotalSize! > 0) {
+        final actualSize = out.lengthSync();
+        if (actualSize != expectedTotalSize) {
+          logger?.w(
+            'File size mismatch for ${image.name}: expected $expectedTotalSize, got $actualSize',
+          );
+          b = false;
+          if (out.existsSync()) {
+            out.delete();
+          }
+        } else {
+          logger?.d('File size verified for ${image.name}: $actualSize bytes');
+        }
+      }
+
+      // 如果文件存在但大小为0，删除文件
       if (!b && out.existsSync() && out.lengthSync() == 0) {
         out.delete();
       }
@@ -469,48 +570,63 @@ class _HitomiImpl implements Hitomi {
   }
 
   @override
-  Stream<List<int>> fetchImageData(Image image,
-      {String refererUrl = 'https://hitomi.la',
-      CancelToken? token,
-      int id = 0,
-      bool translate = false,
-      String lang = 'ja',
-      ThumbnaiSize size = ThumbnaiSize.smaill,
-      void Function(int now, int total)? onProcess}) {
+  Stream<List<int>> fetchImageData(
+    Image image, {
+    String refererUrl = 'https://hitomi.la',
+    CancelToken? token,
+    int id = 0,
+    bool translate = false,
+    String lang = 'ja',
+    ThumbnaiSize size = ThumbnaiSize.smaill,
+    void Function(int now, int total)? onProcess,
+  }) {
     final stream = StreamController<List<int>>();
     var length = 0;
     checkInit()
         .then((d) => buildImageUrl(image, size: size, id: id))
-        .then((url) => _dio
-                .httpInvoke<ResponseBody>(url,
-                    headers: buildRequestHeader(url, refererUrl),
-                    onProcess: translate ? (i, t) => length = t : onProcess,
-                    token: token)
-                .then((resp) => resp.stream)
-                .then((resp) async {
-              if (translate) {
-                return await _dio
-                    .post<ResponseBody>('${manager.config.aiTagPath}/evaluate',
+        .then(
+          (url) => _dio
+              .httpInvoke<ResponseBody>(
+                url,
+                headers: buildRequestHeader(url, refererUrl),
+                onProcess: translate ? (i, t) => length = t : onProcess,
+                token: token,
+              )
+              .then((resp) => resp.stream)
+              .then((resp) async {
+                if (translate) {
+                  return await _dio
+                      .post<ResponseBody>(
+                        '${manager.config.aiTagPath}/evaluate',
                         data: FormData.fromMap({
-                          'file': MultipartFile.fromStream(() => resp, length,
-                              filename: image.name,
-                              contentType: DioMediaType.parse('image/*')),
+                          'file': MultipartFile.fromStream(
+                            () => resp,
+                            length,
+                            filename: image.name,
+                            contentType: DioMediaType.parse('image/*'),
+                          ),
                           'lang': lang,
-                          'process': 'translate'
+                          'process': 'translate',
                         }),
                         options: Options(responseType: ResponseType.stream),
-                        onReceiveProgress: onProcess)
-                    .then((resp) => resp.data!.stream);
-              }
-              return resp;
-            }).then((resp) => stream.addStream(resp)))
+                        onReceiveProgress: onProcess,
+                      )
+                      .then((resp) => resp.data!.stream);
+                }
+                return resp;
+              })
+              .then((resp) => stream.addStream(resp)),
+        )
         .catchError((e) => stream.addError(e), test: (error) => true)
         .whenComplete(() => stream.close());
     return stream.stream;
   }
 
-  String buildImageUrl(Image image,
-      {ThumbnaiSize size = ThumbnaiSize.smaill, int id = 0}) {
+  String buildImageUrl(
+    Image image, {
+    ThumbnaiSize size = ThumbnaiSize.smaill,
+    int id = 0,
+  }) {
     final lastThreeCode = image.hash.substring(image.hash.length - 3);
     String url;
     var sizeStr;
@@ -537,8 +653,11 @@ class _HitomiImpl implements Hitomi {
   }
 
   @override
-  Future<Gallery> fetchGallery(dynamic id,
-      {usePrefence = true, CancelToken? token}) async {
+  Future<Gallery> fetchGallery(
+    dynamic id, {
+    usePrefence = true,
+    CancelToken? token,
+  }) async {
     await checkInit();
     var gallery = await _fetchGalleryJsonById(id, token);
     if (usePrefence) {
@@ -553,8 +672,9 @@ class _HitomiImpl implements Hitomi {
         ?.where((element) => languages.contains(element.name))
         .toList();
     if (langs?.isNotEmpty == true) {
-      final f = languages.firstWhere((element) =>
-          langs!.firstWhereOrNull((e) => e.name == element) != null);
+      final f = languages.firstWhere(
+        (element) => langs!.firstWhereOrNull((e) => e.name == element) != null,
+      );
       final language = langs!.firstWhere((element) => element.name == f);
       if (id != language.galleryid) {
         var l = await _fetchGalleryJsonById(language.galleryid, token);
@@ -564,9 +684,11 @@ class _HitomiImpl implements Hitomi {
       }
     } else if (!languages.any((element) => element == gallery.language)) {
       final found = await findSimilarGalleryBySearch(gallery, token: token)
-          .then((value) => value.data
-              .sorted((a, b) => a.files.length - b.files.length)
-              .firstOrNull);
+          .then(
+            (value) => value.data
+                .sorted((a, b) => a.files.length - b.files.length)
+                .firstOrNull,
+          );
       if (found != null) {
         logger?.d('search similar from ${gallery} found  ${found}');
         return found;
@@ -578,8 +700,9 @@ class _HitomiImpl implements Hitomi {
 
   @override
   Future<DataResponse<List<Gallery>>> findSimilarGalleryBySearch(
-      Gallery gallery,
-      {CancelToken? token}) async {
+    Gallery gallery, {
+    CancelToken? token,
+  }) async {
     List<Label> keys = gallery.title
         .toLowerCase()
         .split(_blank)
@@ -589,9 +712,9 @@ class _HitomiImpl implements Hitomi {
         .map((e) => QueryText(e))
         .take(5)
         .fold(<Label>[], (previousValue, element) {
-      previousValue.add(element);
-      return previousValue;
-    });
+          previousValue.add(element);
+          return previousValue;
+        });
     keys.add(TypeLabel(gallery.type));
     keys.addAll(languages.map((e) => Language(name: e)));
     if ((gallery.parodys?.length ?? 0) > 0) {
@@ -603,11 +726,15 @@ class _HitomiImpl implements Hitomi {
     if ((gallery.groups?.length ?? 0) > 0) {
       keys.addAll(gallery.groups!);
     }
-    logger
-        ?.d('search ${gallery.id} ${gallery.dirName} target language by $keys');
-    var data =
-        await fetchGalleryHashFromNet(gallery, manager.down, token, false)
-            .then((value) => value.value);
+    logger?.d(
+      'search ${gallery.id} ${gallery.dirName} target language by $keys',
+    );
+    var data = await fetchGalleryHashFromNet(
+      gallery,
+      manager.down,
+      token,
+      false,
+    ).then((value) => value.value);
     return search(keys, token: token)
         .then((value) {
           assert(value.data.length < 100);
@@ -617,8 +744,9 @@ class _HitomiImpl implements Hitomi {
         .asStream()
         .expand((element) => element.data)
         .asyncMap((event) => _fetchGalleryJsonById(event, token))
-        .asyncMap((event) =>
-            fetchGalleryHashFromNet(event, manager.down, token, false))
+        .asyncMap(
+          (event) => fetchGalleryHashFromNet(event, manager.down, token, false),
+        )
         .where((event) => searchSimiler(data, event.value) > 0.75)
         .map((event) => event.key)
         .fold(<Gallery>[], (previous, element) => previous..add(element))
@@ -626,62 +754,83 @@ class _HitomiImpl implements Hitomi {
   }
 
   @override
-  Future<List<Map<String, dynamic>>> translate(List<Label> labels,
-      {CancelToken? token}) {
+  Future<List<Map<String, dynamic>>> translate(
+    List<Label> labels, {
+    CancelToken? token,
+  }) {
     return manager
         .translateLabel(labels)
         .then((value) => value.values.toList());
   }
 
   @override
-  Future<DataResponse<List<int>>> search(List<Label> include,
-      {List<Label> exclude = const [],
-      usePrefence = true,
-      SortEnum sort = SortEnum.Default,
-      CancelToken? token}) async {
+  Future<DataResponse<List<int>>> search(
+    List<Label> include, {
+    List<Label> exclude = const [],
+    usePrefence = true,
+    SortEnum sort = SortEnum.Default,
+    CancelToken? token,
+  }) async {
     await checkInit();
     final typeMap = include.groupListsBy((element) => element.runtimeType);
-    var includeIds =
-        await Stream.fromIterable(typeMap.entries).asyncMap((element) async {
-      return await Stream.fromIterable(element.value)
-          .asyncMap((e) async => e is Language || e is TypeLabel
-              ? await getCacheIdsFromLang(e, token: token)
-              : await _fetchIdsByTag(e, token: token))
-          .reduce((previous, e) {
-        List<int> r;
-        if (element.key == Language || element.key == TypeLabel) {
-          r = [...previous, ...e];
-          logger?.d(
-              '${element.value} merge ${e.length} and ${previous.length} result ${r.length}');
-        } else {
-          r = previous
-              .where((element) =>
-                  e.binarySearch(element, (p0, p1) => p1.compareTo(p0)) >= 0)
+    var includeIds = await Stream.fromIterable(typeMap.entries)
+        .asyncMap((element) async {
+          return await Stream.fromIterable(element.value)
+              .asyncMap(
+                (e) async => e is Language || e is TypeLabel
+                    ? await getCacheIdsFromLang(e, token: token)
+                    : await _fetchIdsByTag(e, token: token),
+              )
+              .reduce((previous, e) {
+                List<int> r;
+                if (element.key == Language || element.key == TypeLabel) {
+                  r = [...previous, ...e];
+                  logger?.d(
+                    '${element.value} merge ${e.length} and ${previous.length} result ${r.length}',
+                  );
+                } else {
+                  r = previous
+                      .where(
+                        (element) =>
+                            e.binarySearch(
+                              element,
+                              (p0, p1) => p1.compareTo(p0),
+                            ) >=
+                            0,
+                      )
+                      .toList();
+                  logger?.d(
+                    '${element.value} has ${e.length} pre ${previous.length} result ${r.length}',
+                  );
+                }
+                return r;
+              })
+              .then(
+                (value) =>
+                    (element.key == Language || element.key == TypeLabel) &&
+                        element.value.length > 1
+                    ? (value..sort((p0, p1) => p1.compareTo(p0)))
+                    : value,
+              );
+        })
+        .reduce((previous, element) {
+          logger?.d('${previous.length} reduce ${element.length}');
+          return previous
+              .where(
+                (e) =>
+                    element.binarySearch(e, (p0, p1) => p1.compareTo(p0)) >= 0,
+              )
               .toList();
-          logger?.d(
-              '${element.value} has ${e.length} pre ${previous.length} result ${r.length}');
-        }
-        return r;
-      }).then((value) =>
-              (element.key == Language || element.key == TypeLabel) &&
-                      element.value.length > 1
-                  ? (value..sort((p0, p1) => p1.compareTo(p0)))
-                  : value);
-    }).reduce((previous, element) {
-      logger?.d('${previous.length} reduce ${element.length}');
-      return previous
-          .where(
-              (e) => element.binarySearch(e, (p0, p1) => p1.compareTo(p0)) >= 0)
-          .toList();
-    });
+        });
     logger?.d('all match ids ${includeIds.length}');
     if (exclude.isNotEmpty && includeIds.isNotEmpty) {
-      final filtered = await Stream.fromFutures(
-              exclude.map((e) => getCacheIdsFromLang(e, token: token)))
-          .fold<Set<int>>(includeIds.toSet(), (acc, item) {
-        acc.removeAll(item);
-        return acc;
-      });
+      final filtered =
+          await Stream.fromFutures(
+            exclude.map((e) => getCacheIdsFromLang(e, token: token)),
+          ).fold<Set<int>>(includeIds.toSet(), (acc, item) {
+            acc.removeAll(item);
+            return acc;
+          });
       includeIds = filtered.toList();
     }
     if (sort == SortEnum.ID_ASC) {
@@ -691,14 +840,17 @@ class _HitomiImpl implements Hitomi {
     return DataResponse(includeIds, totalCount: includeIds.length);
   }
 
-  Future<List<int>> _fetchIdsByTag(Label tag,
-      {Language? language, CancelToken? token}) {
+  Future<List<int>> _fetchIdsByTag(
+    Label tag, {
+    Language? language,
+    CancelToken? token,
+  }) {
     if (tag is QueryText) {
       return _fetchQuery(
-              'https://ltn.$apiDomain/galleriesindex/galleries.${galleries_index_version}.index',
-              tag.name.toLowerCase(),
-              token)
-          .then((value) => _fetchData(value, token));
+        'https://ltn.$apiDomain/galleriesindex/galleries.${galleries_index_version}.index',
+        tag.name.toLowerCase(),
+        token,
+      ).then((value) => _fetchData(value, token));
     } else {
       final useLanguage = language?.name ?? 'all';
       String url;
@@ -715,18 +867,25 @@ class _HitomiImpl implements Hitomi {
   }
 
   @override
-  Future<List<Map<String, dynamic>>> fetchSuggestions(String key,
-      {CancelToken? token}) async {
+  Future<List<Map<String, dynamic>>> fetchSuggestions(
+    String key, {
+    CancelToken? token,
+  }) async {
     await checkInit();
     return _dio
         .httpInvoke<List<dynamic>>(
-            'https://tagindex.hitomi.la/global${key.codeUnits.fold('', (acc, char) => acc + '/' + String.fromCharCode(char))}',
-            headers: buildRequestHeader(
-                'https://ltn.$apiDomain', 'https://hitomi.la/'))
-        .then((value) => value
-            .map((element) => element as List)
-            .map((m) => fromString(m[2], m[0]))
-            .toList())
+          'https://tagindex.hitomi.la/global${key.codeUnits.fold('', (acc, char) => acc + '/' + String.fromCharCode(char))}',
+          headers: buildRequestHeader(
+            'https://ltn.$apiDomain',
+            'https://hitomi.la/',
+          ),
+        )
+        .then(
+          (value) => value
+              .map((element) => element as List)
+              .map((m) => fromString(m[2], m[0]))
+              .toList(),
+        )
         .then((value) => manager.translateLabel(value))
         .then((value) => value.values.toList());
   }
@@ -767,17 +926,29 @@ class _HitomiImpl implements Hitomi {
   // }
 
   Future<MapEntry<int, int>> _fetchQuery(
-      String url, String word, CancelToken? token) async {
+    String url,
+    String word,
+    CancelToken? token,
+  ) async {
     await checkInit();
     logger?.d('$url with $word');
-    final hash =
-        sha256.convert(Utf8Encoder().convert(word)).bytes.take(4).toList();
-    return _fetchNode(url, token: token)
-        .then((value) => _netBTreeSearch(url, value, hash, token));
+    final hash = sha256
+        .convert(Utf8Encoder().convert(word))
+        .bytes
+        .take(4)
+        .toList();
+    return _fetchNode(
+      url,
+      token: token,
+    ).then((value) => _netBTreeSearch(url, value, hash, token));
   }
 
   Future<MapEntry<int, int>> _netBTreeSearch(
-      String url, _Node node, List<int> hashKey, CancelToken? token) async {
+    String url,
+    _Node node,
+    List<int> hashKey,
+    CancelToken? token,
+  ) async {
     var tuple = MapEntry(false, node.keys.length);
     for (var i = 0; i < node.keys.length; i++) {
       var v = hashKey.compareTo(node.keys[i]);
@@ -791,66 +962,86 @@ class _HitomiImpl implements Hitomi {
     } else if (node.subnode_addresses.any((element) => element != 0) &&
         node.subnode_addresses[tuple.value] != 0) {
       return _netBTreeSearch(
-          url,
-          await _fetchNode(url, start: node.subnode_addresses[tuple.value]),
-          hashKey,
-          token);
+        url,
+        await _fetchNode(url, start: node.subnode_addresses[tuple.value]),
+        hashKey,
+        token,
+      );
     }
     throw 'not founded';
   }
 
   Future<List<int>> _fetchData(
-      MapEntry<int, int> tuple, CancelToken? token) async {
+    MapEntry<int, int> tuple,
+    CancelToken? token,
+  ) async {
     await checkInit();
     final url =
         'https://ltn.$apiDomain/galleriesindex/galleries.${galleries_index_version}.data';
     return await _dio
-        .httpInvoke<List<int>>(url,
-            headers: buildRequestHeader(url, 'https://hitomi.la/',
-                range: MapEntry(tuple.key, tuple.key + tuple.value - 1)),
-            token: token)
+        .httpInvoke<List<int>>(
+          url,
+          headers: buildRequestHeader(
+            url,
+            'https://hitomi.la/',
+            range: MapEntry(tuple.key, tuple.key + tuple.value - 1),
+          ),
+          token: token,
+        )
         .then((value) {
-      final view = _DataView(value);
-      var number = view.getData(4);
-      final data = Set<int>();
-      for (int i = 1; i <= number; i++) {
-        data.add(view.getData(4));
-      }
-      return data.toList();
-    });
+          final view = _DataView(value);
+          var number = view.getData(4);
+          final data = Set<int>();
+          for (int i = 1; i <= number; i++) {
+            data.add(view.getData(4));
+          }
+          return data.toList();
+        });
   }
 
   Future<List<int>> _fetchTagIdsByNet(String url, CancelToken? token) async {
     return await _dio
-        .httpInvoke<List<int>>(url,
-            headers: buildRequestHeader(url, 'https://hitomi.la/'),
-            token: token)
+        .httpInvoke<List<int>>(
+          url,
+          headers: buildRequestHeader(url, 'https://hitomi.la/'),
+          token: token,
+        )
         .then((value) {
-      final view = _DataView(value);
-      var number = value.length / 4;
-      final data = Set<int>();
-      for (var i = 0; i < number; i++) {
-        data.add(view.getData(4));
-      }
-      return data.toList();
-    }).catchError((e) {
-      logger?.d('fetch tag $url get $e');
-      throw e;
-    }, test: (error) => true);
+          final view = _DataView(value);
+          var number = value.length / 4;
+          final data = Set<int>();
+          for (var i = 0; i < number; i++) {
+            data.add(view.getData(4));
+          }
+          return data.toList();
+        })
+        .catchError((e) {
+          logger?.d('fetch tag $url get $e');
+          throw e;
+        }, test: (error) => true);
   }
 
   Future<_Node> _fetchNode(String url, {int start = 0, CancelToken? token}) {
     return _dio
-        .httpInvoke<List<int>>(url,
-            headers: buildRequestHeader(url, 'https://hitomi.la/',
-                range: MapEntry(start, start + 463)),
-            token: token)
+        .httpInvoke<List<int>>(
+          url,
+          headers: buildRequestHeader(
+            url,
+            'https://hitomi.la/',
+            range: MapEntry(start, start + 463),
+          ),
+          token: token,
+        )
         .then((value) => _Node.parse(value));
   }
 
   @override
-  Future<DataResponse<List<Gallery>>> viewByTag(Label tag,
-      {int page = 1, CancelToken? token, SortEnum? sort}) {
+  Future<DataResponse<List<Gallery>>> viewByTag(
+    Label tag, {
+    int page = 1,
+    CancelToken? token,
+    SortEnum? sort,
+  }) {
     var referer =
         'https://hitomi.la/${tag.urlEncode()}${tag is Language ? '' : '-all'}.html';
     if (page > 1) {
@@ -861,27 +1052,37 @@ class _HitomiImpl implements Hitomi {
     logger?.d('$dataUrl from $referer');
     int totalCount = 0;
     return _dio
-        .httpInvoke<List<int>>(dataUrl,
-            headers: buildRequestHeader(dataUrl, referer,
-                range: MapEntry((page - 1) * 100, page * 100 - 1)),
-            token: token, responseHead: (header) {
-          var range = header[HttpHeaders.contentRangeHeader]?.firstOrNull;
-          if (range != null) {
-            var match = _totalExp.firstMatch(range);
-            var count = match?.namedGroup('totalCount');
-            if (count != null) {
-              totalCount = int.parse(count) ~/ 4;
+        .httpInvoke<List<int>>(
+          dataUrl,
+          headers: buildRequestHeader(
+            dataUrl,
+            referer,
+            range: MapEntry((page - 1) * 100, page * 100 - 1),
+          ),
+          token: token,
+          responseHead: (header) {
+            var range = header[HttpHeaders.contentRangeHeader]?.firstOrNull;
+            if (range != null) {
+              var match = _totalExp.firstMatch(range);
+              var count = match?.namedGroup('totalCount');
+              if (count != null) {
+                totalCount = int.parse(count) ~/ 4;
+              }
             }
-          }
-        })
+          },
+        )
         .then((value) => mapBytesToInts(value, spilt: 4))
-        .then((value) => Future.wait(value
-                .map((e) => fetchGallery(e, usePrefence: false, token: token)))
-            .then((value) => DataResponse(value, totalCount: totalCount)));
+        .then(
+          (value) => Future.wait(
+            value.map((e) => fetchGallery(e, usePrefence: false, token: token)),
+          ).then((value) => DataResponse(value, totalCount: totalCount)),
+        );
   }
 
-  Future<List<int>> getCacheIdsFromLang(Label label,
-      {CancelToken? token}) async {
+  Future<List<int>> getCacheIdsFromLang(
+    Label label, {
+    CancelToken? token,
+  }) async {
     await checkInit();
     if (!_cache.containsKey(label)) {
       var result = await _fetchIdsByTag(label, token: token);
@@ -907,7 +1108,8 @@ class _HitomiImpl implements Hitomi {
         .toList();
     galleries_index_version = await _dio
         .httpInvoke<String>(
-            'https://ltn.$apiDomain/galleriesindex/version?_=${DateTime.now().millisecondsSinceEpoch}')
+          'https://ltn.$apiDomain/galleriesindex/version?_=${DateTime.now().millisecondsSinceEpoch}',
+        )
         .then((value) => int.parse(value));
     // tag_index_version = await _dio
     //     .httpInvoke<String>(
@@ -919,10 +1121,12 @@ class _HitomiImpl implements Hitomi {
     if (_timer == null) {
       await initData();
       _timer = Timer.periodic(
-          Duration(minutes: 30),
-          (timer) => initData().catchError(
-              (e) => logger?.e(e, time: DateTime.now()),
-              test: (error) => true));
+        Duration(minutes: 30),
+        (timer) => initData().catchError(
+          (e) => logger?.e(e, time: DateTime.now()),
+          test: (error) => true,
+        ),
+      );
     }
   }
 
@@ -938,8 +1142,10 @@ class _HitomiImpl implements Hitomi {
   }
 
   int _parseLast3HashCode(String hash) {
-    return int.parse(String.fromCharCode(hash.codeUnitAt(hash.length - 1)),
-                radix: 16) <<
+    return int.parse(
+              String.fromCharCode(hash.codeUnitAt(hash.length - 1)),
+              radix: 16,
+            ) <<
             8 |
         int.parse(hash.substring(hash.length - 3, hash.length - 1), radix: 16);
   }
@@ -1037,60 +1243,72 @@ class WebHitomi implements Hitomi {
   WebHitomi(this.dio, this.localDb, this.auth, this.bashHttp);
 
   @override
-  Future<bool> downloadImages(Gallery gallery,
-      {bool usePrefence = true, CancelToken? token}) async {
+  Future<bool> downloadImages(
+    Gallery gallery, {
+    bool usePrefence = true,
+    CancelToken? token,
+  }) async {
     return dio
-        .post<String>('$bashHttp/addTask',
-            data: json.encode({'auth': auth, 'task': gallery.id.toString()}))
+        .post<String>(
+          '$bashHttp/addTask',
+          data: json.encode({'auth': auth, 'task': gallery.id.toString()}),
+        )
         .then((value) => json.decode(value.data!)['success']);
   }
 
   @override
-  Future<Gallery> fetchGallery(id,
-      {usePrefence = true, CancelToken? token}) async {
+  Future<Gallery> fetchGallery(
+    id, {
+    usePrefence = true,
+    CancelToken? token,
+  }) async {
     return dio
-        .post<String>('$bashHttp/proxy/fetchGallery',
-            queryParameters: {
-              'id': id,
-              'usePrefence': usePrefence,
-              'local': localDb
-            },
-            data: json.encode({
-              'auth': auth,
-            }))
+        .post<String>(
+          '$bashHttp/proxy/fetchGallery',
+          queryParameters: {
+            'id': id,
+            'usePrefence': usePrefence,
+            'local': localDb,
+          },
+          data: json.encode({'auth': auth}),
+        )
         .then((value) => Gallery.fromJson(value.data!));
   }
 
   @override
-  Stream<List<int>> fetchImageData(Image image,
-      {String refererUrl = 'https://hitomi.la',
-      CancelToken? token,
-      int id = 0,
-      bool translate = false,
-      String lang = 'ja',
-      ThumbnaiSize size = ThumbnaiSize.smaill,
-      void Function(int now, int total)? onProcess}) {
+  Stream<List<int>> fetchImageData(
+    Image image, {
+    String refererUrl = 'https://hitomi.la',
+    CancelToken? token,
+    int id = 0,
+    bool translate = false,
+    String lang = 'ja',
+    ThumbnaiSize size = ThumbnaiSize.smaill,
+    void Function(int now, int total)? onProcess,
+  }) {
     final stream = StreamController<List<int>>();
     dio
-        .get<ResponseBody>('$bashHttp/fetchImageData',
-            queryParameters: {
-              'hash': image.hash,
-              'name': image.name,
-              'referer': refererUrl,
-              'size': size.name,
-              'id': id,
-              'translate': translate,
-              'lang': lang,
-              'local': localDb
-            },
-            options: Options(responseType: ResponseType.stream),
-            onReceiveProgress: onProcess)
+        .get<ResponseBody>(
+          '$bashHttp/fetchImageData',
+          queryParameters: {
+            'hash': image.hash,
+            'name': image.name,
+            'referer': refererUrl,
+            'size': size.name,
+            'id': id,
+            'translate': translate,
+            'lang': lang,
+            'local': localDb,
+          },
+          options: Options(responseType: ResponseType.stream),
+          onReceiveProgress: onProcess,
+        )
         .then((value) => stream.addStream(value.data!.stream))
         .then((value) => stream.close())
         .catchError((e) {
-      stream.addError(e);
-      stream.close();
-    }, test: (error) => true);
+          stream.addError(e);
+          stream.close();
+        }, test: (error) => true);
     return stream.stream;
   }
 
@@ -1101,49 +1319,70 @@ class WebHitomi implements Hitomi {
   void removeCallBack(Future<bool> Function(Message msg) callBack) {}
 
   @override
-  Future<DataResponse<List<int>>> search(List<Label> include,
-      {List<Label> exclude = const [],
-      SortEnum sort = SortEnum.Default,
-      CancelToken? token}) {
+  Future<DataResponse<List<int>>> search(
+    List<Label> include, {
+    List<Label> exclude = const [],
+    SortEnum sort = SortEnum.Default,
+    CancelToken? token,
+  }) {
     return dio
-        .post<String>('$bashHttp/proxy/search',
-            data: json.encode({
-              'include': include,
-              'excludes': exclude,
-              'auth': auth,
-              'sort': sort.name,
-              'local': localDb
-            }))
-        .then((value) => DataResponse.fromStr(value.data!,
-            (list) => (list as List<dynamic>).map((e) => e as int).toList()));
+        .post<String>(
+          '$bashHttp/proxy/search',
+          data: json.encode({
+            'include': include,
+            'excludes': exclude,
+            'auth': auth,
+            'sort': sort.name,
+            'local': localDb,
+          }),
+        )
+        .then(
+          (value) => DataResponse.fromStr(
+            value.data!,
+            (list) => (list as List<dynamic>).map((e) => e as int).toList(),
+          ),
+        );
   }
 
   @override
-  Future<DataResponse<List<Gallery>>> viewByTag(Label tag,
-      {int page = 1, CancelToken? token, SortEnum? sort}) async {
+  Future<DataResponse<List<Gallery>>> viewByTag(
+    Label tag, {
+    int page = 1,
+    CancelToken? token,
+    SortEnum? sort,
+  }) async {
     return dio
-        .post<String>('$bashHttp/proxy/viewByTag',
-            data: json.encode({
-              'tags': [tag],
-              'page': page,
-              'auth': auth,
-              'local': localDb,
-              'sort': sort?.name
-            }))
-        .then((value) => DataResponse<List<Gallery>>.fromStr(
+        .post<String>(
+          '$bashHttp/proxy/viewByTag',
+          data: json.encode({
+            'tags': [tag],
+            'page': page,
+            'auth': auth,
+            'local': localDb,
+            'sort': sort?.name,
+          }),
+        )
+        .then(
+          (value) => DataResponse<List<Gallery>>.fromStr(
             value.data!,
             (list) => (list as List<dynamic>)
                 .map((e) => Gallery.fromJson(e))
-                .toList()));
+                .toList(),
+          ),
+        );
   }
 
   @override
-  Future<List<Map<String, dynamic>>> translate(List<Label> labels,
-      {CancelToken? token}) {
+  Future<List<Map<String, dynamic>>> translate(
+    List<Label> labels, {
+    CancelToken? token,
+  }) {
     return dio
-        .post<String>('${bashHttp}/translate',
-            data: json.encode({'auth': auth, 'tags': labels}),
-            cancelToken: token)
+        .post<String>(
+          '${bashHttp}/translate',
+          data: json.encode({'auth': auth, 'tags': labels}),
+          cancelToken: token,
+        )
         .then((value) => json.decode(value.data!) as List<dynamic>)
         .then((value) => value.map((e) => e as Map<String, dynamic>).toList());
   }
@@ -1151,29 +1390,45 @@ class WebHitomi implements Hitomi {
   @override
   Future<List<Map<String, dynamic>>> fetchSuggestions(String key) {
     return dio
-        .post<String>('$bashHttp/fetchTag/$key',
-            data: json.encode({'auth': auth, 'local': localDb}))
+        .post<String>(
+          '$bashHttp/fetchTag/$key',
+          data: json.encode({'auth': auth, 'local': localDb}),
+        )
         .then((value) {
-      return json.decode(value.data!) as List<dynamic>;
-    }).then((value) => value
-            .map((e) => (e is Map<String, dynamic>)
-                ? e
-                : json.decode(e.toString()) as Map<String, dynamic>)
-            .toList());
+          return json.decode(value.data!) as List<dynamic>;
+        })
+        .then(
+          (value) => value
+              .map(
+                (e) => (e is Map<String, dynamic>)
+                    ? e
+                    : json.decode(e.toString()) as Map<String, dynamic>,
+              )
+              .toList(),
+        );
   }
 
   @override
   Future<DataResponse<List<Gallery>>> findSimilarGalleryBySearch(
-      Gallery gallery,
-      {CancelToken? token}) {
+    Gallery gallery, {
+    CancelToken? token,
+  }) {
     return dio
-        .post<String>('$bashHttp/proxy/findSimilar',
-            data: json
-                .encode({'gallery': gallery, 'auth': auth, 'local': localDb}))
-        .then((value) => DataResponse<List<Gallery>>.fromStr(
+        .post<String>(
+          '$bashHttp/proxy/findSimilar',
+          data: json.encode({
+            'gallery': gallery,
+            'auth': auth,
+            'local': localDb,
+          }),
+        )
+        .then(
+          (value) => DataResponse<List<Gallery>>.fromStr(
             value.data!,
             (list) => (list as List<dynamic>)
                 .map((e) => Gallery.fromJson(e))
-                .toList()));
+                .toList(),
+          ),
+        );
   }
 }
