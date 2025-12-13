@@ -851,4 +851,27 @@ class TaskManager {
       return false;
     }
   }
+
+  Future<List<Map>> searchByImage(List<int> data, {int limit = 5}) async {
+    return down
+        .computeImageHash([
+          MultipartFile.fromBytes(data, filename: 'query.jpg'),
+        ], config.aiTagPath.isEmpty)
+        .then((values) => values.firstOrNull)
+        .then(
+          (value) => value != null
+              ? helper
+                    .querySql(
+                      '''
+          WITH ComputedResults AS ( 
+          SELECT gid,name,fileHash from GalleryFile WHERE hash_distance(fileHash,?) <5 
+          ) 
+          select gid as id,name from ComputedResults order by hash_distance(fileHash,?) limit $limit
+          ''',
+                      [value, value],
+                    )
+                    .then((set) => set.map((r) => r).toList())
+              : [],
+        );
+  }
 }

@@ -78,6 +78,7 @@ class _TaskWarp {
       ..post('/cancel', _cancel)
       ..options('/cancel', _optionsOk)
       ..post('/delete', _delete)
+      ..post('/queryByImage', _searchByImage)
       ..options('/delete', _optionsOk)
       ..get('/ip', (req) {
         return NetworkInterface.list()
@@ -542,6 +543,20 @@ class _TaskWarp {
       return Response.badRequest();
     }
     return Response.unauthorized('Unauthorized');
+  }
+
+  Future<Response> _searchByImage(Request req) async {
+    var limit = req.params['limit'] ?? '5';
+    var file = await req.read().fold(
+      <int>[],
+      (previous, element) => previous..addAll(element),
+    );
+    return _manager
+        .searchByImage(file, limit: limit.toInt())
+        .then(
+          (result) =>
+              Response.ok(json.encode(result), headers: defaultRespHeader),
+        );
   }
 }
 
