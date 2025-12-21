@@ -245,7 +245,7 @@
                 let map = new Map()
                 map['name'] = name
                 map['type'] = type
-                if (excludes.includes(name)) {
+                if (excludes.find((l)=>`${l}`.indexOf(name) >= 0)) {
                     a.style = 'background: red;'
                 }
                 var list = transMap.get(url)

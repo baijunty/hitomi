@@ -852,7 +852,10 @@ class TaskManager {
     }
   }
 
-  Future<List<Map>> searchByImage(List<int> data, {int limit = 5}) async {
+  Future<List<Map<String, dynamic>>> searchByImage(
+    List<int> data, {
+    int limit = 5,
+  }) async {
     return down
         .computeImageHash([
           MultipartFile.fromBytes(data, filename: 'query.jpg'),
