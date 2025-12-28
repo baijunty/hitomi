@@ -257,34 +257,27 @@ class _TaskWarp {
   ///   the image data and appropriate headers, or an error response if the
   ///   request parameters are invalid.
   Future<Response> _image(Request req) async {
-    var id = req.url.queryParameters['id'];
     var hash = req.url.queryParameters['hash'];
     var name = req.url.queryParameters['name'];
     var size = req.url.queryParameters['size'];
     var local = req.url.queryParameters['local'] == 'true';
-    var translate = req.url.queryParameters['translate'] == 'true';
     var lang = req.url.queryParameters['lang'] ?? 'ja';
-    if (id == null ||
-        (hash?.length ?? 0) != 64 ||
-        size == null ||
-        name == null) {
-      _manager.logger.d('$id $hash $name $size $local');
+    if ((hash?.length ?? 0) != 64 || size == null || name == null) {
+      _manager.logger.d(' $hash $name $size $local');
       return Response.badRequest();
     }
     var before = req.headers['If-None-Match'];
     if (before != null && before == hash) {
       return Response.notModified();
     }
-    return localHitomi
+    return (local ? localHitomi : _manager.getApiDirect(HitomiType.Remote))
         .fetchImageData(
           Image(hash: hash!, hasavif: 0, width: 0, name: name, height: 0),
-          refererUrl: req.url.queryParameters['referer'] ?? '',
+          refererUrl: req.url.queryParameters['referer'] ?? 'https://hitomi.la',
           size: ThumbnaiSize.values.firstWhere(
             (element) => element.name == size,
           ),
           lang: lang,
-          translate: translate,
-          id: int.parse(id),
         )
         .fold(<int>[], (acc, l) => acc..addAll(l))
         .then(

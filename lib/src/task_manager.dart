@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:args/args.dart';
 import 'package:collection/collection.dart';
 import 'package:dcache/dcache.dart';
@@ -16,6 +17,7 @@ import 'package:isolate_manager/isolate_manager.dart';
 import 'package:logger/logger.dart';
 import 'package:path/path.dart' show join;
 import '../gallery/language.dart';
+import 'client.dart';
 import 'dir_scanner.dart';
 import 'gallery_util.dart';
 import 'hitomi_impl.dart';
@@ -68,7 +70,8 @@ class TaskManager {
   late SimpleCache<Label, Map<String, dynamic>> _cache =
       SimpleCache<Label, Map<String, dynamic>>(storage: _storage);
   final _reg = RegExp(r'!?\[(?<name>.*?)\]\(#*\s*\"?(?<url>\S+?)\"?\)');
-  late IsolateManager<List<int>?, String> manager;
+  IsolateManager<List<int>?, String>? manager;
+  ComfyClient? client;
   late _MemoryOutputWrap outputEvent;
   DownLoader get down => _downLoader;
   List<Map<String, dynamic>> get queryTask => _queryTasks
@@ -127,10 +130,14 @@ class TaskManager {
         noBoxingByDefault: true,
       ),
     );
-    manager = IsolateManager<List<int>?, String>.create(
-      _compressRunner,
-      concurrent: config.maxTasks * 2,
-    );
+    if (config.aiTagPath.isNotEmpty) {
+      client = ComfyClient(config.aiTagPath, dio);
+    } else {
+      manager = IsolateManager<List<int>?, String>.create(
+        _compressRunner,
+        concurrent: config.maxTasks * 2,
+      );
+    }
     helper = SqliteHelper(config.output, logger: logger);
     dio.httpClientAdapter = crateHttpClientAdapter(config.proxy);
     _api = createHitomi(this, false, config.remoteHttp);
@@ -273,13 +280,8 @@ class TaskManager {
   ) async {
     return down
         .computeImageHash([
-          MultipartFile.fromBytes(
-            await _api
-                .fetchImageData(gallery.files.first)
-                .fold(<int>[], (acc, d) => acc..addAll(d)),
-            filename: gallery.files.first.name,
-          ),
-        ], config.aiTagPath.isEmpty)
+          gallery.files.first,
+        ], dirPath: gallery.createDir(config.output).path)
         .then((hash) {
           return helper
               .querySql(
@@ -390,89 +392,48 @@ class TaskManager {
   }
 
   Future<List<int>> findSugguestGallery(int id) async {
-    return config.aiTagPath.isNotEmpty
-        ? await getApiDirect(HitomiType.Remote).fetchGallery(id).then((
-            gallery,
-          ) async {
-            var idTitleMap = Map<int, String>();
-            var ids = <int>[];
-            if (gallery.artists != null) {
-              await gallery.artists!
-                  .asStream()
-                  .asyncMap(
-                    (event) => helper.queryGalleryByLabel('artist', event),
-                  )
-                  .map(
-                    (event) => event.fold(
-                      <int, String>{},
-                      (acc, m) => acc..[m['id']] = m['title'],
-                    ),
-                  )
-                  .fold(idTitleMap, (map, item) => map..addAll(item));
-            }
-            if (gallery.groups != null) {
-              await gallery.groups!
-                  .asStream()
-                  .asyncMap(
-                    (event) => helper.queryGalleryByLabel('group', event),
-                  )
-                  .map(
-                    (event) => event.fold(
-                      <int, String>{},
-                      (acc, m) => acc..[m['id']] = m['title'],
-                    ),
-                  )
-                  .fold(idTitleMap, (map, item) => map..addAll(item));
-            }
-            if (idTitleMap.isNotEmpty) {
-              final formData = FormData.fromMap({
-                "limit": 5,
-                'threshold': 0.8,
-                'docs': json.encode([
-                  gallery.nameFixed,
-                  ...idTitleMap.values.toList(),
-                ]),
-                'process': 'feature',
-              });
-              var result = await dio
-                  .post<List<dynamic>>(
-                    '${config.aiTagPath}/evaluate',
-                    data: formData,
-                    options: Options(responseType: ResponseType.json),
-                  )
-                  .then((resp) => resp.data!)
-                  .then(
-                    (list) => list
-                        .map((m) => m as Map<String, dynamic>)
-                        .fold(
-                          <MapEntry<String, double>>[],
-                          (acc, m) =>
-                              acc..add(MapEntry(m.keys.first, m.values.first)),
-                        ),
-                  );
-              logger.d('text similer search $result');
-              result
-                  .map(
-                    (e) => idTitleMap.entries
-                        .firstWhere((m) => m.value == e.key)
-                        .key,
-                  )
-                  .fold(ids, (list, id) => list..add(id));
-            }
-            logger.d('$id text similer search done $ids');
-            return await helper
-                .querySql(
-                  'select g.id,vector_distance(g1.feature,g.feature) as distance from Gallery g left join Gallery g1 on g1.id=? where g.id!=? order by vector_distance(g1.feature,g.feature) limit 5',
-                  [id, id],
-                )
-                .then((d) => d.map((r) => r['id'] as int).toList())
-                .then((l) {
-                  logger.d('vector_distance similer search done $l');
-                  return ids..addAll(l);
-                })
-                .then((l) => l..remove(id));
+    return getApiDirect(HitomiType.Remote).fetchGallery(id).then((
+      gallery,
+    ) async {
+      var idTitleMap = Map<int, String>();
+      var ids = <int>[];
+      if (gallery.artists != null) {
+        await gallery.artists!
+            .asStream()
+            .asyncMap((event) => helper.queryGalleryByLabel('artist', event))
+            .map(
+              (event) => event.fold(
+                <int, String>{},
+                (acc, m) => acc..[m['id']] = m['title'],
+              ),
+            )
+            .fold(idTitleMap, (map, item) => map..addAll(item));
+      }
+      if (gallery.groups != null) {
+        await gallery.groups!
+            .asStream()
+            .asyncMap((event) => helper.queryGalleryByLabel('group', event))
+            .map(
+              (event) => event.fold(
+                <int, String>{},
+                (acc, m) => acc..[m['id']] = m['title'],
+              ),
+            )
+            .fold(idTitleMap, (map, item) => map..addAll(item));
+      }
+      logger.d('$id text similer search done $ids');
+      return await helper
+          .querySql(
+            'select g.id,vector_distance(g1.feature,g.feature) as distance from Gallery g left join Gallery g1 on g1.id=? where g.id!=? order by vector_distance(g1.feature,g.feature) limit 5',
+            [id, id],
+          )
+          .then((d) => d.map((r) => r['id'] as int).toList())
+          .then((l) {
+            logger.d('vector_distance similer search done $l');
+            return ids..addAll(l);
           })
-        : [];
+          .then((l) => l..remove(id));
+    });
   }
 
   void countChange(List<Label> keys, int count) {
@@ -556,7 +517,7 @@ class TaskManager {
   }
 
   Future<int> _fixGallerys() async {
-    final scanner = DirScanner(config, helper, _downLoader, manager);
+    final scanner = DirScanner(config, helper, _downLoader);
     final count = await scanner
         .listDirs()
         .asyncMap((g) async {
@@ -660,26 +621,20 @@ class TaskManager {
   Future<bool> addAdMark(List<String> hashes) async {
     var ads = hashes.where((s) => !adImage.contains(s)).toList();
     if (ads.isEmpty) return false;
-    return ads
-        .asStream()
-        .asyncMap(
-          (hash) async => MultipartFile.fromBytes(
-            await _api
-                .fetchImageData(
-                  Image(
-                    hash: hash,
-                    hasavif: 0,
-                    width: 0,
-                    name: 'hash.jpg',
-                    height: 0,
-                  ),
-                )
-                .fold(<int>[], (acc, l) => acc..addAll(l)),
-            filename: 'hash.jpg',
-          ),
+    return down
+        .computeImageHash(
+          ads
+              .map(
+                (hash) => Image(
+                  hash: hash,
+                  hasavif: 0,
+                  width: 0,
+                  name: 'hash.jpg',
+                  height: 0,
+                ),
+              )
+              .toList(),
         )
-        .fold(<MultipartFile>[], (fs, f) => fs..add(f))
-        .then((fs) => down.computeImageHash(fs, config.aiTagPath.isEmpty))
         .then((values) {
           return values
               .mapIndexed((index, v) => MapEntry(ads[index], v))
@@ -856,25 +811,20 @@ class TaskManager {
     List<int> data, {
     int limit = 5,
   }) async {
-    return down
-        .computeImageHash([
-          MultipartFile.fromBytes(data, filename: 'query.jpg'),
-        ], config.aiTagPath.isEmpty)
-        .then((values) => values.firstOrNull)
+    return imageHash(Uint8List.fromList(data))
+        .then((values) => values)
         .then(
-          (value) => value != null
-              ? helper
-                    .querySql(
-                      '''
+          (value) => helper
+              .querySql(
+                '''
           WITH ComputedResults AS ( 
           SELECT gid,name,fileHash from GalleryFile WHERE hash_distance(fileHash,?) <5 
           ) 
           select gid as id,name from ComputedResults order by hash_distance(fileHash,?) limit $limit
           ''',
-                      [value, value],
-                    )
-                    .then((set) => set.map((r) => r).toList())
-              : [],
+                [value, value],
+              )
+              .then((set) => set.map((r) => r).toList()),
         );
   }
 }

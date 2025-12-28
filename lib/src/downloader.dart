@@ -2,12 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
-import 'dart:typed_data';
 
 import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
 import 'package:hitomi/lib.dart';
-import 'package:hitomi/src/imagetagfeature.dart';
 import 'package:logger/logger.dart';
 import 'package:path/path.dart';
 import 'package:sqlite3/common.dart';
@@ -132,8 +130,8 @@ class DownLoader {
                   int hashValue =
                       value.firstOrNull?['fileHash'] ??
                       await computeImageHash(
-                        [MultipartFile.fromFileSync((msg.file as File).path)],
-                        config.aiTagPath.isEmpty,
+                        [msg.target as Image],
+                        dirPath: msg.gallery.createDir(config.output).path,
                       ).then((l) => l[0]).catchError((e) {
                         logger?.e('image file ${msg.file.path} hash error');
                         msg.file.deleteSync();
@@ -141,12 +139,11 @@ class DownLoader {
                       }, test: (error) => true);
                   if (needInsert) {
                     if (msg.target == msg.gallery.files.first) {
-                      await autoTagImages(msg.file.path, feature: true)
-                          .then((l) => l.firstOrNull)
+                      await queueImageFeature(msg.file.path)
                           .then(
                             (imageFeature) => helper.updateGalleryFeatureById(
                               msg.gallery.id,
-                              imageFeature!.data!,
+                              imageFeature,
                             ),
                           )
                           .catchError((e) => true, test: (error) => true);
@@ -177,38 +174,43 @@ class DownLoader {
   }
 
   Future<List<int?>> computeImageHash(
-    List<MultipartFile> paths,
-    bool localHash,
-  ) async {
-    if (localHash) {
-      return paths
-          .asStream()
-          .asyncMap(
-            (f) async => imageHash(
-              await f
-                  .finalize()
-                  .fold(<int>[], (acc, i) => acc..addAll(i))
-                  .then((l) => Uint8List.fromList(l)),
-            ),
-          )
-          .fold(<int?>[], (m, h) => m..add(h));
+    List<Image> images, {
+    String referer = 'https://hitomi.la',
+    String? dirPath,
+  }) async {
+    var urls = images
+        .map(
+          (image) =>
+              "http://127.0.0.1:7890/fetchImageData?${Transformer.urlEncodeMap({'hash': image.hash, 'name': image.name, 'referer': referer, 'size': ThumbnaiSize.smaill.name, 'local': false})}",
+        )
+        .toList();
+    if (dirPath != null) {
+      return Future.wait(
+        images.map(
+          (image) => manager.client!
+              .imageHash(join(dirPath, image.name))
+              .then((d) => d.values.first)
+              .catchError((e) => 0, test: (error) => true),
+        ),
+      );
+    } else if (config.aiTagPath.isEmpty) {
+      return Future.wait(
+        urls.map(
+          (url) => manager.dio
+              .get(url)
+              .then((d) => imageHash(d.data))
+              .catchError((e) => 0, test: (error) => true),
+        ),
+      );
     } else {
-      return manager.dio
-          .post<Map<String, dynamic>>(
-            '${config.aiTagPath}/evaluate',
-            data: FormData.fromMap({'process': 'image_hash', 'file': paths}),
-          )
-          .then((m) {
-            var data = m.data!;
-            return paths.map((e) => data[e.filename]).map((i) {
-              if (i is int) {
-                return i;
-              } else if (i is double) {
-                return i.toInt();
-              }
-              return null;
-            }).toList();
-          });
+      return Future.wait(
+        urls.map(
+          (url) => manager.client!
+              .imageHash(url)
+              .then((d) => d.values.first)
+              .catchError((e) => 0, test: (error) => true),
+        ),
+      );
     }
   }
 
@@ -242,40 +244,10 @@ class DownLoader {
   /// It supports both single images and directories containing multiple images.
   /// The function sends an HTTP POST request to the AI tagger API endpoint specified in [config.aiTagPath].
   /// If successful, it returns a list of `ImageTagFeature` objects parsed from the response data.
-  Future<List<ImageTagFeature>> autoTagImages(
-    String filePath, {
-    int limit = 40,
-    bool feature = false,
-  }) async {
-    File file = File(filePath);
-    if (file.existsSync()) {
-      var files = <MultipartFile>[];
-      if (file.statSync().type == FileSystemEntityType.directory) {
-        logger?.d('taggger image from directory $filePath');
-        Directory(filePath).listSync().fold(
-          files,
-          (acc, f) => acc..add(MultipartFile.fromFileSync(f.path)),
-        );
-      } else {
-        files.add(MultipartFile.fromFileSync(filePath));
-      }
-      final formData = FormData.fromMap({
-        'file': files,
-        "limit": limit,
-        'threshold': 0.2,
-        'process': feature ? 'feature' : 'tagger',
-      });
-      return manager.dio
-          .post<List<dynamic>>(
-            '${config.aiTagPath}/evaluate',
-            data: formData,
-            options: Options(responseType: ResponseType.json),
-          )
-          .then((resp) => resp.data!)
-          .then((l) => l.map((t) => ImageTagFeature.fromJson(t)).toList())
-          .catchError((e) => <ImageTagFeature>[], test: (error) => true);
-    }
-    return [];
+  Future<List<double>> queueImageFeature(String filePath) async {
+    return manager.client!
+        .imageEmbeddings(filePath)
+        .then((l) => l.values.first);
   }
 
   /// Finds and completes an incomplete gallery by comparing it with existing galleries in the specified directory.

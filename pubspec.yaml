@@ -11,12 +11,12 @@ dependencies:
   test: ^1.28.0
   path: ^1.9.1
   crypto: ^3.0.7
-  image: ^4.5.4
+  image: ^4.7.2
   async: ^2.13.0
   json_annotation: ^4.9.0
   freezed_annotation: ^3.1.0
   collection: ^1.19.1
-  sqlite3: ^3.1.0
+  sqlite3: ^3.1.1
   dio: ^5.9.0
   shelf: ^1.4.2
   shelf_router: ^1.1.4

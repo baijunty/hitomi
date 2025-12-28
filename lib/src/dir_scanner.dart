@@ -9,7 +9,6 @@ import 'package:hitomi/gallery/image.dart';
 import 'package:hitomi/gallery/label.dart';
 import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/downloader.dart';
-import 'package:isolate_manager/isolate_manager.dart';
 import 'package:path/path.dart' as path;
 import 'package:sqlite3/common.dart';
 
@@ -21,9 +20,8 @@ class DirScanner {
   final UserConfig _config;
   final SqliteHelper _helper;
   final DownLoader _downLoader;
-  final IsolateManager<List<int>?, String> manager;
   static final titleReg = RegExp(r'\((.+)\)(.+)');
-  DirScanner(this._config, this._helper, this._downLoader, this.manager);
+  DirScanner(this._config, this._helper, this._downLoader);
 
   Stream<HitomiDir> listDirs() {
     final stream = StreamController<HitomiDir>();
@@ -334,17 +332,15 @@ class HitomiDir {
                   (hash) => compareHashDistance(hash, img.fileHash ?? 0) < 4,
                 ) ||
                 _downLoader.config.aiTagPath.isNotEmpty &&
-                    await _downLoader
-                        .autoTagImages(
+                    await _downLoader.manager.client!
+                        .imageTag(
                           path.join(
                             gallery.createDir(_downLoader.config.output).path,
                             img.name,
                           ),
                         )
                         .then((resp) {
-                          return resp.any(
-                            (d) => d.tags?.keys.contains('qr code') ?? false,
-                          );
+                          return resp.contains('qr code');
                         })) {
               _downLoader.logger?.w(
                 ' ${gallery.id} remove db illegal file ${img}',
@@ -446,39 +442,18 @@ class HitomiDir {
   }
 
   Future<bool> batchInsertImage(Iterable<Image> images) {
-    final files = images
-        .map((img) => File(path.join(dir.path, img.name)))
-        .where((f) => f.existsSync());
+    final lost = images
+        .where((img) => File(path.join(dir.path, img.name)).existsSync())
+        .toList();
     return _downLoader
-        .computeImageHash(
-          files.map((f) => MultipartFile.fromFileSync(f.path)).toList(),
-          _downLoader.config.aiTagPath.isEmpty,
-        )
-        .catchError(
-          (e) => files
-              .asStream()
-              .asyncMap(
-                (f) => _downLoader
-                    .computeImageHash([
-                      MultipartFile.fromFileSync(f.path),
-                    ], true)
-                    .catchError((e) {
-                      _downLoader.logger?.i('compute $f hash err');
-                      f.deleteSync();
-                      return [null];
-                    }, test: (e) => true),
-              )
-              .fold(<int?>[], (previous, element) => previous..addAll(element)),
-          test: (error) => true,
-        )
+        .computeImageHash(lost, dirPath: dir.path)
+        .catchError((e) => <int>[], test: (error) => true)
         .then((hashList) async {
           return Future.wait(
-            files
+            lost
                 .mapIndexed(
                   (index, f) => MapEntry(
-                    images.firstWhere(
-                      (img) => img.name == path.basename(f.path),
-                    ),
+                    images.firstWhere((img) => img.name == f.name),
                     hashList[index],
                   ),
                 )
@@ -497,18 +472,14 @@ class HitomiDir {
   }
 
   Future<bool> generateFuture() async {
-    var f = await _downLoader
-        .autoTagImages(
-          path.join(dir.path, gallery.files.first.name),
-          feature: true,
-        )
-        .then((r) => r.firstOrNull);
+    var f = _downLoader.config.aiTagPath.isNotEmpty
+        ? await _downLoader.manager.client!
+              .imageEmbeddings(path.join(dir.path, gallery.files.first.name))
+              .then((r) => r.values.firstOrNull)
+        : null;
     if (f != null) {
       _downLoader.logger?.d('ganerate feature for ${gallery.id}');
-      return await _downLoader.helper.updateGalleryFeatureById(
-        gallery.id,
-        f.data!,
-      );
+      return await _downLoader.helper.updateGalleryFeatureById(gallery.id, f);
     }
     return false;
   }

@@ -1,22 +1,25 @@
-import 'dart:io';
 import 'dart:math';
 import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
 import 'package:hitomi/lib.dart';
 import 'package:hitomi/src/downloader.dart';
 import 'package:logger/logger.dart';
-import 'package:path/path.dart';
 
 import '../gallery/gallery.dart';
 
 List<int> searchSimilerGaller(
-    MapEntry<int, List<int>> gallery, Map<int, List<int>> all,
-    {Logger? logger, double threshold = 0.72}) {
+  MapEntry<int, List<int>> gallery,
+  Map<int, List<int>> all, {
+  Logger? logger,
+  double threshold = 0.72,
+}) {
   try {
     final r = all.entries
-        .where((element) =>
-            element.key != gallery.key &&
-            searchSimiler(gallery.value, element.value) > threshold)
+        .where(
+          (element) =>
+              element.key != gallery.key &&
+              searchSimiler(gallery.value, element.value) > threshold,
+        )
         .map((e) => e.key)
         .toList();
     if (r.isNotEmpty) {
@@ -33,15 +36,20 @@ List<int> searchSimilerGaller(
 
 double searchSimiler(List<int> hashes, List<int> other) {
   return hashes
-          .where((element) =>
-              other.any((hash) => compareHashDistance(hash, element) < 8))
+          .where(
+            (element) =>
+                other.any((hash) => compareHashDistance(hash, element) < 8),
+          )
           .length /
       hashes.length;
 }
 
 Gallery compareGallerWithOther(
-    Gallery gallery, List<Gallery> others, List<String> languages,
-    [Logger? logger]) {
+  Gallery gallery,
+  List<Gallery> others,
+  List<String> languages, [
+  Logger? logger,
+]) {
   if (others.isEmpty) {
     return gallery;
   }
@@ -56,7 +64,8 @@ Gallery compareGallerWithOther(
   }
   var firstLang = languages.indexOf(gallery.language!);
   var min = others.lastWhereOrNull(
-      (element) => languages.indexOf(element.language!) < firstLang);
+    (element) => languages.indexOf(element.language!) < firstLang,
+  );
   if (min != null) {
     return min;
   } else {
@@ -65,43 +74,51 @@ Gallery compareGallerWithOther(
 }
 
 Future<MapEntry<Gallery, List<int>>> fetchGalleryHash(
-    Gallery gallery, DownLoader downloader,
-    {CancelToken? token,
-    bool fullHash = false,
-    String? outDir,
-    List<int> adHashes = const [],
-    Logger? logger}) async {
+  Gallery gallery,
+  DownLoader downloader, {
+  CancelToken? token,
+  bool fullHash = false,
+  String? outDir,
+  List<int> adHashes = const [],
+  Logger? logger,
+}) async {
   return downloader.helper
       .queryImageHashsById(gallery.id)
-      .then((value) => value.fold(<int>[],
-          (previousValue, element) => previousValue..add(element.fileHash!)))
+      .then(
+        (value) => value.fold(
+          <int>[],
+          (previousValue, element) => previousValue..add(element.fileHash!),
+        ),
+      )
       .then((value) => MapEntry<Gallery, List<int>>(gallery, value))
       .then((value) async {
         if (value.value.length < 18 &&
             outDir != null &&
             gallery.createDir(outDir, createDir: false).existsSync()) {
-          final dirPath = gallery.createDir(outDir, createDir: false).path;
           return downloader
-              .computeImageHash(
-                  gallery.files
-                      .map((element) => File(join(dirPath, element.name)))
-                      .where((element) => element.existsSync())
-                      .map((f) => MultipartFile.fromFileSync(f.path))
-                      .toList(),
-                  downloader.config.aiTagPath.isEmpty)
-              .then((values) => MapEntry(
-                  gallery, values.fold(<int>[], (l, i) => l..add(i ?? 0))));
+              .computeImageHash(gallery.files.toList())
+              .then(
+                (values) => MapEntry(
+                  gallery,
+                  values.fold(<int>[], (l, i) => l..add(i ?? 0)),
+                ),
+              );
         } else {
           return fetchGalleryHashFromNet(gallery, downloader, token, fullHash);
         }
       })
-      .then((value) => MapEntry(
+      .then(
+        (value) => MapEntry(
           value.key,
           value.value
-              .whereIndexed((index, hash) =>
-                  (value.key.files.length - index) <= 8 ||
-                  adHashes.every((ad) => compareHashDistance(hash, ad) > 3))
-              .toList()))
+              .whereIndexed(
+                (index, hash) =>
+                    (value.key.files.length - index) <= 8 ||
+                    adHashes.every((ad) => compareHashDistance(hash, ad) > 3),
+              )
+              .toList(),
+        ),
+      )
       .catchError((err) {
         logger?.e('fetchGalleryHash $err');
         return MapEntry(gallery, <int>[]);
@@ -109,42 +126,37 @@ Future<MapEntry<Gallery, List<int>>> fetchGalleryHash(
 }
 
 Future<MapEntry<Gallery, List<int>>> fetchGalleryHashFromNet(
-    Gallery gallery, DownLoader down,
-    [CancelToken? token, bool fullHash = false]) async {
+  Gallery gallery,
+  DownLoader down, [
+  CancelToken? token,
+  bool fullHash = false,
+]) async {
   // This function fetches image hashes from the network for a given gallery.
   // It handles cases where the local hashing is not sufficient or desired.
-  return (fullHash || gallery.files.length <= 18
-          ? gallery.files
-          : [
-              ...gallery.files.sublist(min(gallery.files.length ~/ 3 - 6, 10),
-                  min(gallery.files.length ~/ 3, 16)),
-              ...gallery.files.sublist(
-                  gallery.files.length ~/ 2 - 3, gallery.files.length ~/ 2 + 3),
-              ...gallery.files.sublist(
-                  max(gallery.files.length - 10, gallery.files.length ~/ 3 * 2),
-                  max(gallery.files.length - 10,
-                          gallery.files.length ~/ 3 * 2) +
-                      6)
-            ])
-      .asStream()
-      .asyncMap((image) async => MultipartFile.fromBytes(
-          await down.api
-              .fetchImageData(image,
-                  refererUrl:
-                      'https://hitomi.la${Uri.encodeFull(gallery.galleryurl!)}',
-                  token: token,
-                  id: gallery.id)
-              .fold(<int>[], (acc, l) => acc..addAll(l)),
-          filename: image.name))
-      .fold(<MultipartFile>[], (fs, f) => fs..add(f))
-      .then((fs) => down.computeImageHash(fs, down.config.aiTagPath.isEmpty))
-      .then((value) => MapEntry<Gallery, List<int>>(
+  var images = (fullHash || gallery.files.length <= 18
+      ? gallery.files
+      : [
+          ...gallery.files.sublist(
+            min(gallery.files.length ~/ 3 - 6, 10),
+            min(gallery.files.length ~/ 3, 16),
+          ),
+          ...gallery.files.sublist(
+            gallery.files.length ~/ 2 - 3,
+            gallery.files.length ~/ 2 + 3,
+          ),
+          ...gallery.files.sublist(
+            max(gallery.files.length - 10, gallery.files.length ~/ 3 * 2),
+            max(gallery.files.length - 10, gallery.files.length ~/ 3 * 2) + 6,
+          ),
+        ]);
+  return down
+      .computeImageHash(images)
+      .then(
+        (value) => MapEntry<Gallery, List<int>>(
           gallery,
-          value.fold(
-              <int>[],
-              (l, i) => l
-                ..add(i ??
-                    0)))); // Combine the results of fetching hashes from the network into a single list and return it as a map entry with the gallery.
+          value.fold(<int>[], (l, i) => l..add(i ?? 0)),
+        ),
+      ); // Combine the results of fetching hashes from the network into a single list and return it as a map entry with the gallery.
 }
 
 String titleFixed(String title) {
@@ -165,7 +177,8 @@ List<int> chapter(String name) {
   if (matcher.isNotEmpty) {
     final last = matcher.last;
     var start = last.namedGroup('start');
-    final digit = start!.codeUnitAt(0) >= '0'.codeUnitAt(0) &&
+    final digit =
+        start!.codeUnitAt(0) >= '0'.codeUnitAt(0) &&
         start.codeUnitAt(0) <= '9'.codeUnitAt(0);
     final atEnd = name.substring(last.end).isEmpty;
     if (digit && atEnd) {
@@ -215,13 +228,16 @@ bool chapterContains(List<int> chapters1, List<int> chapters2) {
 }
 
 Future<Map<int, List<int>>> fetchGalleryHashByAuthor(
-    Gallery gallery, SqliteHelper helper) async {
+  Gallery gallery,
+  SqliteHelper helper,
+) async {
   Map<int, List<int>> allFileHash = {};
   if (gallery.artists != null) {
     await gallery.artists!
         .asStream()
         .asyncMap(
-            (event) => helper.queryImageHashsByLabel('artist', event.name))
+          (event) => helper.queryImageHashsByLabel('artist', event.name),
+        )
         .fold(allFileHash, (previous, element) => previous..addAll(element));
   }
   if (gallery.groups != null) {
@@ -233,15 +249,16 @@ Future<Map<int, List<int>>> fetchGalleryHashByAuthor(
   return allFileHash;
 }
 
-Future<List<int>> findDuplicateGalleryIds(
-    {required Gallery gallery,
-    required SqliteHelper helper,
-    required List<int> fileHashs,
-    required double threshold,
-    Map<int, List<int>> allFileHash = const {},
-    Logger? logger,
-    CancelToken? token,
-    bool reserved = false}) async {
+Future<List<int>> findDuplicateGalleryIds({
+  required Gallery gallery,
+  required SqliteHelper helper,
+  required List<int> fileHashs,
+  required double threshold,
+  Map<int, List<int>> allFileHash = const {},
+  Logger? logger,
+  CancelToken? token,
+  bool reserved = false,
+}) async {
   if (allFileHash.isEmpty) {
     allFileHash = await fetchGalleryHashByAuthor(gallery, helper);
   }
@@ -250,15 +267,26 @@ Future<List<int>> findDuplicateGalleryIds(
     if (reserved) {
       var map = {value.key: value.value};
       var r = allFileHash.entries
-          .where((e) =>
-              searchSimilerGaller(e, map, logger: logger, threshold: threshold)
-                  .isNotEmpty)
-          .fold(<int>[],
-              (previousValue, element) => previousValue..add(element.key));
+          .where(
+            (e) => searchSimilerGaller(
+              e,
+              map,
+              logger: logger,
+              threshold: threshold,
+            ).isNotEmpty,
+          )
+          .fold(
+            <int>[],
+            (previousValue, element) => previousValue..add(element.key),
+          );
       return r;
     }
-    return searchSimilerGaller(value, allFileHash,
-        logger: logger, threshold: threshold);
+    return searchSimilerGaller(
+      value,
+      allFileHash,
+      logger: logger,
+      threshold: threshold,
+    );
   }
   return [];
 }

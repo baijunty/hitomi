@@ -32,50 +32,39 @@ class _LocalHitomiImpl implements Hitomi {
     Image image, {
     String refererUrl = 'https://hitomi.la',
     CancelToken? token,
-    int id = 0,
-    bool translate = false,
     String lang = 'ja',
     ThumbnaiSize size = ThumbnaiSize.smaill,
     void Function(int now, int total)? onProcess,
   }) {
-    var origin = _helper
-        .querySql('select g.path from Gallery g where g.id=?', [id])
-        .then(
-          (value) =>
-              join(_manager.config.output, value.first['path'], image.name),
-        );
     final stream = StreamController<List<int>>();
+    var origin = _helper
+        .querySql(
+          'select g.path from GalleryFile gf left join Gallery g on g.id=gf.gid where gf.hash=?',
+          [image.hash],
+        )
+        .then(
+          (value) => File(
+            join(_manager.config.output, value.first['path'], image.name),
+          ),
+        )
+        .then((f) => f.existsSync() ? f.path : null);
     if (size == ThumbnaiSize.origin) {
       origin
           .then((value) async {
+            if (value == null) {
+              stream.addError('file not found');
+              stream.close();
+              return;
+            }
             var f = File(value);
             var length = f.lengthSync();
             var count = 0;
-            if (translate) {
-              await _manager.dio
-                  .post<ResponseBody>(
-                    '${_manager.config.aiTagPath}/evaluate',
-                    data: FormData.fromMap({
-                      'file': MultipartFile.fromStream(
-                        () => f.openRead(),
-                        length,
-                        filename: image.name,
-                      ),
-                      'lang': lang,
-                      'process': 'translate',
-                    }),
-                    options: Options(responseType: ResponseType.stream),
-                    onReceiveProgress: onProcess,
-                  )
-                  .then((resp) => stream.addStream(resp.data!.stream));
-            } else {
-              await f.openRead().fold(stream, (previous, element) {
-                count += element.length;
-                onProcess?.call(count, length);
-                previous.add(element);
-                return previous;
-              });
-            }
+            await f.openRead().fold(stream, (previous, element) {
+              count += element.length;
+              onProcess?.call(count, length);
+              previous.add(element);
+              return previous;
+            });
             stream.close();
           })
           .catchError((e) {
@@ -84,18 +73,19 @@ class _LocalHitomiImpl implements Hitomi {
           }, test: (error) => true);
     } else if (_manager.config.aiTagPath.isNotEmpty) {
       origin
-          .then(
-            (value) => _manager.dio.get<ResponseBody>(
-              '${_manager.config.aiTagPath}/resize',
-              options: Options(responseType: ResponseType.stream),
-              queryParameters: {'file': value},
-            ),
-          )
-          .then((body) {
-            onProcess?.call(0, body.data?.contentLength ?? 0);
-            return body.data != null
-                ? stream.addStream(body.data!.stream)
-                : stream.addError('empty data');
+          .then((value) {
+            if (value == null) {
+              stream.addError('file not found');
+              stream.close();
+              return null;
+            }
+            return _manager.client!
+                .imageResize(value)
+                .then((v) => v.first)
+                .then((body) {
+                  onProcess?.call(0, body.length);
+                  return stream.add(body);
+                });
           })
           .catchError((e) {
             stream.addError(e);
@@ -104,13 +94,24 @@ class _LocalHitomiImpl implements Hitomi {
           .whenComplete(() => stream.close());
     } else {
       origin
-          .then((value) => _manager.manager.compute(value))
-          .then(
-            (value) => value != null
-                ? stream.add(value)
-                : stream.addError('empty data'),
-          )
-          .catchError((e) => <int>[], test: (error) => true)
+          .then((value) {
+            if (value == null) {
+              stream.addError('file not found');
+              stream.close();
+              return null;
+            }
+            return _manager.manager!
+                .compute(value)
+                .then(
+                  (value) => value != null
+                      ? stream.add(value)
+                      : stream.addError('empty data'),
+                );
+          })
+          .catchError((e) {
+            stream.addError(e);
+            _manager.logger.e('download error: $e');
+          }, test: (error) => true)
           .whenComplete(() => stream.close());
     }
     return stream.stream;
@@ -484,11 +485,7 @@ class _HitomiImpl implements Hitomi {
       final referer = 'https://hitomi.la${Uri.encodeFull(gallery.galleryurl!)}';
       Image image = gallery.files[index];
       final out = File(join(dir.path, image.name));
-      final url = buildImageUrl(
-        image,
-        size: ThumbnaiSize.origin,
-        id: gallery.id,
-      );
+      final url = buildImageUrl(image, size: ThumbnaiSize.origin);
       var startTime = DateTime.now().millisecondsSinceEpoch;
       int lastTime = startTime;
       int? expectedTotalSize; // 存储服务器返回的文件总大小
@@ -574,47 +571,22 @@ class _HitomiImpl implements Hitomi {
     Image image, {
     String refererUrl = 'https://hitomi.la',
     CancelToken? token,
-    int id = 0,
-    bool translate = false,
     String lang = 'ja',
     ThumbnaiSize size = ThumbnaiSize.smaill,
     void Function(int now, int total)? onProcess,
   }) {
     final stream = StreamController<List<int>>();
-    var length = 0;
     checkInit()
-        .then((d) => buildImageUrl(image, size: size, id: id))
+        .then((d) => buildImageUrl(image, size: size))
         .then(
           (url) => _dio
               .httpInvoke<ResponseBody>(
                 url,
                 headers: buildRequestHeader(url, refererUrl),
-                onProcess: translate ? (i, t) => length = t : onProcess,
+                onProcess: onProcess,
                 token: token,
               )
               .then((resp) => resp.stream)
-              .then((resp) async {
-                if (translate) {
-                  return await _dio
-                      .post<ResponseBody>(
-                        '${manager.config.aiTagPath}/evaluate',
-                        data: FormData.fromMap({
-                          'file': MultipartFile.fromStream(
-                            () => resp,
-                            length,
-                            filename: image.name,
-                            contentType: DioMediaType.parse('image/*'),
-                          ),
-                          'lang': lang,
-                          'process': 'translate',
-                        }),
-                        options: Options(responseType: ResponseType.stream),
-                        onReceiveProgress: onProcess,
-                      )
-                      .then((resp) => resp.data!.stream);
-                }
-                return resp;
-              })
               .then((resp) => stream.addStream(resp)),
         )
         .catchError((e) => stream.addError(e), test: (error) => true)
@@ -622,11 +594,7 @@ class _HitomiImpl implements Hitomi {
     return stream.stream;
   }
 
-  String buildImageUrl(
-    Image image, {
-    ThumbnaiSize size = ThumbnaiSize.smaill,
-    int id = 0,
-  }) {
+  String buildImageUrl(Image image, {ThumbnaiSize size = ThumbnaiSize.smaill}) {
     final lastThreeCode = image.hash.substring(image.hash.length - 3);
     String url;
     var sizeStr;
@@ -1280,8 +1248,6 @@ class WebHitomi implements Hitomi {
     Image image, {
     String refererUrl = 'https://hitomi.la',
     CancelToken? token,
-    int id = 0,
-    bool translate = false,
     String lang = 'ja',
     ThumbnaiSize size = ThumbnaiSize.smaill,
     void Function(int now, int total)? onProcess,
@@ -1295,7 +1261,6 @@ class WebHitomi implements Hitomi {
             'name': image.name,
             'referer': refererUrl,
             'size': size.name,
-            'id': id,
             'translate': translate,
             'lang': lang,
             'local': localDb,
