@@ -65,7 +65,6 @@ class ComfyClient {
       data: json.encode(workflow),
       options: Options(responseType: ResponseType.json),
     );
-    print(response.data);
     return response.data!;
   }
 
