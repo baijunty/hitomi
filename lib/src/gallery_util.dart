@@ -20,6 +20,9 @@ List<int> searchSimilerGaller(
               element.key != gallery.key &&
               searchSimiler(gallery.value, element.value) > threshold,
         )
+        .map((e) => MapEntry(e.key, searchSimiler(gallery.value, e.value)))
+        .sortedBy((e) => e.value)
+        .reversed
         .map((e) => e.key)
         .toList();
     if (r.isNotEmpty) {
@@ -27,9 +30,7 @@ List<int> searchSimilerGaller(
     }
     return r;
   } catch (e, stack) {
-    logger?.e(e);
     logger?.e(stack);
-    print(stack);
     return [];
   }
 }

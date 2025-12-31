@@ -3,7 +3,7 @@ final resizeWorkflow = {
   "prompt": {
     "10": {
       "inputs": {"image_path_or_url": ""},
-      "class_type": "ImageLoader",
+      "class_type": "CustomImageLoader",
       "_meta": {"title": "Image Loader (Path or URL)"},
     },
     "42": {
@@ -65,7 +65,7 @@ final embeddingWorkflow = {
   "prompt": {
     "10": {
       "inputs": {"image_path_or_url": ""},
-      "class_type": "ImageLoader",
+      "class_type": "CustomImageLoader",
       "_meta": {"title": "Image Loader (Path or URL)"},
     },
     "42": {
@@ -133,7 +133,7 @@ final imageHashWorkflow = {
   "prompt": {
     "10": {
       "inputs": {"image_path_or_url": ""},
-      "class_type": "ImageLoader",
+      "class_type": "CustomImageLoader",
       "_meta": {"title": "Image Loader (Path or URL)"},
     },
     "42": {
@@ -200,7 +200,7 @@ final tagTriggerWorkflow = {
     },
     "11": {
       "inputs": {"image_path_or_url": ""},
-      "class_type": "ImageLoader",
+      "class_type": "CustomImageLoader",
       "_meta": {"title": "Image Loader (Path or URL)"},
     },
     "12": {
