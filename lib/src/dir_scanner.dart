@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:archive/archive_io.dart' show ZipFileEncoder;
 import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
 import 'package:hitomi/gallery/artist.dart';
@@ -469,6 +470,12 @@ class HitomiDir {
         })
         .then((r) => r.fold(true, (acc, i) => acc && i))
         .then((v) => v);
+  }
+
+  Future<bool> zipGallery() async {
+    var encoder = ZipFileEncoder();
+    encoder.zipDirectory(dir);
+    return true;
   }
 
   Future<bool> generateFuture() async {
