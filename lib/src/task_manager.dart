@@ -131,7 +131,7 @@ class TaskManager {
       ),
     );
     if (config.aiTagPath.isNotEmpty) {
-      client = ComfyClient(config.aiTagPath, dio);
+      client = ComfyClient(config.aiTagPath, dio, logger);
     } else {
       manager = IsolateManager<List<int>?, String>.create(
         _compressRunner,

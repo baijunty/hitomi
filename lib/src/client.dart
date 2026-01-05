@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:logger/logger.dart';
 import 'package:uuid/uuid.dart';
 import 'package:web_socket/web_socket.dart';
 import 'workflow_template.dart';
@@ -12,8 +13,9 @@ class ComfyClient {
   late String _clientId;
   final Dio _dio;
   final _queue = <String>[];
+  final Logger _logger;
   WebSocket? _ws;
-  ComfyClient(this.url, this._dio) {
+  ComfyClient(this.url, this._dio, this._logger) {
     _clientId = Uuid().v4();
   }
 
@@ -37,11 +39,12 @@ class ComfyClient {
       if (out is TextDataReceived) {
         final message = json.decode(out.text);
         if (message is Map &&
-            ['executed', 'execution_error'].contains(message['type'])) {
+            ['executing', 'execution_error'].contains(message['type'])) {
           final data = message['data'];
           if (data is Map &&
               data['node'] == null &&
               _queue.contains(data['prompt_id'])) {
+            _logger.d('Task completed ${data['prompt_id']}');
             // 找到当前完成的任务在队列中的索引
             final currentIndex = _queue.indexOf(data['prompt_id']);
             // 移除当前任务及之前的所有任务
