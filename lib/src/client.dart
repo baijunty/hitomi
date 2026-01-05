@@ -36,12 +36,16 @@ class ComfyClient {
     await for (final out in _ws!.events) {
       if (out is TextDataReceived) {
         final message = json.decode(out.text);
-        if (message is Map && message['type'] == 'executing') {
+        if (message is Map &&
+            ['executed', 'execution_error'].contains(message['type'])) {
           final data = message['data'];
           if (data is Map &&
               data['node'] == null &&
               _queue.contains(data['prompt_id'])) {
-            _queue.remove(data['prompt_id']);
+            // 找到当前完成的任务在队列中的索引
+            final currentIndex = _queue.indexOf(data['prompt_id']);
+            // 移除当前任务及之前的所有任务
+            _queue.removeRange(0, currentIndex + 1);
           }
         }
       } else if (out is CloseReceived) {

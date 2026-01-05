@@ -14,21 +14,18 @@ List<int> searchSimilerGaller(
   double threshold = 0.72,
 }) {
   try {
-    final r = all.entries
+    var r = all.entries
         .where(
           (element) =>
               element.key != gallery.key &&
               searchSimiler(gallery.value, element.value) > threshold,
         )
-        .map((e) => MapEntry(e.key, searchSimiler(gallery.value, e.value)))
-        .sortedBy((e) => e.value)
-        .reversed
-        .map((e) => e.key)
-        .toList();
+        .map((e) => MapEntry(e.key, searchSimiler(gallery.value, e.value)));
     if (r.isNotEmpty) {
       logger?.d('${gallery.key} found duplication with $r');
+      return r.sortedBy((e) => e.value).reversed.map((e) => e.key).toList();
     }
-    return r;
+    return [];
   } catch (e, stack) {
     logger?.e(stack);
     return [];
