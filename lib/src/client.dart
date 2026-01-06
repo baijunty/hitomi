@@ -167,7 +167,7 @@ class ComfyClient {
     String name = '',
   }) async {
     await _init();
-    var workflow = imageHashWorkflow as Map<String, dynamic>;
+    var workflow = base64Image2HashWorkflow as Map<String, dynamic>;
     workflow['client_id'] = this._clientId;
     workflow['prompt']['10']['inputs']['base64_string'] = hashString;
     workflow['prompt']['10']['inputs']['name'] = name;
@@ -180,6 +180,7 @@ class ComfyClient {
             (acc, e) => acc..[e.keys.first] = e.values.first as int,
           ),
         );
+    _logger.d('$name image hash: $outputImages');
     return outputImages;
   }
 

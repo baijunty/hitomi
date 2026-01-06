@@ -208,7 +208,7 @@ class DownLoader {
               .then((d) => base64.encode(d))
               .then(
                 (d) => manager.client!
-                    .base64ImageHash(d)
+                    .base64ImageHash(d, name: image.name)
                     .then((v) => v.values.first),
               ),
         ),

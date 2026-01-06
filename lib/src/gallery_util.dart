@@ -15,12 +15,10 @@ List<int> searchSimilerGaller(
 }) {
   try {
     var r = all.entries
+        .map((e) => MapEntry(e.key, searchSimiler(gallery.value, e.value)))
         .where(
-          (element) =>
-              element.key != gallery.key &&
-              searchSimiler(gallery.value, element.value) > threshold,
-        )
-        .map((e) => MapEntry(e.key, searchSimiler(gallery.value, e.value)));
+          (element) => element.key != gallery.key && element.value > threshold,
+        );
     if (r.isNotEmpty) {
       logger?.d('${gallery.key} found duplication with $r');
       return r.sortedBy((e) => e.value).reversed.map((e) => e.key).toList();
