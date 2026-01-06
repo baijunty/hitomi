@@ -279,9 +279,7 @@ class TaskManager {
     List<int> galleryHahes,
   ) async {
     return down
-        .computeImageHash([
-          gallery.files.first,
-        ], dirPath: gallery.createDir(config.output).path)
+        .computeImageHash([gallery.files.first])
         .then((hash) {
           return helper
               .querySql(

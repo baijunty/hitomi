@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
@@ -175,15 +176,9 @@ class DownLoader {
 
   Future<List<int?>> computeImageHash(
     List<Image> images, {
-    String referer = 'https://hitomi.la',
+    String referer = hitomiUrl,
     String? dirPath,
   }) async {
-    var urls = images
-        .map(
-          (image) =>
-              "http://127.0.0.1:7890/fetchImageData?${Transformer.urlEncodeMap({'hash': image.hash, 'name': image.name, 'referer': referer, 'size': ThumbnaiSize.smaill.name, 'local': false})}",
-        )
-        .toList();
     if (dirPath != null) {
       return Future.wait(
         images.map(
@@ -195,20 +190,27 @@ class DownLoader {
       );
     } else if (config.aiTagPath.isEmpty) {
       return Future.wait(
-        urls.map(
-          (url) => manager.dio
-              .get(url)
-              .then((d) => imageHash(d.data))
-              .catchError((e) => 0, test: (error) => true),
+        images.map(
+          (image) => manager
+              .getApiDirect(HitomiType.Remote)
+              .fetchImageData(image, refererUrl: referer)
+              .fold(<int>[], (acc, data) => acc..addAll(data))
+              .then((d) => imageHash(Uint8List.fromList(d))),
         ),
       );
     } else {
       return Future.wait(
-        urls.map(
-          (url) => manager.client!
-              .imageHash(url)
-              .then((d) => d.values.first)
-              .catchError((e) => 0, test: (error) => true),
+        images.map(
+          (image) => manager
+              .getApiDirect(HitomiType.Remote)
+              .fetchImageData(image, refererUrl: referer)
+              .fold(<int>[], (acc, data) => acc..addAll(data))
+              .then((d) => base64.encode(d))
+              .then(
+                (d) => manager.client!
+                    .base64ImageHash(d)
+                    .then((v) => v.values.first),
+              ),
         ),
       );
     }

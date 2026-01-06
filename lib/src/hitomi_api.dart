@@ -7,7 +7,8 @@ import '../gallery/image.dart';
 import '../gallery/label.dart';
 import 'response.dart';
 
-final apiDomain = 'gold-usergeneratedcontent.net';
+const apiDomain = 'gold-usergeneratedcontent.net';
+const hitomiUrl = 'https://hitomi.la';
 
 abstract class Hitomi {
   void registerCallBack(Future<bool> callBack(Message msg));
@@ -41,7 +42,6 @@ abstract class Hitomi {
     Image image, {
     String refererUrl,
     CancelToken? token,
-    String lang = 'ja',
     ThumbnaiSize size = ThumbnaiSize.smaill,
     void Function(int now, int total)? onProcess,
   });

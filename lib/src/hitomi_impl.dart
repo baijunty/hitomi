@@ -30,9 +30,8 @@ class _LocalHitomiImpl implements Hitomi {
   @override
   Stream<List<int>> fetchImageData(
     Image image, {
-    String refererUrl = 'https://hitomi.la',
+    String refererUrl = hitomiUrl,
     CancelToken? token,
-    String lang = 'ja',
     ThumbnaiSize size = ThumbnaiSize.smaill,
     void Function(int now, int total)? onProcess,
   }) {
@@ -482,7 +481,7 @@ class _HitomiImpl implements Hitomi {
   ) async {
     bool b = false;
     try {
-      final referer = 'https://hitomi.la${Uri.encodeFull(gallery.galleryurl!)}';
+      final referer = '$hitomiUrl${Uri.encodeFull(gallery.galleryurl!)}';
       Image image = gallery.files[index];
       final out = File(join(dir.path, image.name));
       final url = buildImageUrl(image, size: ThumbnaiSize.origin);
@@ -569,9 +568,8 @@ class _HitomiImpl implements Hitomi {
   @override
   Stream<List<int>> fetchImageData(
     Image image, {
-    String refererUrl = 'https://hitomi.la',
+    String refererUrl = hitomiUrl,
     CancelToken? token,
-    String lang = 'ja',
     ThumbnaiSize size = ThumbnaiSize.smaill,
     void Function(int now, int total)? onProcess,
   }) {
@@ -843,10 +841,7 @@ class _HitomiImpl implements Hitomi {
     return _dio
         .httpInvoke<List<dynamic>>(
           'https://tagindex.hitomi.la/global${key.codeUnits.fold('', (acc, char) => acc + '/' + String.fromCharCode(char))}',
-          headers: buildRequestHeader(
-            'https://ltn.$apiDomain',
-            'https://hitomi.la/',
-          ),
+          headers: buildRequestHeader('https://ltn.$apiDomain', hitomiUrl),
         )
         .then(
           (value) => value
@@ -857,41 +852,6 @@ class _HitomiImpl implements Hitomi {
         .then((value) => manager.translateLabel(value))
         .then((value) => value.values.toList());
   }
-
-  // Future<List<Label>> _fetchTagData(
-  //     MapEntry<int, int> tuple, CancelToken? token) async {
-  //   await checkInit();
-  //   final url = 'https://ltn.hitomi.la/tagindex/global.$tag_index_version.data';
-  //   return await _dio
-  //       .httpInvoke<List<int>>(url,
-  //           headers: buildRequestHeader(url, 'https://hitomi.la/',
-  //               range: MapEntry(tuple.key, tuple.key + tuple.value - 1)),
-  //           token: token)
-  //       .then((value) {
-  //     final view = _DataView(value);
-  //     var number = view.getData(4);
-  //     final sb = StringBuffer();
-  //     List<Label> list = [];
-  //     logger?.d('found $number');
-  //     for (int i = 0; i < number; i++) {
-  //       int len = view.getData(4);
-  //       for (var index = 0; index < len; index++) {
-  //         sb.writeCharCode(view.getData(1));
-  //       }
-  //       String type = sb.toString().replaceAll('/#', '');
-  //       sb.clear();
-  //       len = view.getData(4);
-  //       for (var index = 0; index < len; index++) {
-  //         sb.writeCharCode(view.getData(1));
-  //       }
-  //       String name = sb.toString();
-  //       sb.clear();
-  //       view.getData(4);
-  //       list.add(fromString(type, name));
-  //     }
-  //     return list;
-  //   });
-  // }
 
   Future<MapEntry<int, int>> _fetchQuery(
     String url,
@@ -951,7 +911,7 @@ class _HitomiImpl implements Hitomi {
           url,
           headers: buildRequestHeader(
             url,
-            'https://hitomi.la/',
+            hitomiUrl,
             range: MapEntry(tuple.key, tuple.key + tuple.value - 1),
           ),
           token: token,
@@ -971,7 +931,7 @@ class _HitomiImpl implements Hitomi {
     return await _dio
         .httpInvoke<List<int>>(
           url,
-          headers: buildRequestHeader(url, 'https://hitomi.la/'),
+          headers: buildRequestHeader(url, hitomiUrl),
           token: token,
         )
         .then((value) {
@@ -995,7 +955,7 @@ class _HitomiImpl implements Hitomi {
           url,
           headers: buildRequestHeader(
             url,
-            'https://hitomi.la/',
+            hitomiUrl,
             range: MapEntry(start, start + 463),
           ),
           token: token,
@@ -1011,7 +971,7 @@ class _HitomiImpl implements Hitomi {
     SortEnum? sort,
   }) {
     var referer =
-        'https://hitomi.la/${tag.urlEncode()}${tag is Language ? '' : '-all'}.html';
+        '$hitomiUrl/${tag.urlEncode()}${tag is Language ? '' : '-all'}.html';
     if (page > 1) {
       referer += '?page=$page';
     }
@@ -1246,9 +1206,8 @@ class WebHitomi implements Hitomi {
   @override
   Stream<List<int>> fetchImageData(
     Image image, {
-    String refererUrl = 'https://hitomi.la',
+    String refererUrl = hitomiUrl,
     CancelToken? token,
-    String lang = 'ja',
     ThumbnaiSize size = ThumbnaiSize.smaill,
     void Function(int now, int total)? onProcess,
   }) {
@@ -1261,8 +1220,6 @@ class WebHitomi implements Hitomi {
             'name': image.name,
             'referer': refererUrl,
             'size': size.name,
-            'translate': translate,
-            'lang': lang,
             'local': localDb,
           },
           options: Options(responseType: ResponseType.stream),

@@ -162,6 +162,27 @@ class ComfyClient {
     return outputImages;
   }
 
+  Future<Map<String, int>> base64ImageHash(
+    String hashString, {
+    String name = '',
+  }) async {
+    await _init();
+    var workflow = imageHashWorkflow as Map<String, dynamic>;
+    workflow['client_id'] = this._clientId;
+    workflow['prompt']['10']['inputs']['base64_string'] = hashString;
+    workflow['prompt']['10']['inputs']['name'] = name;
+    final outputImages =
+        await _queueTask<Map<String, dynamic>>(workflow, (nodeOutput) {
+          return jsonDecode(nodeOutput);
+        }).then(
+          (list) => list.fold(
+            <String, int>{},
+            (acc, e) => acc..[e.keys.first] = e.values.first as int,
+          ),
+        );
+    return outputImages;
+  }
+
   Future<List<T>> _queueTask<T>(
     Map<String, dynamic> workflow,
     FutureOr<T> Function(dynamic) process,

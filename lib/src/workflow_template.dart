@@ -128,6 +128,60 @@ final embeddingWorkflow = {
     },
   },
 };
+final base64Image2HashWorkflow = {
+  "client_id": "30ec2c1ada3b4e6a96b57fb0c58a2456",
+  "prompt": {
+    "10": {
+      "inputs": {"base64_string": "", "name": ""},
+      "class_type": "Base64ImageLoader",
+      "_meta": {"title": "Base64 Image Loader"},
+    },
+    "12": {
+      "inputs": {
+        "names": "",
+        "images": ["10", 0],
+      },
+      "class_type": "ImageHash",
+      "_meta": {"title": "Image Hash"},
+    },
+    "13": {
+      "inputs": {
+        "text_0": "{\"\": -3472486419983695743}",
+        "text": ["12", 0],
+      },
+      "class_type": "ShowText|pysssss",
+      "_meta": {"title": "展示文本"},
+    },
+  },
+  "partial_execution_targets": ["13"],
+  "extra_data": {
+    "extra_pnginfo": {
+      "workflow": {
+        "id": "71a0dc67-7995-4ff1-b9e6-bfb782d00979",
+        "revision": 0,
+        "last_node_id": 13,
+        "last_link_id": 13,
+        "nodes": [],
+        "links": [],
+        "groups": [],
+        "config": {},
+        "extra": {
+          "ds": {
+            "scale": 1,
+            "offset": [132, 42.66668701171875],
+          },
+          "workflowRendererVersion": "Vue",
+          "frontendVersion": "1.35.9",
+          "VHS_latentpreview": false,
+          "VHS_latentpreviewrate": 0,
+          "VHS_MetadataImage": true,
+          "VHS_KeepIntermediate": true,
+        },
+        "version": 0.4,
+      },
+    },
+  },
+};
 final imageHashWorkflow = {
   "client_id": "afd9fa7cd23b479ab9f7314393aab966",
   "prompt": {

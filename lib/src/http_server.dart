@@ -261,7 +261,6 @@ class _TaskWarp {
     var name = req.url.queryParameters['name'];
     var size = req.url.queryParameters['size'];
     var local = req.url.queryParameters['local'] == 'true';
-    var lang = req.url.queryParameters['lang'] ?? 'ja';
     if ((hash?.length ?? 0) != 64 || size == null || name == null) {
       _manager.logger.d(' $hash $name $size $local');
       return Response.badRequest();
@@ -273,11 +272,10 @@ class _TaskWarp {
     return (local ? localHitomi : _manager.getApiDirect(HitomiType.Remote))
         .fetchImageData(
           Image(hash: hash!, hasavif: 0, width: 0, name: name, height: 0),
-          refererUrl: req.url.queryParameters['referer'] ?? 'https://hitomi.la',
+          refererUrl: req.url.queryParameters['referer'] ?? hitomiUrl,
           size: ThumbnaiSize.values.firstWhere(
             (element) => element.name == size,
           ),
-          lang: lang,
         )
         .fold(<int>[], (acc, l) => acc..addAll(l))
         .then(
