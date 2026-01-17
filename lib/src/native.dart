@@ -15,19 +15,24 @@ Future<CommonDatabase> openSqliteDb(String dirPath, String name) async {
   return sqlite3.open(filename);
 }
 
-HttpClientAdapter crateHttpClientAdapter(String proxy,
-    {Duration? connectionTimeout, Duration? idelTimeout}) {
-  return IOHttpClientAdapter(createHttpClient: () {
-    return HttpClient()
-      ..connectionTimeout = connectionTimeout ?? Duration(seconds: 60)
-      ..idleTimeout = idelTimeout ?? Duration(seconds: 120)
-      ..findProxy = (u) {
-        if (proxy.isEmpty) {
-          return HttpClient.findProxyFromEnvironment(u);
-        }
-        return (proxy == "DIRECT") ? 'DIRECT' : 'PROXY ${proxy}';
-      };
-  });
+HttpClientAdapter crateHttpClientAdapter(
+  String proxy, {
+  Duration? connectionTimeout,
+  Duration? idelTimeout,
+}) {
+  return IOHttpClientAdapter(
+    createHttpClient: () {
+      return HttpClient()
+        ..connectionTimeout = connectionTimeout ?? Duration(seconds: 60)
+        ..idleTimeout = idelTimeout ?? Duration(seconds: 120)
+        ..findProxy = (u) {
+          if (proxy.isEmpty) {
+            return HttpClient.findProxyFromEnvironment(u);
+          }
+          return (proxy == "DIRECT") ? 'DIRECT' : 'PROXY ${proxy}';
+        };
+    },
+  );
 }
 
 Hitomi createHitomi(TaskManager _manager, bool localDb, String baseHttp) {

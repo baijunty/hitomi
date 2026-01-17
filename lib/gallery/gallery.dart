@@ -28,7 +28,7 @@ class Gallery with Label {
     '<': '《',
     '>': '》',
     '|': '▎',
-    '..': '。。'
+    '..': '。。',
   };
   final List<Artist>? artists;
   final List<Tag>? tags;
@@ -52,28 +52,29 @@ class Gallery with Label {
   final int id;
   final List<Group>? groups;
 
-  Gallery(
-      {this.artists,
-      this.tags,
-      this.sceneIndexes,
-      this.japaneseTitle,
-      this.languages,
-      required this.type,
-      this.languageLocalname,
-      required this.title,
-      this.language,
-      this.characters,
-      this.galleryurl,
-      this.languageUrl,
-      required this.date,
-      this.related,
-      this.video,
-      this.parodys,
-      this.videofilename,
-      required this.files,
-      required this.id,
-      this.groups,
-      this.downDate});
+  Gallery({
+    this.artists,
+    this.tags,
+    this.sceneIndexes,
+    this.japaneseTitle,
+    this.languages,
+    required this.type,
+    this.languageLocalname,
+    required this.title,
+    this.language,
+    this.characters,
+    this.galleryurl,
+    this.languageUrl,
+    required this.date,
+    this.related,
+    this.video,
+    this.parodys,
+    this.videofilename,
+    required this.files,
+    required this.id,
+    this.groups,
+    this.downDate,
+  });
 
   List<Label> labels() {
     return <Label>[]
@@ -91,83 +92,84 @@ class Gallery with Label {
 
   factory Gallery.fromRow(Row row, List<Label> tags, List<Image> images) {
     var gallery = Gallery(
-        type: row['type'],
-        title: row['title'],
-        date: row['createDate'],
-        files: images,
-        id: row['id'],
-        language: row['language'],
-        artists: tags.filterInstance<Artist>().toList(),
-        groups: tags.filterInstance<Group>().toList(),
-        parodys: tags.filterInstance<Parody>().toList(),
-        characters: tags.filterInstance<Character>().toList(),
-        tags: tags.filterInstance<Tag>().toList(),
-        downDate: row['date'],
-        galleryurl: '/${row['type']}/${row['title']}-${row['id']}.html');
+      type: row['type'],
+      title: row['title'],
+      date: row['createDate'],
+      files: images,
+      id: row['id'],
+      language: row['language'],
+      artists: tags.filterInstance<Artist>().toList(),
+      groups: tags.filterInstance<Group>().toList(),
+      parodys: tags.filterInstance<Parody>().toList(),
+      characters: tags.filterInstance<Character>().toList(),
+      tags: tags.filterInstance<Tag>().toList(),
+      downDate: row['date'],
+      galleryurl: '/${row['type']}/${row['title']}-${row['id']}.html',
+    );
     return gallery;
   }
 
   factory Gallery.fromMap(Map<String, dynamic> data) => Gallery(
-        artists: (data['artists'] as List<dynamic>?)
-            ?.map((e) => Artist.fromMap(e as Map<String, dynamic>))
-            .toList(),
-        tags: (data['tags'] as List<dynamic>?)
-            ?.map((e) => Tag.fromMap(e as Map<String, dynamic>))
-            .toList(),
-        sceneIndexes: data['scene_indexes'] as List<dynamic>?,
-        japaneseTitle: data['japanese_title'] as String?,
-        languages: (data['languages'] as List<dynamic>?)
-            ?.map((e) => Language.fromMap(e as Map<String, dynamic>))
-            .toList(),
-        type: data['type'] as String,
-        languageLocalname: data['language_localname'] as String?,
-        title: data['title'] as String,
-        language: data['language'] as String?,
-        characters: (data['characters'] as List<dynamic>?)
-            ?.map((e) => Character.fromMap(e as Map<String, dynamic>))
-            .toList(),
-        galleryurl: data['galleryurl'] as String?,
-        languageUrl: data['language_url'] as String?,
-        date: data['date'] as String,
-        related: (data['related'] as List<dynamic>?)
-            ?.map((e) => e is int ? e : int.parse(e))
-            .toList(),
-        video: data['video'] as dynamic,
-        parodys: (data['parodys'] as List<dynamic>?)
-            ?.map((e) => Parody.fromMap(e as Map<String, dynamic>))
-            .toList(),
-        videofilename: data['videofilename'] as dynamic,
-        files: (data['files'] as List<dynamic>)
-            .map((e) => Image.fromMap(e as Map<String, dynamic>))
-            .toList(),
-        id: data['id'] is int ? data['id'] : int.parse(data['id']),
-        groups: (data['groups'] as List<dynamic>?)
-            ?.map((e) => Group.fromMap(e as Map<String, dynamic>))
-            .toList(),
-      );
+    artists: (data['artists'] as List<dynamic>?)
+        ?.map((e) => Artist.fromMap(e as Map<String, dynamic>))
+        .toList(),
+    tags: (data['tags'] as List<dynamic>?)
+        ?.map((e) => Tag.fromMap(e as Map<String, dynamic>))
+        .toList(),
+    sceneIndexes: data['scene_indexes'] as List<dynamic>?,
+    japaneseTitle: data['japanese_title'] as String?,
+    languages: (data['languages'] as List<dynamic>?)
+        ?.map((e) => Language.fromMap(e as Map<String, dynamic>))
+        .toList(),
+    type: data['type'] as String,
+    languageLocalname: data['language_localname'] as String?,
+    title: data['title'] as String,
+    language: data['language'] as String?,
+    characters: (data['characters'] as List<dynamic>?)
+        ?.map((e) => Character.fromMap(e as Map<String, dynamic>))
+        .toList(),
+    galleryurl: data['galleryurl'] as String?,
+    languageUrl: data['language_url'] as String?,
+    date: data['date'] as String,
+    related: (data['related'] as List<dynamic>?)
+        ?.map((e) => e is int ? e : int.parse(e))
+        .toList(),
+    video: data['video'] as dynamic,
+    parodys: (data['parodys'] as List<dynamic>?)
+        ?.map((e) => Parody.fromMap(e as Map<String, dynamic>))
+        .toList(),
+    videofilename: data['videofilename'] as dynamic,
+    files: (data['files'] as List<dynamic>)
+        .map((e) => Image.fromMap(e as Map<String, dynamic>))
+        .toList(),
+    id: data['id'] is int ? data['id'] : int.parse(data['id']),
+    groups: (data['groups'] as List<dynamic>?)
+        ?.map((e) => Group.fromMap(e as Map<String, dynamic>))
+        .toList(),
+  );
 
   Map<String, dynamic> toMap() => {
-        'artists': artists?.map((e) => e.toMap()).toList(),
-        'tags': tags?.map((e) => e.toMap()).toList(),
-        'scene_indexes': sceneIndexes,
-        'japanese_title': japaneseTitle,
-        'languages': languages?.map((e) => e.toMap()).toList(),
-        'type': type,
-        'language_localname': languageLocalname,
-        'title': title,
-        'language': language,
-        'characters': characters?.map((e) => e.toMap()).toList(),
-        'galleryurl': galleryurl,
-        'language_url': languageUrl,
-        'date': date,
-        'related': related,
-        'video': video,
-        'parodys': parodys?.map((e) => e.toMap()).toList(),
-        'videofilename': videofilename,
-        'files': files.map((e) => e.toMap()).toList(),
-        'id': id,
-        'groups': groups?.map((e) => e.toMap()).toList(),
-      };
+    'artists': artists?.map((e) => e.toMap()).toList(),
+    'tags': tags?.map((e) => e.toMap()).toList(),
+    'scene_indexes': sceneIndexes,
+    'japanese_title': japaneseTitle,
+    'languages': languages?.map((e) => e.toMap()).toList(),
+    'type': type,
+    'language_localname': languageLocalname,
+    'title': title,
+    'language': language,
+    'characters': characters?.map((e) => e.toMap()).toList(),
+    'galleryurl': galleryurl,
+    'language_url': languageUrl,
+    'date': date,
+    'related': related,
+    'video': video,
+    'parodys': parodys?.map((e) => e.toMap()).toList(),
+    'videofilename': videofilename,
+    'files': files.map((e) => e.toMap()).toList(),
+    'id': id,
+    'groups': groups?.map((e) => e.toMap()).toList(),
+  };
 
   /// `dart:convert`
   ///
@@ -242,14 +244,19 @@ class Gallery with Label {
 
   bool get hasAuthor => (artists?.length ?? 0) + (groups?.length ?? 0) > 0;
 
-  Directory createDir(String outPath,
-      {bool createDir = true, bool withArtist = true}) {
+  Directory createDir(
+    String outPath, {
+    bool createDir = true,
+    bool withArtist = true,
+  }) {
     String fullName = join(
-        outPath,
-        illegalCode.entries.fold(
-            withArtist ? dirName : name,
-            (previousValue, element) =>
-                previousValue!.replaceAll(element.key, element.value)));
+      outPath,
+      illegalCode.entries.fold(
+        withArtist ? dirName : name,
+        (previousValue, element) =>
+            previousValue!.replaceAll(element.key, element.value),
+      ),
+    );
     var userName = fullName.substring(0, min(fullName.length, 256)).trim();
     if (userName.endsWith('.')) {
       userName = userName.substring(0, userName.length - 1);

@@ -10,13 +10,18 @@ class Tag with Label {
   Tag({this.male, required this.tag, this.female});
 
   factory Tag.fromMap(Map<String, dynamic> data) => Tag(
-        male: data['male'],
-        tag: data['tag'] as String,
-        female: data['female'],
-      );
+    male: data['male'],
+    tag: data['tag'] as String,
+    female: data['female'],
+  );
 
-  Map<String, dynamic> toMap() =>
-      {'male': male, 'tag': tag, 'female': female, 'type': type, 'name': name};
+  Map<String, dynamic> toMap() => {
+    'male': male,
+    'tag': tag,
+    'female': female,
+    'type': type,
+    'name': name,
+  };
 
   /// `dart:convert`
   ///
@@ -30,11 +35,7 @@ class Tag with Label {
   /// Converts [Tag] to a JSON string.
   String toJson() => json.encode(toMap());
 
-  Tag copyWith({
-    String? male,
-    String? tag,
-    String? female,
-  }) {
+  Tag copyWith({String? male, String? tag, String? female}) {
     return Tag(
       male: male ?? this.male,
       tag: tag ?? this.tag,
@@ -48,8 +49,8 @@ class Tag with Label {
     return sexTag == null
         ? 'tag'
         : '1' == (male?.toString())
-            ? 'male'
-            : 'female';
+        ? 'male'
+        : 'female';
   }
 
   @override

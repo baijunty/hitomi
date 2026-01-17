@@ -7,9 +7,8 @@ class Character with Label {
 
   Character({required this.character});
 
-  factory Character.fromMap(Map<String, dynamic> data) => Character(
-        character: data['character'] as String,
-      );
+  factory Character.fromMap(Map<String, dynamic> data) =>
+      Character(character: data['character'] as String);
 
   /// `dart:convert`
   ///
@@ -23,12 +22,8 @@ class Character with Label {
   /// Converts [Character] to a JSON string.
   String toJson() => json.encode(toMap());
 
-  Character copyWith({
-    String? character,
-  }) {
-    return Character(
-      character: character ?? this.character,
-    );
+  Character copyWith({String? character}) {
+    return Character(character: character ?? this.character);
   }
 
   @override

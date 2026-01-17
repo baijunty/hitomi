@@ -12,8 +12,11 @@ Future<CommonDatabase> openSqliteDb(String dirPath, String name) async {
   return sqlite.open(name);
 }
 
-HttpClientAdapter crateHttpClientAdapter(String proxy,
-    {Duration? connectionTimeout, Duration? idelTimeout}) {
+HttpClientAdapter crateHttpClientAdapter(
+  String proxy, {
+  Duration? connectionTimeout,
+  Duration? idelTimeout,
+}) {
   return BrowserHttpClientAdapter();
 }
 

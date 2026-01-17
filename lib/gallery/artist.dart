@@ -6,9 +6,8 @@ class Artist with Label {
 
   Artist({required this.artist});
 
-  factory Artist.fromMap(Map<String, dynamic> data) => Artist(
-        artist: data['artist'] as String,
-      );
+  factory Artist.fromMap(Map<String, dynamic> data) =>
+      Artist(artist: data['artist'] as String);
 
   /// `dart:convert`
   ///
@@ -22,12 +21,8 @@ class Artist with Label {
   /// Converts [Artist] to a JSON string.
   String toJson() => json.encode(toMap());
 
-  Artist copyWith({
-    String? artist,
-  }) {
-    return Artist(
-      artist: artist ?? this.artist,
-    );
+  Artist copyWith({String? artist}) {
+    return Artist(artist: artist ?? this.artist);
   }
 
   @override

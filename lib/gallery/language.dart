@@ -12,24 +12,20 @@ class Language with Label {
   final String? languageLocalname;
   final String name;
 
-  Language({
-    this.galleryid,
-    this.languageLocalname,
-    required this.name,
-  });
+  Language({this.galleryid, this.languageLocalname, required this.name});
 
   factory Language.fromMap(Map<String, dynamic> data) => Language(
-        galleryid: data['galleryid']?.toString(),
-        languageLocalname: data['language_localname'] as String?,
-        name: data['name'] as String,
-      );
+    galleryid: data['galleryid']?.toString(),
+    languageLocalname: data['language_localname'] as String?,
+    name: data['name'] as String,
+  );
 
   Map<String, dynamic> toMap() => {
-        'galleryid': galleryid,
-        'language_localname': languageLocalname,
-        'name': name,
-        'type': type
-      };
+    'galleryid': galleryid,
+    'language_localname': languageLocalname,
+    'name': name,
+    'type': type,
+  };
 
   /// `dart:convert`
   ///

@@ -44,9 +44,10 @@ Label fromString(String type, String name) {
     case 'male':
     case 'tag':
       return Tag(
-          male: type == 'male' ? 1 : null,
-          female: type == 'female' ? 1 : null,
-          tag: name);
+        male: type == 'male' ? 1 : null,
+        female: type == 'female' ? 1 : null,
+        tag: name,
+      );
     case 'parody':
     case 'series':
       return Parody(parody: name);
@@ -99,17 +100,12 @@ class FilterLabel with Label {
   final String _name;
 
   FilterLabel({required String type, required String name})
-      : _type = type,
-        _name = name;
-  Map<String, dynamic> toMap() => {
-        'type': type,
-        'name': name,
-      };
+    : _type = type,
+      _name = name;
+  Map<String, dynamic> toMap() => {'type': type, 'name': name};
 
-  factory FilterLabel.fromMap(Map<String, dynamic> data) => FilterLabel(
-        type: data['type'] as String,
-        name: data['name'] as String,
-      );
+  factory FilterLabel.fromMap(Map<String, dynamic> data) =>
+      FilterLabel(type: data['type'] as String, name: data['name'] as String);
 
   factory FilterLabel.fromJson(String data) {
     return FilterLabel.fromMap(json.decode(data) as Map<String, dynamic>);

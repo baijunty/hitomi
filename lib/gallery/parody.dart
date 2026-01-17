@@ -7,9 +7,8 @@ class Parody with Label {
 
   Parody({required this.parody});
 
-  factory Parody.fromMap(Map<String, dynamic> data) => Parody(
-        parody: (data['parody'] ?? data['series']) as String,
-      );
+  factory Parody.fromMap(Map<String, dynamic> data) =>
+      Parody(parody: (data['parody'] ?? data['series']) as String);
 
   /// `dart:convert`
   ///
@@ -23,12 +22,8 @@ class Parody with Label {
   /// Converts [Parody] to a JSON string.
   String toJson() => json.encode(toMap());
 
-  Parody copyWith({
-    String? parody,
-  }) {
-    return Parody(
-      parody: parody ?? this.parody,
-    );
+  Parody copyWith({String? parody}) {
+    return Parody(parody: parody ?? this.parody);
   }
 
   @override

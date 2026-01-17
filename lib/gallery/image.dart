@@ -11,36 +11,38 @@ class Image {
   final String name;
   final int height;
   final int? fileHash;
-  const Image(
-      {required this.hash,
-      required this.hasavif,
-      required this.width,
-      required this.name,
-      required this.height,
-      this.fileHash});
+  const Image({
+    required this.hash,
+    required this.hasavif,
+    required this.width,
+    required this.name,
+    required this.height,
+    this.fileHash,
+  });
 
   factory Image.fromMap(Map<String, dynamic> data) => Image(
-        hash: data['hash'] as String,
-        hasavif: data['hasavif'] as int,
-        width: data['width'] as int,
-        name: data['name'] as String,
-        height: data['height'] as int,
-      );
+    hash: data['hash'] as String,
+    hasavif: data['hasavif'] as int,
+    width: data['width'] as int,
+    name: data['name'] as String,
+    height: data['height'] as int,
+  );
   factory Image.fromRow(Row row) => Image(
-      hash: row['hash'] as String,
-      hasavif: 0,
-      width: row['width'] as int,
-      name: row['name'] as String,
-      height: row['height'] as int,
-      fileHash: row['fileHash'] as int?);
+    hash: row['hash'] as String,
+    hasavif: 0,
+    width: row['width'] as int,
+    name: row['name'] as String,
+    height: row['height'] as int,
+    fileHash: row['fileHash'] as int?,
+  );
 
   Map<String, dynamic> toMap() => {
-        'hash': hash,
-        'hasavif': hasavif,
-        'width': width,
-        'name': name,
-        'height': height,
-      };
+    'hash': hash,
+    'hasavif': hasavif,
+    'width': width,
+    'name': name,
+    'height': height,
+  };
 
   /// `dart:convert`
   ///

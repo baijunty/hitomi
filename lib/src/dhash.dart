@@ -4,32 +4,47 @@ import 'dart:typed_data';
 import 'package:collection/collection.dart';
 import 'package:image/image.dart';
 
-Future<int> imageHash(Uint8List data,
-    {ImageHash hash = ImageHash.AHash,
-    Interpolation interpolation = Interpolation.average}) async {
+Future<int> imageHash(
+  Uint8List data, {
+  ImageHash hash = ImageHash.AHash,
+  Interpolation interpolation = Interpolation.average,
+}) async {
   final cmd = Command()
     ..decodeImage(data)
     ..copyResize(
-        width: hash.width, height: hash.height, interpolation: interpolation)
+      width: hash.width,
+      height: hash.height,
+      interpolation: interpolation,
+    )
     ..grayscale();
   final image = await cmd.getImage();
-  final bits = hash.hash(image!).foldIndexed<int>(
-      0, (index, acc, element) => acc |= element ? 1 << (63 - index) : 0);
+  final bits = hash
+      .hash(image!)
+      .foldIndexed<int>(
+        0,
+        (index, acc, element) => acc |= element ? 1 << (63 - index) : 0,
+      );
   return bits;
 }
 
-Future<int> imageFileHash(File file,
-    {ImageHash hash = ImageHash.AHash,
-    Interpolation interpolation = Interpolation.average}) async {
+Future<int> imageFileHash(
+  File file, {
+  ImageHash hash = ImageHash.AHash,
+  Interpolation interpolation = Interpolation.average,
+}) async {
   if (file.existsSync()) {
     return Isolate.run(
-        () => file.readAsBytes().then((data) => imageHash(data)));
+      () => file.readAsBytes().then((data) => imageHash(data)),
+    );
   }
   return 0;
 }
 
-Future<Uint8List?> resizeThumbImage(Uint8List data, int width,
-    [int quality = 65]) async {
+Future<Uint8List?> resizeThumbImage(
+  Uint8List data,
+  int width, [
+  int quality = 65,
+]) async {
   final cmd = Command()
     ..decodeImage(data)
     ..copyResize(width: width, interpolation: Interpolation.average)
@@ -63,8 +78,9 @@ class _DHash with ImageHash {
     for (var i = 0; i < height; i++) {
       for (var j = 0; j < width - 1; j++) {
         final pixel = image.getPixel(j, i).getChannel(Channel.luminance);
-        final nextPixel =
-            image.getPixel(j + 1, i).getChannel(Channel.luminance);
+        final nextPixel = image
+            .getPixel(j + 1, i)
+            .getChannel(Channel.luminance);
         result.add(pixel < nextPixel);
       }
     }
@@ -85,7 +101,9 @@ class _AHash with ImageHash {
   List<bool> hash(Image image) {
     final pixels = image.map((e) => e.getChannel(Channel.luminance)).toList();
     final acc = pixels.fold<num>(
-        0, (previousValue, element) => previousValue + element);
+      0,
+      (previousValue, element) => previousValue + element,
+    );
     final average = acc / (width * height);
     return pixels.map((e) => e >= average).toList();
   }

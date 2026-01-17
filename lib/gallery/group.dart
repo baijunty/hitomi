@@ -7,9 +7,8 @@ class Group with Label {
 
   Group({required this.group});
 
-  factory Group.fromMap(Map<String, dynamic> data) => Group(
-        group: data['group'] as String,
-      );
+  factory Group.fromMap(Map<String, dynamic> data) =>
+      Group(group: data['group'] as String);
 
   /// `dart:convert`
   ///
@@ -18,12 +17,8 @@ class Group with Label {
     return Group.fromMap(json.decode(data) as Map<String, dynamic>);
   }
 
-  Group copyWith({
-    String? group,
-  }) {
-    return Group(
-      group: group ?? this.group,
-    );
+  Group copyWith({String? group}) {
+    return Group(group: group ?? this.group);
   }
 
   @override
