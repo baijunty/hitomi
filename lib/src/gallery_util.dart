@@ -145,8 +145,10 @@ Future<MapEntry<Gallery, List<int>>> fetchGalleryHashFromNet(
             max(gallery.files.length - 10, gallery.files.length ~/ 3 * 2) + 6,
           ),
         ]);
-  return down
-      .computeImageHash(images)
+  return Future.wait(
+        images.slices(5).map((imgs) => down.computeImageHash(imgs)),
+      )
+      .then((ls) => ls.fold(<int?>[], (acc, ints) => acc..addAll(ints)))
       .then(
         (value) => MapEntry<Gallery, List<int>>(
           gallery,

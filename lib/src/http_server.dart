@@ -502,28 +502,31 @@ class _TaskWarp {
             );
       } else if ([readHistoryMask, bookMarkMask, lateReadMark].contains(mark)) {
         var list = content.map((e) => e as Map<String, dynamic>).toList();
-        return _manager
-            .manageUserLog(list, mark)
-            .then(
-              (v) async => returnValue
-                  ? await _manager.helper
-                        .querySql(
-                          'select id,value,type,content,date from UserLog where type = $mark',
-                        )
-                        .then(
-                          (set) => set
-                              .where(
-                                (r) => !list.any(
-                                  (m) =>
-                                      m['id'] == r['id'] &&
-                                      m['value'] == r['value'],
-                                ),
-                              )
-                              .map((r) => r)
-                              .toList(),
-                        )
-                  : [],
+        return _manager.helper
+            .querySql(
+              'select id,value,type,content,date from UserLog where type = $mark',
             )
+            .then((set) async {
+              final v = list
+                  .where(
+                    (m) => !set.any(
+                      (r) => r['id'] == m['id'] && r['value'] == m['value'],
+                    ),
+                  )
+                  .toList();
+              await _manager.manageUserLog(v, mark);
+              returnValue
+                  ? set
+                        .where(
+                          (r) => !list.any(
+                            (m) =>
+                                m['id'] == r['id'] && m['value'] == r['value'],
+                          ),
+                        )
+                        .map((r) => r)
+                        .toList()
+                  : [];
+            })
             .then(
               (value) => Response.ok(
                 json.encode({'success': true, 'content': value}),

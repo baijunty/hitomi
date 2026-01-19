@@ -179,7 +179,7 @@ class DownLoader {
     String referer = hitomiUrl,
     String? dirPath,
   }) async {
-    if (dirPath != null) {
+    if (dirPath != null && config.aiTagPath.isNotEmpty) {
       return Future.wait(
         images.map(
           (image) => manager.client!
