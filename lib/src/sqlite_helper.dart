@@ -79,6 +79,7 @@ class SqliteHelper {
   void init() async {
     __db = _db;
     createTables(_db);
+    createIndexes(_db);
     final stmt = _db.prepare('PRAGMA user_version;');
     _db.createFunction(
       functionName: 'vector_distance',
@@ -186,6 +187,15 @@ class SqliteHelper {
       FOREIGN KEY (tid) REFERENCES Tags(id),
       PRIMARY KEY (gid, tid)
       )''');
+  }
+
+  Future<void> createIndexes(CommonDatabase db) async {
+    db.execute('CREATE INDEX IF NOT EXISTS idx_gallery_path ON Gallery(path);');
+    db.execute('CREATE INDEX IF NOT EXISTS idx_gallery_language ON Gallery(language);');
+    db.execute('CREATE INDEX IF NOT EXISTS idx_gallery_date ON Gallery(date);');
+    db.execute('CREATE INDEX IF NOT EXISTS idx_gallery_tag ON GalleryTagRelation(tid);');
+    db.execute('CREATE INDEX IF NOT EXISTS idx_gallery_gid ON GalleryTagRelation(gid);');
+    db.execute('CREATE INDEX IF NOT EXISTS idx_tags_type_name ON Tags(type, name);');
   }
 
   Future<bool> insertUserLog(
