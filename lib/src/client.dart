@@ -120,9 +120,12 @@ class ComfyClient {
     var workflow = tagTriggerWorkflow as Map<String, dynamic>;
     workflow['client_id'] = this._clientId;
     workflow['prompt']['11']['inputs']['image_path_or_url'] = path;
-    return await _queueTask<List<dynamic>>(workflow, (nodeOutput) {
-      return jsonDecode(nodeOutput);
-    }).then((list) => list.first.map((e) => e as String).toList());
+    return await _queueTask<List<String>>(workflow, (nodeOutput) {
+      return (nodeOutput as String)
+          .split(',')
+          .where((s) => s.trim().isNotEmpty)
+          .toList();
+    }).then((v) => v.first);
   }
 
   Future<Map<String, List<double>>> imageEmbeddings(String path) async {

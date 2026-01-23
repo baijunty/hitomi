@@ -514,18 +514,33 @@ class _TaskWarp {
                     ),
                   )
                   .toList();
+              _manager.logger.d('${mark} add ${v.length}');
               await _manager.manageUserLog(v, mark);
-              returnValue
-                  ? set
-                        .where(
-                          (r) => !list.any(
-                            (m) =>
-                                m['id'] == r['id'] && m['value'] == r['value'],
-                          ),
-                        )
-                        .map((r) => r)
-                        .toList()
-                  : [];
+              if (returnValue) {
+                final re = set
+                    .where(
+                      (r) => !list.any(
+                        (m) => m['id'] == r['id'] && m['value'] == r['value'],
+                      ),
+                    )
+                    .map((r) => r as Map<String, dynamic>)
+                    .toList();
+                var deleted = await _manager.helper
+                    .selectSqlMultiResultAsync(
+                      'select 1 from Gallery where id = ?',
+                      list.map((e) => [e['id']]).toList(),
+                    )
+                    .then(
+                      (r) => r.entries
+                          .where((e) => e.value.isEmpty)
+                          .map((e) => e.key.first as int)
+                          .toList(),
+                    );
+                re.addAll(deleted.map((e) => {'id': -e, 'type': mark}));
+                _manager.logger.d('$mark return ${re.length}');
+                return re;
+              }
+              return [];
             })
             .then(
               (value) => Response.ok(
