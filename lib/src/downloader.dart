@@ -195,7 +195,8 @@ class DownLoader {
               .getApiDirect(HitomiType.Remote)
               .fetchImageData(image, refererUrl: referer)
               .fold(<int>[], (acc, data) => acc..addAll(data))
-              .then((d) => imageHash(Uint8List.fromList(d))),
+              .then((d) => imageHash(Uint8List.fromList(d)))
+              .catchError((e) => 0, test: (error) => true),
         ),
       );
     } else {
@@ -210,7 +211,8 @@ class DownLoader {
                 (d) => manager.client!
                     .base64ImageHash(d, name: image.name)
                     .then((v) => v.values.first),
-              ),
+              )
+              .catchError((e) => 0, test: (error) => true),
         ),
       );
     }

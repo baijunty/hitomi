@@ -132,8 +132,8 @@ class _TaskWarp {
   Future<Response> _proxy(Request req) async {
     final task = await _authToken(req);
     final method = req.params['method'];
+    _manager.logger.d('proxy $method task $task');
     if (task.key && method?.isNotEmpty == true) {
-      _manager.logger.d('proxy $method task $task');
       switch (method!) {
         case 'fetchGallery':
           {

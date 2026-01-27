@@ -16,7 +16,7 @@ dependencies:
   json_annotation: ^4.9.0
   freezed_annotation: ^3.1.0
   collection: ^1.19.1
-  sqlite3: ^3.1.1
+  sqlite3: ^3.1.4
   dio: ^5.9.0
   shelf: ^1.4.2
   shelf_router: ^1.1.4
