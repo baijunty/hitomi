@@ -17,7 +17,7 @@ import 'multi_paltform.dart' show openSqliteDb;
 
 class SqliteHelper {
   final String _dirPath;
-  static final _version = 15;
+  static final _version = 16;
   Logger? _logger = null;
   late CommonDatabase _db;
   CommonDatabase? __db;
@@ -151,8 +151,16 @@ class SqliteHelper {
       type Text,
       date INTEGER,
       mark INTEGER default 0,
-      length integer,
-      feature BLOB
+      length integer
+      )''');
+    db.execute('''create table if not exists GalleryExtra(
+      id integer PRIMARY KEY,
+      gid integer not null,
+      imageEmbedding BLOB,
+      storyDescription TEXT,
+      textEmbedding BLOB,
+      FOREIGN KEY(gid) REFERENCES Gallery(id) ON DELETE CASCADE,
+      UNIQUE(gid)
       )''');
     db.execute('''create table if not exists GalleryFile(
       gid INTEGER,
@@ -191,11 +199,19 @@ class SqliteHelper {
 
   Future<void> createIndexes(CommonDatabase db) async {
     db.execute('CREATE INDEX IF NOT EXISTS idx_gallery_path ON Gallery(path);');
-    db.execute('CREATE INDEX IF NOT EXISTS idx_gallery_language ON Gallery(language);');
+    db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_gallery_language ON Gallery(language);',
+    );
     db.execute('CREATE INDEX IF NOT EXISTS idx_gallery_date ON Gallery(date);');
-    db.execute('CREATE INDEX IF NOT EXISTS idx_gallery_tag ON GalleryTagRelation(tid);');
-    db.execute('CREATE INDEX IF NOT EXISTS idx_gallery_gid ON GalleryTagRelation(gid);');
-    db.execute('CREATE INDEX IF NOT EXISTS idx_tags_type_name ON Tags(type, name);');
+    db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_gallery_tag ON GalleryTagRelation(tid);',
+    );
+    db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_gallery_gid ON GalleryTagRelation(gid);',
+    );
+    db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_tags_type_name ON Tags(type, name);',
+    );
   }
 
   Future<bool> insertUserLog(
@@ -403,6 +419,18 @@ class SqliteHelper {
           db.execute("drop table GalleryFileTemp");
           return 15;
         }
+      case 15:
+        {
+          db.execute("drop table if exists GalleryTemp ");
+          db.execute("ALTER table Gallery rename to GalleryTemp");
+          createTables(db);
+          db.execute(
+            """insert into  Gallery(id,path,language,title,createDate,type,date,mark,length) 
+              select id,path,language,title,createDate,type,date,mark,length from GalleryTemp""",
+          );
+          db.execute("drop table if exists GalleryTemp ");
+          return 16;
+        }
     }
     return oldVersion;
   }
@@ -549,37 +577,67 @@ class SqliteHelper {
   Future<bool> insertGallery(Gallery gallery, FileSystemEntity path) async {
     var idMap = await queryOrInsertTagTable(gallery.labels());
     return await excuteSqlAsync(
-      'replace into Gallery(id,path,language,title,createDate,type,date,mark,length,feature) values(?,?,?,?,?,?,?,?,?,?)',
-      [
-        gallery.id,
-        basename(path.path),
-        gallery.language ?? '',
-        gallery.name,
-        gallery.date,
-        gallery.type,
-        path.existsSync()
-            ? path.statSync().modified.millisecondsSinceEpoch
-            : DateTime.now().millisecondsSinceEpoch,
-        0,
-        gallery.files.length,
-        null,
-      ],
-    ).then(
-      (b) => excuteSqlMultiParams(
-        'replace into GalleryTagRelation(gid,tid) values (?,?)',
-        idMap.values.map((e) => [gallery.id, e]).toList(),
-      ),
+          'replace into Gallery(id,path,language,title,createDate,type,date,mark,length) values(?,?,?,?,?,?,?,?,?)',
+          [
+            gallery.id,
+            basename(path.path),
+            gallery.language ?? '',
+            gallery.name,
+            gallery.date,
+            gallery.type,
+            path.existsSync()
+                ? path.statSync().modified.millisecondsSinceEpoch
+                : DateTime.now().millisecondsSinceEpoch,
+            0,
+            gallery.files.length,
+          ],
+        )
+        .then(
+          (b) => excuteSqlMultiParams(
+            'replace into GalleryTagRelation(gid,tid) values (?,?)',
+            idMap.values.map((e) => [gallery.id, e]).toList(),
+          ),
+        )
+        .then(
+          (b) => excuteSqlAsync('insert into GalleryExtra(gid) values(?)', [
+            gallery.id,
+          ]),
+        );
+  }
+
+  //通过id更新GalleryExtra的imageEmbedding
+  Future<bool> updateGalleryImageEmbedding(int id, List<double> feature) async {
+    var list = Float64List.fromList(feature);
+    var buffer = list.buffer;
+    return await excuteSqlAsync(
+      'UPDATE GalleryExtra SET imageEmbedding = ? WHERE gid = ?',
+      [buffer.asUint8List(), id],
     );
   }
 
-  //通过id更新Gallery表的feature
-  Future<bool> updateGalleryFeatureById(int id, List<double> feature) async {
+  //通过id更新GalleryExtra的storyDescription
+  Future<bool> updateGalleryStoryDescription(int id, String description) async {
+    return await excuteSqlAsync(
+      'UPDATE GalleryExtra SET storyDescription = ? WHERE gid = ?',
+      [description, id],
+    );
+  }
+
+  //通过id更新GalleryExtra的textEmbedding
+  Future<bool> updateGalleryTextEmbedding(int id, List<double> feature) async {
     var list = Float64List.fromList(feature);
     var buffer = list.buffer;
-    return await excuteSqlAsync('UPDATE Gallery SET feature = ? WHERE id = ?', [
-      buffer.asUint8List(),
-      id,
-    ]);
+    return await excuteSqlAsync(
+      'UPDATE GalleryExtra SET textEmbedding = ? WHERE gid = ?',
+      [buffer.asUint8List(), id],
+    );
+  }
+
+  //通过gid查询GalleryExtra
+  Future<Map<String, dynamic>?> queryGalleryExtraById(int gid) async {
+    return querySql('select * from GalleryExtra where gid=?', [
+      gid,
+    ]).then((value) => value.firstOrNull as Map<String, dynamic>?);
   }
 
   Future<ResultSet> queryGalleryByLabel(String type, Label label) async {

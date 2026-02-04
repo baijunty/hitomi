@@ -486,7 +486,7 @@ class HitomiDir {
         : null;
     if (f != null) {
       _downLoader.logger?.d('ganerate feature for ${gallery.id}');
-      return await _downLoader.helper.updateGalleryFeatureById(gallery.id, f);
+      return await _downLoader.helper.updateGalleryImageEmbedding(gallery.id, f);
     }
     return false;
   }

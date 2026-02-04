@@ -142,7 +142,7 @@ class DownLoader {
                     if (msg.target == msg.gallery.files.first) {
                       await queueImageFeature(msg.file.path)
                           .then(
-                            (imageFeature) => helper.updateGalleryFeatureById(
+                            (imageFeature) => helper.updateGalleryImageEmbedding(
                               msg.gallery.id,
                               imageFeature,
                             ),
