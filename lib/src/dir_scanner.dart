@@ -478,14 +478,14 @@ class HitomiDir {
     return true;
   }
 
-  Future<bool> generateFuture() async {
+  Future<bool> generateGalleryImageEmbedding() async {
     var f = _downLoader.config.aiTagPath.isNotEmpty
         ? await _downLoader.manager.client!
               .imageEmbeddings(path.join(dir.path, gallery.files.first.name))
               .then((r) => r.values.firstOrNull)
         : null;
     if (f != null) {
-      _downLoader.logger?.d('ganerate feature for ${gallery.id}');
+      _downLoader.logger?.d('ganerate image embedding for ${gallery.id}');
       return await _downLoader.helper.updateGalleryImageEmbedding(
         gallery.id,
         f,
@@ -505,7 +505,7 @@ class HitomiDir {
           if (value) {
             return _downLoader.helper
                 .querySql(
-                  'select g.title, g.date, ge.feature from Gallery g left join GalleryExtra ge on g.id = ge.gid where g.id=?',
+                  'select g.title, g.date, ge.imageEmbedding from Gallery g left join GalleryExtra ge on g.id = ge.gid where g.id=?',
                   [gallery.id],
                 )
                 .then((set) async {
@@ -514,8 +514,8 @@ class HitomiDir {
                       set.firstOrNull?['date'] == 0) {
                     await _downLoader.helper.insertGallery(gallery, dir);
                   }
-                  if (set.firstOrNull?['feature'] == null) {
-                    await generateFuture();
+                  if (set.firstOrNull?['imageEmbedding'] == null) {
+                    await generateGalleryImageEmbedding();
                   }
                   var missing = gallery.files
                       .where(
