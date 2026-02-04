@@ -486,7 +486,10 @@ class HitomiDir {
         : null;
     if (f != null) {
       _downLoader.logger?.d('ganerate feature for ${gallery.id}');
-      return await _downLoader.helper.updateGalleryImageEmbedding(gallery.id, f);
+      return await _downLoader.helper.updateGalleryImageEmbedding(
+        gallery.id,
+        f,
+      );
     }
     return false;
   }
@@ -501,9 +504,10 @@ class HitomiDir {
         .then((value) async {
           if (value) {
             return _downLoader.helper
-                .querySql('select feature,title,date from Gallery where id=?', [
-                  gallery.id,
-                ])
+                .querySql(
+                  'select g.title, g.date, ge.feature from Gallery g left join GalleryExtra ge on g.id = ge.gid where g.id=?',
+                  [gallery.id],
+                )
                 .then((set) async {
                   if (set.firstOrNull == null ||
                       set.firstOrNull?['title'] != gallery.name ||
