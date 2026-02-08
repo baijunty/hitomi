@@ -537,7 +537,7 @@ class HitomiDir {
           return value;
         })
         .catchError((e) {
-          _downLoader.logger?.e('scan gallery faild $e');
+          _downLoader.logger?.e('scan gallery faild $e ${dir.path}');
           return false;
         }, test: (error) => true);
   }

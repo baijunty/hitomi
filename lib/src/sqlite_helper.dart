@@ -599,7 +599,7 @@ class SqliteHelper {
           ),
         )
         .then(
-          (b) => excuteSqlAsync('insert into GalleryExtra(gid) values(?)', [
+          (b) => excuteSqlAsync('replace into GalleryExtra(gid) values(?)', [
             gallery.id,
           ]),
         );
