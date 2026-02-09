@@ -422,13 +422,16 @@ class TaskManager {
       logger.d('$id text similer search done $ids');
       return await helper
           .querySql(
-            '''select e.gid,vector_distance(e1.imageEmbedding,e.imageEmbedding) as distance 
+            '''select e.gid as id,vector_distance(e1.imageEmbedding,e.imageEmbedding) as distance 
              from GalleryExtra e left join GalleryExtra e1 on e1.gid = ? 
              where e.gid != ? 
              order by vector_distance(e1.imageEmbedding,e.imageEmbedding) limit 5''',
             [id, id],
           )
-          .then((d) => d.map((r) => r['id'] as int).toList())
+          .then((d) {
+            logger.d('vector_distance similer search done $d');
+            return d.map((r) => r['id'] as int).toList();
+          })
           .then((l) {
             logger.d('vector_distance similer search done $l');
             return ids..addAll(l);

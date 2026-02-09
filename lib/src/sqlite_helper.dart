@@ -741,6 +741,9 @@ class SqliteHelper {
             'delete from GalleryTagRelation where gid =?',
             [id],
           ),
+        )
+        .then(
+          (v) => excuteSqlAsync('delete from GalleryExtra where gid =?', [id]),
         );
   }
 
