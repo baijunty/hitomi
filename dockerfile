@@ -1,8 +1,7 @@
 # Official Dart image: https://hub.docker.com/_/dart
 # Specify the Dart SDK base image version using dart:<version> (ex: dart:2.12)
 FROM dart:stable AS build
-RUN apt-get update
-RUN apt-get install -y libsqlite3-dev
+RUN apt-get update && apt-get install -y libsqlite3-dev
 # Resolve app dependencies.
 WORKDIR /hitomi
 COPY pubspec.* ./
@@ -20,7 +19,7 @@ RUN echo "Asia/shanghai" > /etc/timezone
 FROM scratch
 COPY --from=build /runtime/ /
 COPY --from=build /hitomi/build/cli/linux_x64/bundle/bin/main /bin/main
-COPY --from=build hitomi/build/cli/linux_x64/bundle/lib/libsqlite3.x64.linux.so /lib/libsqlite3.x64.linux.so
+COPY --from=build hitomi/build/cli/linux_x64/bundle/lib/libsqlite3.so /lib/libsqlite3.so
 EXPOSE 7890/tcp
 # Start server.
 ENTRYPOINT ["/bin/main"]
