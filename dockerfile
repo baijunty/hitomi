@@ -7,10 +7,12 @@ RUN apt-get install -y libsqlite3-dev
 WORKDIR /hitomi
 COPY pubspec.* ./
 RUN dart pub get
+RUN dart run build_runner build
 # Copy app source code and AOT compile it.
 COPY . .
 # Ensure packages are still up-to-date if anything has changed
 RUN dart pub get --offline
+RUN dart run build_runner build
 RUN dart build cli exe bin/main.dart build
 RUN echo "Asia/shanghai" > /etc/timezone
 # Build minimal serving image from AOT-compiled `/server` and required system
