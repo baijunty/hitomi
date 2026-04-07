@@ -495,7 +495,7 @@ class HitomiDir {
   }
 
   Future<bool> fixGallery() async {
-    if (!_downLoader.filter(gallery)) {
+    if (!_downLoader.filter(gallery) || (gallery.artists?.length ?? 0) > 2) {
       return deleteGallery(reason: 'filter failed');
     }
     var images = await _downLoader.helper.getImageListByGid(gallery.id);
