@@ -397,7 +397,9 @@ class _HitomiImpl implements Hitomi {
   late List<String> languages;
   late Dio _dio;
   final TaskManager manager;
-  final allowCodeExp = RegExp(r'[\u0800-\u4e00|\u4e00-\u9fa5|30A0-30FF|\w]+');
+  static final allowCodeExp = RegExp(
+    r'[\u0800-\u4e00|\u4e00-\u9fa5|30A0-30FF|\w]+',
+  );
   _HitomiImpl(this.manager) {
     this.outPut = manager.config.output;
     this.languages = manager.config.languages;
@@ -600,28 +602,16 @@ class _HitomiImpl implements Hitomi {
 
   String buildImageUrl(Image image, {ThumbnaiSize size = ThumbnaiSize.smaill}) {
     final lastThreeCode = image.hash.substring(image.hash.length - 3);
-    String url;
-    var sizeStr;
     switch (size) {
       case ThumbnaiSize.origin:
-        {
-          url =
-              "https://w${_subDomainIndex(image.hash) + 1}.$apiDomain/${code}/${_parseLast3HashCode(image.hash)}/${image.hash}.webp";
-        }
+        return "https://w${_subDomainIndex(image.hash) + 1}.$apiDomain/${code}/${_parseLast3HashCode(image.hash)}/${image.hash}.webp";
       case ThumbnaiSize.smaill:
-        sizeStr = 'webpsmallsmalltn';
-        url =
-            "https://${_getUserInfo(image.hash, 'tn')}.$apiDomain/$sizeStr/${lastThreeCode.substring(2)}/${lastThreeCode.substring(0, 2)}/${image.hash}.webp";
+        return "https://${_getUserInfo(image.hash, 'tn')}.$apiDomain/webpsmallsmalltn/${lastThreeCode.substring(2)}/${lastThreeCode.substring(0, 2)}/${image.hash}.webp";
       case ThumbnaiSize.medium:
-        sizeStr = 'webpsmalltn';
-        url =
-            "https://${_getUserInfo(image.hash, 'tn')}.$apiDomain/$sizeStr/${lastThreeCode.substring(2)}/${lastThreeCode.substring(0, 2)}/${image.hash}.webp";
+        return "https://${_getUserInfo(image.hash, 'tn')}.$apiDomain/webpsmalltn/${lastThreeCode.substring(2)}/${lastThreeCode.substring(0, 2)}/${image.hash}.webp";
       case ThumbnaiSize.big:
-        sizeStr = 'webpbigtn';
-        url =
-            "https://${_getUserInfo(image.hash, 'tn')}.$apiDomain/$sizeStr/${lastThreeCode.substring(2)}/${lastThreeCode.substring(0, 2)}/${image.hash}.webp";
+        return "https://${_getUserInfo(image.hash, 'tn')}.$apiDomain/webpbigtn/${lastThreeCode.substring(2)}/${lastThreeCode.substring(0, 2)}/${image.hash}.webp";
     }
-    return url;
   }
 
   @override

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:args/args.dart';
+import 'package:async/async.dart';
 import 'package:collection/collection.dart';
 import 'package:dcache/dcache.dart';
 import 'package:dio/dio.dart';
@@ -587,7 +588,8 @@ class TaskManager {
           return g;
         })
         .filterNonNull()
-        .asyncMap((g) => g.fixGallery())
+        .slices(5)
+        .asyncMap((ls) => Future.wait(ls.map((g) => g.fixGallery())))
         .length
         .then((l) {
           logger.i("fixGallerys finishd ${l}");
