@@ -75,6 +75,7 @@ class DirScanner {
                         _downLoader.logger?.d(
                           'update gallery ${id} new dir ${dir.path}',
                         );
+                        await _helper.deleteGallery(id);
                         await _helper.insertGallery(v, dir);
                       }
                     } else {
