@@ -420,9 +420,6 @@ class HitomiDir {
   }
 
   Future<bool> deleteGallery({String reason = ''}) async {
-    _downLoader.logger?.w(
-      'because $reason del gallery $gallery with path $dir exists ${dir.existsSync()}',
-    );
     return _downLoader.helper
         .deleteGallery(gallery.id)
         .then((value) => dir.exists())
@@ -436,6 +433,11 @@ class HitomiDir {
           }
           return true;
         })
+        .whenComplete(
+          () => _downLoader.logger?.w(
+            'because $reason del gallery $gallery with path $dir exists ${dir.existsSync()}',
+          ),
+        )
         .catchError((e) {
           _downLoader.logger?.e('del gallery $gallery faild');
           return false;

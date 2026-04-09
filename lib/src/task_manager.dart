@@ -525,68 +525,68 @@ class TaskManager {
     final scanner = DirScanner(config, helper, _downLoader);
     final count = await scanner
         .listDirs()
-        .asyncMap((g) async {
-          var gallery = g.gallery;
-          if (!gallery.hasAuthor) {
-            var target = await _downLoader.manager
-                .findNonAuthorizedDuplicateId(gallery)
-                .then(
-                  (ids) => Future.wait(
-                    ids
-                        .where((id) => id != gallery.id)
-                        .map(
-                          (id) => _downLoader.manager
-                              .getApiDirect(HitomiType.Local)
-                              .fetchGallery(id, usePrefence: false),
-                        ),
-                  ),
-                )
-                .then(
-                  (gs) => compareGallerWithOther(
-                    gallery,
-                    gs,
-                    _downLoader.config.languages,
-                  ),
-                )
-                .catchError((e) => gallery, test: (e) => true);
-            if (target.id != gallery.id) {
-              await g.deleteGallery(reason: 'duplicate id ${target.id}');
-              return null;
-            } else {
-              var v = await _downLoader.api
-                  .fetchGallery(gallery.id, usePrefence: false)
-                  .catchError((e) => gallery, test: (e) => true);
-              if (v.labels().length != gallery.labels().length) {
-                var d = v.createDir(
-                  _downLoader.config.output,
-                  createDir: false,
-                );
-                if (d.path != g.dir.path) {
-                  if (!d.existsSync() || d.listSync().isEmpty) {
-                    _downLoader.logger?.i(
-                      'rename dir from ${g.dir.path}} to ${d.path}',
-                    );
-                    g.dir.renameSync(d.path);
-                  } else {
-                    g.deleteGallery(reason: 'dir name conflict with ${d.path}');
-                  }
-                }
-                if (v.id != gallery.id) {
-                  await _downLoader.helper.deleteGallery(gallery.id);
-                }
-                _downLoader.logger?.i(
-                  'fix meta date from ${gallery.dirName} to ${v.dirName}',
-                );
-                await File(
-                  join(d.path, 'meta.json'),
-                ).writeAsString(json.encode(v));
-                await _downLoader.helper.insertGallery(v, d);
-                return HitomiDir(d, _downLoader, v);
-              }
-            }
-          }
-          return g;
-        })
+        // .asyncMap((g) async {
+        //   var gallery = g.gallery;
+        //   if (!gallery.hasAuthor) {
+        //     var target = await _downLoader.manager
+        //         .findNonAuthorizedDuplicateId(gallery)
+        //         .then(
+        //           (ids) => Future.wait(
+        //             ids
+        //                 .where((id) => id != gallery.id)
+        //                 .map(
+        //                   (id) => _downLoader.manager
+        //                       .getApiDirect(HitomiType.Local)
+        //                       .fetchGallery(id, usePrefence: false),
+        //                 ),
+        //           ),
+        //         )
+        //         .then(
+        //           (gs) => compareGallerWithOther(
+        //             gallery,
+        //             gs,
+        //             _downLoader.config.languages,
+        //           ),
+        //         )
+        //         .catchError((e) => gallery, test: (e) => true);
+        //     if (target.id != gallery.id) {
+        //       await g.deleteGallery(reason: 'duplicate id ${target.id}');
+        //       return null;
+        //     } else {
+        //       var v = await _downLoader.api
+        //           .fetchGallery(gallery.id, usePrefence: false)
+        //           .catchError((e) => gallery, test: (e) => true);
+        //       if (v.labels().length != gallery.labels().length) {
+        //         var d = v.createDir(
+        //           _downLoader.config.output,
+        //           createDir: false,
+        //         );
+        //         if (d.path != g.dir.path) {
+        //           if (!d.existsSync() || d.listSync().isEmpty) {
+        //             _downLoader.logger?.i(
+        //               'rename dir from ${g.dir.path}} to ${d.path}',
+        //             );
+        //             g.dir.renameSync(d.path);
+        //           } else {
+        //             g.deleteGallery(reason: 'dir name conflict with ${d.path}');
+        //           }
+        //         }
+        //         if (v.id != gallery.id) {
+        //           await _downLoader.helper.deleteGallery(gallery.id);
+        //         }
+        //         _downLoader.logger?.i(
+        //           'fix meta date from ${gallery.dirName} to ${v.dirName}',
+        //         );
+        //         await File(
+        //           join(d.path, 'meta.json'),
+        //         ).writeAsString(json.encode(v));
+        //         await _downLoader.helper.insertGallery(v, d);
+        //         return HitomiDir(d, _downLoader, v);
+        //       }
+        //     }
+        //   }
+        //   return g;
+        // })
         .filterNonNull()
         .slices(5)
         .asyncMap((ls) => Future.wait(ls.map((g) => g.fixGallery())))
