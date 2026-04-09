@@ -26,11 +26,13 @@ class DirScanner {
 
   Stream<HitomiDir> listDirs() {
     final stream = StreamController<HitomiDir>();
+    _downLoader.logger?.d('list dirs');
     Directory(_config.output)
         .list()
         .filterInstance<Directory>()
-        .asyncMap(
-          (d) => readGalleryFromPath(d.path, _downLoader.logger)
+        .asyncMap((d) {
+          _downLoader.logger?.t('read meta.json ${d.path}');
+          return readGalleryFromPath(d.path, _downLoader.logger)
               .then((v) => stream.add(HitomiDir(d, _downLoader, v)))
               .catchError((e) async {
                 _downLoader.logger?.e('read ${d.path} error');
@@ -44,11 +46,12 @@ class DirScanner {
                   }
                   stream.add(HitomiDir(d, _downLoader, value));
                 });
-              }, test: (error) => true),
-        )
+              }, test: (error) => true);
+        })
         .length
-        .then(
-          (l) => _helper
+        .then((l) {
+          _downLoader.logger?.d('can dir finished ${l} then start scan sqlite');
+          return _helper
               .querySqlByCursor('select path,id from Gallery')
               .then(
                 (value) => value.asyncMap((row) async {
@@ -56,8 +59,12 @@ class DirScanner {
                   var dir = Directory(
                     path.join(_downLoader.config.output, row['path']),
                   );
+                  final exists = dir.existsSync();
+                  _downLoader.logger?.t(
+                    'checn sqlite row ${id} with ${dir.path} ${exists}',
+                  );
                   try {
-                    if (!dir.existsSync()) {
+                    if (!exists) {
                       var v = await _downLoader.api.fetchGallery(
                         id,
                         usePrefence: false,
@@ -94,10 +101,16 @@ class DirScanner {
                     _downLoader.logger?.e(
                       'fetch gallery $id path ${dir.path}  error $e',
                     );
+                    _helper
+                        .deleteGallery(id)
+                        .then(
+                          (f) =>
+                              exists ? dir.deleteSync(recursive: true) : false,
+                        );
                   }
                 }).length,
-              ),
-        )
+              );
+        })
         .whenComplete(() => stream.close())
         .catchError((e) {
           _downLoader.logger?.e('list dirs error $e');
@@ -109,6 +122,7 @@ class DirScanner {
   }
 
   Future<int> removeDupGallery() async {
+    _downLoader.logger?.d('remove dup gallery');
     var cursor = await _helper.querySqlByCursor(
       "select t.name,t.type from GalleryTagRelation r left join Tags t on r.tid = t.id where t.type='artist' or t.type='group' group by t.name having count(t.name)>1",
     );
@@ -242,7 +256,7 @@ class DirScanner {
         .then((value) {
           if (value != null) {
             _downLoader.logger?.i('fix meta json ${value.name}');
-            File(path.join(dir, 'meta.json')).writeAsString(json.encode(value));
+            File(path.join(dir, 'meta.json')).writeAsString(json.encode(value),flush: true);
             return value;
           }
           return null;
@@ -498,6 +512,9 @@ class HitomiDir {
   }
 
   Future<bool> fixGallery() async {
+    _downLoader.logger?.d(
+      'fix gallery ${gallery.id} with ${dir.path} ${dir.existsSync()}',
+    );
     if (!_downLoader.filter(gallery) || (gallery.artists?.length ?? 0) > 2) {
       return deleteGallery(reason: 'filter failed');
     }

@@ -588,7 +588,7 @@ class TaskManager {
         //   return g;
         // })
         .filterNonNull()
-        .slices(5)
+        .slices(10)
         .asyncMap((ls) => Future.wait(ls.map((g) => g.fixGallery())))
         .length
         .then((l) {
