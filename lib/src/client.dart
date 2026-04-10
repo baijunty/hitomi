@@ -44,7 +44,9 @@ class ComfyClient {
           if (data is Map &&
               data['node'] == null &&
               _queue.contains(data['prompt_id'])) {
-            _logger.d('Task completed ${data['prompt_id']}');
+            _logger.d(
+              'Task completed ${data['prompt_id']} status ${message['type']} now left ${_queue.length}',
+            );
             // 找到当前完成的任务在队列中的索引
             final currentIndex = _queue.indexOf(data['prompt_id']);
             // 移除当前任务及之前的所有任务

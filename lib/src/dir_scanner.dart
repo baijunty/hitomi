@@ -24,101 +24,64 @@ class DirScanner {
   static final titleReg = RegExp(r'\((.+)\)(.+)');
   DirScanner(this._config, this._helper, this._downLoader);
 
-  Stream<HitomiDir> listDirs() {
-    final stream = StreamController<HitomiDir>();
+  Stream<HitomiDir> listDirs() async* {
     _downLoader.logger?.d('list dirs');
-    Directory(_config.output)
-        .list()
-        .filterInstance<Directory>()
-        .asyncMap((d) {
-          _downLoader.logger?.t('read meta.json ${d.path}');
-          return readGalleryFromPath(d.path, _downLoader.logger)
-              .then((v) => stream.add(HitomiDir(d, _downLoader, v)))
-              .catchError((e) async {
-                _downLoader.logger?.e('read ${d.path} error');
-                return _parseFromDir(d.path).then((value) {
-                  if (value == null) {
-                    _downLoader.logger?.w(
-                      'delete ${d.path} because has no metadata',
-                    );
-                    d.deleteSync(recursive: true);
-                    return;
-                  }
-                  stream.add(HitomiDir(d, _downLoader, value));
-                });
-              }, test: (error) => true);
-        })
-        .length
-        .then((l) {
-          _downLoader.logger?.d('can dir finished ${l} then start scan sqlite');
-          return _helper
-              .querySqlByCursor('select path,id from Gallery')
-              .then(
-                (value) => value.asyncMap((row) async {
-                  final id = row['id'];
-                  var dir = Directory(
-                    path.join(_downLoader.config.output, row['path']),
-                  );
-                  final exists = dir.existsSync();
-                  _downLoader.logger?.t(
-                    'checn sqlite row ${id} with ${dir.path} ${exists}',
-                  );
-                  try {
-                    if (!exists) {
-                      var v = await _downLoader.api.fetchGallery(
-                        id,
-                        usePrefence: false,
-                      );
-                      dir = v.createDir(_downLoader.config.output);
-                      if (dir.listSync().isEmpty) {
-                        _downLoader.logger?.d(
-                          'fix gallery ${id} with ${dir.path}',
-                        );
-                        File(
-                          path.join(dir.path, 'meta.json'),
-                        ).writeAsStringSync(json.encode(v), flush: true);
-                        stream.add(HitomiDir(dir, _downLoader, v));
-                      } else {
-                        _downLoader.logger?.d(
-                          'update gallery ${id} new dir ${dir.path}',
-                        );
-                        await _helper.deleteGallery(id);
-                        await _helper.insertGallery(v, dir);
-                      }
-                    } else {
-                      var v = await readGalleryFromPath(
-                        dir.path,
-                        _downLoader.logger,
-                      );
-                      if (v.id != id) {
-                        _downLoader.logger?.d(
-                          'delete gallery ${id} exits  ${dir.path}',
-                        );
-                        await _helper.deleteGallery(id);
-                      }
-                    }
-                  } catch (e) {
-                    _downLoader.logger?.e(
-                      'fetch gallery $id path ${dir.path}  error $e',
-                    );
-                    _helper
-                        .deleteGallery(id)
-                        .then(
-                          (f) =>
-                              exists ? dir.deleteSync(recursive: true) : false,
-                        );
-                  }
-                }).length,
-              );
-        })
-        .whenComplete(() => stream.close())
-        .catchError((e) {
-          _downLoader.logger?.e('list dirs error $e');
-          stream.addError(e);
-          stream.close();
-          return 0;
-        }, test: (e) => true);
-    return stream.stream;
+    await for (var d in Directory(
+      _config.output,
+    ).list().filterInstance<Directory>()) {
+      _downLoader.logger?.t('read meta.json ${d.path}');
+      try {
+        var v = await readGalleryFromPath(d.path, _downLoader.logger);
+        yield HitomiDir(d, _downLoader, v);
+      } catch (e) {
+        _downLoader.logger?.e('read ${d.path} error');
+        var v = await _parseFromDir(d.path);
+        if (v == null) {
+          _downLoader.logger?.w('delete ${d.path} because has no metadata');
+        } else {
+          yield HitomiDir(d, _downLoader, v);
+        }
+      }
+    }
+
+    _downLoader.logger?.d('start scan sqlite');
+    var cursor = await _helper.querySqlByCursor('select path,id from Gallery');
+    await for (var row in cursor) {
+      final id = row['id'];
+      var dir = Directory(path.join(_downLoader.config.output, row['path']));
+      final exists = dir.existsSync();
+      _downLoader.logger?.t(
+        'checn sqlite row ${id} with ${dir.path} ${exists}',
+      );
+      try {
+        if (!exists) {
+          var v = await _downLoader.api.fetchGallery(id, usePrefence: false);
+          dir = v.createDir(_downLoader.config.output);
+          if (dir.listSync().isEmpty) {
+            _downLoader.logger?.d('fix gallery ${id} with ${dir.path}');
+            File(
+              path.join(dir.path, 'meta.json'),
+            ).writeAsStringSync(json.encode(v), flush: true);
+            yield HitomiDir(dir, _downLoader, v);
+          } else {
+            _downLoader.logger?.d('update gallery ${id} new dir ${dir.path}');
+            await _helper.deleteGallery(id);
+            await _helper.insertGallery(v, dir);
+          }
+        } else {
+          var v = await readGalleryFromPath(dir.path, _downLoader.logger);
+          if (v.id != id) {
+            _downLoader.logger?.d('delete gallery ${id} exits  ${dir.path}');
+            await _helper.deleteGallery(id);
+          }
+        }
+      } catch (e) {
+        _downLoader.logger?.e('fetch gallery $id path ${dir.path}  error $e');
+        _helper
+            .deleteGallery(id)
+            .then((f) => exists ? dir.deleteSync(recursive: true) : false);
+      }
+    }
   }
 
   Future<int> removeDupGallery() async {
@@ -256,7 +219,9 @@ class DirScanner {
         .then((value) {
           if (value != null) {
             _downLoader.logger?.i('fix meta json ${value.name}');
-            File(path.join(dir, 'meta.json')).writeAsString(json.encode(value),flush: true);
+            File(
+              path.join(dir, 'meta.json'),
+            ).writeAsString(json.encode(value), flush: true);
             return value;
           }
           return null;
@@ -344,20 +309,23 @@ class HitomiDir {
           )
           .asStream()
           .asyncMap((img) async {
-            if (_downLoader.manager.adHash.any(
-                  (hash) => compareHashDistance(hash, img.fileHash ?? 0) < 4,
-                ) ||
-                _downLoader.config.aiTagPath.isNotEmpty &&
-                    await _downLoader.manager.client!
-                        .imageTag(
-                          path.join(
-                            gallery.createDir(_downLoader.config.output).path,
-                            img.name,
-                          ),
-                        )
-                        .then((resp) {
-                          return resp.contains('qr code');
-                        })) {
+            var file = File(
+              path.join(
+                gallery.createDir(_downLoader.config.output).path,
+                img.name,
+              ),
+            );
+            if (file.existsSync() &&
+                (_downLoader.manager.adHash.any(
+                      (hash) =>
+                          compareHashDistance(hash, img.fileHash ?? 0) < 4,
+                    ) ||
+                    _downLoader.config.aiTagPath.isNotEmpty &&
+                        await _downLoader.manager.client!
+                            .imageTag(file.path)
+                            .then((resp) {
+                              return resp.contains('qr code');
+                            }))) {
               _downLoader.logger?.w(
                 ' ${gallery.id} remove db illegal file ${img}',
               );
@@ -500,6 +468,7 @@ class HitomiDir {
         ? await _downLoader.manager.client!
               .imageEmbeddings(path.join(dir.path, gallery.files.first.name))
               .then((r) => r.values.firstOrNull)
+              .catchError((e) => null, test: (error) => true)
         : null;
     if (f != null) {
       _downLoader.logger?.d('ganerate image embedding for ${gallery.id}');

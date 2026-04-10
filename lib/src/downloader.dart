@@ -140,12 +140,16 @@ class DownLoader {
                       }, test: (error) => true);
                   if (needInsert) {
                     if (msg.target == msg.gallery.files.first) {
-                      await queueImageFeature(msg.file.path)
+                      await await manager.client!
+                          .imageEmbeddings(msg.file.path)
+                          .then((r) => r.values.firstOrNull)
                           .then(
-                            (imageFeature) => helper.updateGalleryImageEmbedding(
-                              msg.gallery.id,
-                              imageFeature,
-                            ),
+                            (imageFeature) => imageFeature != null
+                                ? helper.updateGalleryImageEmbedding(
+                                    msg.gallery.id,
+                                    imageFeature,
+                                  )
+                                : false,
                           )
                           .catchError((e) => true, test: (error) => true);
                     }
@@ -242,16 +246,6 @@ class DownLoader {
       return false;
     }
     return true;
-  }
-
-  /// Generates image tags using a deep learning model based on the provided file path.
-  /// It supports both single images and directories containing multiple images.
-  /// The function sends an HTTP POST request to the AI tagger API endpoint specified in [config.aiTagPath].
-  /// If successful, it returns a list of `ImageTagFeature` objects parsed from the response data.
-  Future<List<double>> queueImageFeature(String filePath) async {
-    return manager.client!
-        .imageEmbeddings(filePath)
-        .then((l) => l.values.first);
   }
 
   /// Finds and completes an incomplete gallery by comparing it with existing galleries in the specified directory.
