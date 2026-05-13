@@ -33,7 +33,10 @@ class _TaskWarp {
       ..get(
         '/test',
         (req) => Response.ok(
-          json.encode({'success': true, 'feature': _manager.config.aiTagPath}),
+          json.encode({
+            'success': true,
+            'feature': _manager.config.llamaBaseUri,
+          }),
           headers: defaultRespHeader,
         ),
       )

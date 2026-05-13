@@ -141,10 +141,11 @@ class DownLoader {
                   if (needInsert) {
                     if (msg.target == msg.gallery.files.first) {
                       await await manager.client!
-                          .imageEmbeddings(msg.file.path)
-                          .then((r) => r.values.firstOrNull)
+                          .imageEmbeddings(
+                            File(msg.file.path).readAsBytesSync(),
+                          )
                           .then(
-                            (imageFeature) => imageFeature != null
+                            (imageFeature) => imageFeature.isNotEmpty
                                 ? helper.updateGalleryImageEmbedding(
                                     msg.gallery.id,
                                     imageFeature,
@@ -183,43 +184,18 @@ class DownLoader {
     String referer = hitomiUrl,
     String? dirPath,
   }) async {
-    if (dirPath != null && config.aiTagPath.isNotEmpty) {
-      return Future.wait(
-        images.map(
-          (image) => manager.client!
-              .imageHash(join(dirPath, image.name))
-              .then((d) => d.values.first)
-              .catchError((e) => 0, test: (error) => true),
-        ),
-      );
-    } else if (config.aiTagPath.isEmpty) {
-      return Future.wait(
-        images.map(
-          (image) => manager
-              .getApiDirect(HitomiType.Remote)
-              .fetchImageData(image, refererUrl: referer)
-              .fold(<int>[], (acc, data) => acc..addAll(data))
-              .then((d) => imageHash(Uint8List.fromList(d)))
-              .catchError((e) => 0, test: (error) => true),
-        ),
-      );
-    } else {
-      return Future.wait(
-        images.map(
-          (image) => manager
-              .getApiDirect(HitomiType.Remote)
-              .fetchImageData(image, refererUrl: referer)
-              .fold(<int>[], (acc, data) => acc..addAll(data))
-              .then((d) => base64.encode(d))
-              .then(
-                (d) => manager.client!
-                    .base64ImageHash(d, name: image.name)
-                    .then((v) => v.values.first),
-              )
-              .catchError((e) => 0, test: (error) => true),
-        ),
-      );
-    }
+    return Future.wait(
+      images.map(
+        (image) => manager
+            .getApiDirect(
+              dirPath == null ? HitomiType.Remote : HitomiType.Local,
+            )
+            .fetchImageData(image, refererUrl: referer)
+            .fold(<int>[], (acc, data) => acc..addAll(data))
+            .then((d) => imageHash(Uint8List.fromList(d)))
+            .catchError((e) => 0, test: (error) => true),
+      ),
+    );
   }
 
   DownLoader({

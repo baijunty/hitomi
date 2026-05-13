@@ -320,11 +320,11 @@ class HitomiDir {
                       (hash) =>
                           compareHashDistance(hash, img.fileHash ?? 0) < 4,
                     ) ||
-                    _downLoader.config.aiTagPath.isNotEmpty &&
+                    _downLoader.config.llamaBaseUri.isNotEmpty &&
                         await _downLoader.manager.client!
-                            .imageTag(file.path)
+                            .detectElements(file.readAsBytesSync(), ['qr code'])
                             .then((resp) {
-                              return resp.contains('qr code');
+                              return resp['qr code'] == true;
                             }))) {
               _downLoader.logger?.w(
                 ' ${gallery.id} remove db illegal file ${img}',
@@ -464,13 +464,16 @@ class HitomiDir {
   }
 
   Future<bool> generateGalleryImageEmbedding() async {
-    var f = _downLoader.config.aiTagPath.isNotEmpty
+    var f = _downLoader.config.llamaBaseUri.isNotEmpty
         ? await _downLoader.manager.client!
-              .imageEmbeddings(path.join(dir.path, gallery.files.first.name))
-              .then((r) => r.values.firstOrNull)
-              .catchError((e) => null, test: (error) => true)
-        : null;
-    if (f != null) {
+              .imageEmbeddings(
+                File(
+                  path.join(dir.path, gallery.files.first.name),
+                ).readAsBytesSync(),
+              )
+              .catchError((e) => <double>[], test: (error) => true)
+        : <double>[];
+    if (f.isNotEmpty) {
       _downLoader.logger?.d('ganerate image embedding for ${gallery.id}');
       return await _downLoader.helper.updateGalleryImageEmbedding(
         gallery.id,

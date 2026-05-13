@@ -70,27 +70,6 @@ class _LocalHitomiImpl implements Hitomi {
             stream.addError(e);
             stream.close();
           }, test: (error) => true);
-    } else if (_manager.config.aiTagPath.isNotEmpty) {
-      origin
-          .then((value) {
-            if (value == null) {
-              stream.addError('file not found');
-              stream.close();
-              return null;
-            }
-            return _manager.client!
-                .imageResize(value)
-                .then((v) => v.first)
-                .then((body) {
-                  onProcess?.call(0, body.length);
-                  return stream.add(body);
-                });
-          })
-          .catchError((e) {
-            stream.addError(e);
-            _manager.logger.e('download error: $e');
-          }, test: (error) => true)
-          .whenComplete(() => stream.close());
     } else {
       origin
           .then((value) {

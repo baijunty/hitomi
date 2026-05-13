@@ -19,6 +19,8 @@ import 'package:logger/logger.dart';
 import 'package:path/path.dart' show join;
 import '../gallery/language.dart';
 import 'client.dart';
+import 'package:ml_linalg/distance.dart';
+import 'package:ml_linalg/vector.dart';
 import 'dir_scanner.dart';
 import 'gallery_util.dart';
 import 'hitomi_impl.dart';
@@ -72,7 +74,7 @@ class TaskManager {
       SimpleCache<Label, Map<String, dynamic>>(storage: _storage);
   final _reg = RegExp(r'!?\[(?<name>.*?)\]\(#*\s*\"?(?<url>\S+?)\"?\)');
   IsolateManager<List<int>?, String>? manager;
-  ComfyClient? client;
+  LlamaClient? client;
   late _MemoryOutputWrap outputEvent;
   DownLoader get down => _downLoader;
   List<Map<String, dynamic>> get queryTask => _queryTasks
@@ -131,12 +133,17 @@ class TaskManager {
         noBoxingByDefault: true,
       ),
     );
-    if (config.aiTagPath.isNotEmpty) {
-      client = ComfyClient(config.aiTagPath, dio, logger);
-    } else {
-      manager = IsolateManager<List<int>?, String>.create(
-        _compressRunner,
-        concurrent: config.maxTasks * 2,
+    manager = IsolateManager<List<int>?, String>.create(
+      _compressRunner,
+      concurrent: config.maxTasks * 2,
+    );
+    if (config.llamaBaseUri.isNotEmpty) {
+      client = LlamaClient(
+        baseUrl: config.llamaBaseUri,
+        apiKey: config.llamaApiKey,
+        embeddingModel: config.embeddingModel,
+        imageModel: config.imageModel,
+        logger: this.logger,
       );
     }
     helper = SqliteHelper(config.output, logger: logger);
@@ -420,12 +427,43 @@ class TaskManager {
             )
             .fold(idTitleMap, (map, item) => map..addAll(item));
       }
-      logger.d('$id text similer search done $ids');
+
+      // 一次性嵌入所有标题并在内存中进行余弦相似度比较，找出标题最相似的前 5 条
+      if (client != null && idTitleMap.isNotEmpty && gallery.title.isNotEmpty) {
+        try {
+          // 构建批量嵌入请求：第 0 条为当前画廊标题（参考向量），其余为 idTitleMap 中的标题
+          final contents = [
+            {'prompt_string': gallery.title},
+            ...idTitleMap.entries.map((e) => {'prompt_string': e.value}),
+          ];
+          final allEmbeddings = await client!.embedMultiModal(contents);
+
+          // 第 0 个是参考向量
+          final refVec = Vector.fromList(allEmbeddings[0]);
+          final entries = idTitleMap.entries.toList();
+
+          // 从索引 1 开始依次计算余弦距离
+          final scored = <MapEntry<int, double>>[];
+          for (var i = 0; i < entries.length; i++) {
+            final vec = Vector.fromList(allEmbeddings[i + 1]);
+            final distance = refVec.distanceTo(vec, distance: Distance.cosine);
+            scored.add(MapEntry(entries[i].key, distance));
+          }
+
+          // 按余弦距离升序排序（距离越小越相似），取前 5 条
+          scored.sort((a, b) => a.value.compareTo(b.value));
+          final topIds = scored.take(5).map((e) => e.key).toList();
+          logger.d('title cosine similarity top5: $topIds');
+          ids.addAll(topIds);
+        } catch (e) {
+          logger.e('title similarity search failed: $e');
+        }
+      }
       return await helper
           .querySql(
-            '''select e.gid as id,vector_distance(e1.imageEmbedding,e.imageEmbedding) as distance 
-             from GalleryExtra e left join GalleryExtra e1 on e1.gid = ? 
-             where e.gid != ? 
+            '''select e.gid as id,vector_distance(e1.imageEmbedding,e.imageEmbedding) as distance
+             from GalleryExtra e left join GalleryExtra e1 on e1.gid = ?
+             where e.gid != ?
              order by vector_distance(e1.imageEmbedding,e.imageEmbedding) limit 5''',
             [id, id],
           )
@@ -823,9 +861,9 @@ class TaskManager {
           (value) => helper
               .querySql(
                 '''
-          WITH ComputedResults AS ( 
-          SELECT gid,name,fileHash from GalleryFile WHERE hash_distance(fileHash,?) <5 
-          ) 
+          WITH ComputedResults AS (
+          SELECT gid,name,fileHash from GalleryFile WHERE hash_distance(fileHash,?) <5
+          )
           select gid as id,name from ComputedResults order by hash_distance(fileHash,?) limit $limit
           ''',
                 [value, value],

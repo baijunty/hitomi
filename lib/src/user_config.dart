@@ -18,9 +18,12 @@ abstract class UserConfig with _$UserConfig {
     @Default("12345678") String auth,
     @Default("debug") String logLevel,
     @Default("") String logOutput,
-    @Default("") String aiTagPath,
     @Default("127.0.0.1:7890") String remoteHttp,
     @Default(0.72) double threshold,
+    @Default("http://localhost:8080") String llamaBaseUri,
+    @Default("") String llamaApiKey,
+    @Default("Embeding") String embeddingModel,
+    @Default("Qwen3.6") String imageModel,
   }) = _UserConfig;
   factory UserConfig.fromJson(Map<String, Object> json) =>
       _$UserConfigFromJson(json);
