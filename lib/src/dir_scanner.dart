@@ -321,6 +321,7 @@ class HitomiDir {
                           compareHashDistance(hash, img.fileHash ?? 0) < 4,
                     ) ||
                     _downLoader.config.llamaBaseUri.isNotEmpty &&
+                        _downLoader.config.imageModel.isNotEmpty &&
                         await _downLoader.manager.client!
                             .detectElements(file.readAsBytesSync(), ['qr code'])
                             .then((resp) {
