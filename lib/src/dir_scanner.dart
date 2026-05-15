@@ -518,10 +518,13 @@ class HitomiDir {
                             images.every((i) => i.name != f.name),
                       )
                       .toList();
+                  missing.addAll(
+                    images.where((img) => (img.fileHash ?? 0) == 0),
+                  );
                   var lost = missing.isEmpty;
                   if (missing.isNotEmpty) {
                     _downLoader.logger?.i(
-                      '${gallery.dirName} fix file missing ${missing.map((e) => e.name).toList()}',
+                      '${gallery.dirName} fix images ${missing.map((e) => e.name).toList()}',
                     );
                     lost = await batchInsertImage(missing);
                   }

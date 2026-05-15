@@ -38,9 +38,6 @@ class LlamaClient {
   ///
   /// 返回结果按索引对应，每个元素为 Map<String, List<double>>
   Future<List<List<double>>> embedMultiModal(List<dynamic> contents) async {
-    logger?.i('embedMultiModal: 开始处理 ${contents.length} 个内容项');
-    logger?.d('embedMultiModal: 请求模型=$embeddingModel');
-
     final request = {'model': embeddingModel, 'content': contents};
 
     logger?.d('embedMultiModal: 发送请求到 $baseUrl/embeddings');
@@ -67,7 +64,6 @@ class LlamaClient {
     }
 
     final result = jsonDecode(response.body) as List<dynamic>;
-    logger?.i('embedMultiModal: 成功获取 ${result.length} 个嵌入向量');
 
     return result
         .map(
@@ -89,11 +85,8 @@ class LlamaClient {
     if (bytes == null) {
       return [];
     }
-    logger?.i('imageEmbeddings: 开始处理图片嵌入, 图片大小=${bytes.length} 字节');
+    logger?.d('imageEmbeddings: 开始处理图片嵌入, 图片大小=${bytes.length} 字节');
     final base64String = base64Encode(bytes);
-    logger?.d(
-      'imageEmbeddings: base64编码后大小=${base64String.length} 字符${base64String.substring(0, 10)}',
-    );
 
     final result = await embedMultiModal([
       {
@@ -102,7 +95,7 @@ class LlamaClient {
       },
     ]);
 
-    logger?.i('imageEmbeddings: 嵌入完成, 向量维度=${result[0].length}');
+    logger?.d('imageEmbeddings: 嵌入完成, 向量维度=${result[0].length}');
     return result[0];
   }
 
@@ -148,9 +141,6 @@ class LlamaClient {
       logger?.w('detectElements: 元素列表为空，直接返回空结果');
       return {};
     }
-
-    logger?.i('detectElements: 开始检测元素, 元素列表=${elements.join(", ")}');
-    logger?.d('detectElements: 原始图片大小=${dates.length} 字节');
 
     final bytes = await resizeThumbImage(dates, 512);
     if (bytes == null) {
@@ -222,10 +212,6 @@ class LlamaClient {
       // 限制最大 token 数以控制响应大小
       'max_tokens': 1024,
     };
-
-    logger?.d(
-      'detectElements: 发送请求到 $baseUrl/chat/completions, 模型=$imageModel',
-    );
     final stopwatch = Stopwatch()..start();
 
     final response = await http.post(
@@ -235,9 +221,6 @@ class LlamaClient {
     );
 
     stopwatch.stop();
-    logger?.d(
-      'detectElements: 响应耗时=${stopwatch.elapsedMilliseconds}ms, 状态码=${response.statusCode}',
-    );
 
     if (response.statusCode != 200) {
       logger?.e(
@@ -264,8 +247,6 @@ class LlamaClient {
       logger?.i('detectElements: 模型未调用 report_elements 函数，所有元素视为未检测到');
       return {for (final e in elements) e: false};
     }
-
-    logger?.d('detectElements: 模型调用了 ${toolCalls.length} 次工具函数');
 
     // 收集所有工具调用中报告的元素
     final detectedSet = <String>{};
