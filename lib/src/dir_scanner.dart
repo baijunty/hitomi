@@ -471,6 +471,7 @@ class HitomiDir {
                 File(
                   path.join(dir.path, gallery.files.first.name),
                 ).readAsBytesSync(),
+                resize: gallery.files.first.width > 640,
               )
               .catchError((e) => <double>[], test: (error) => true)
         : <double>[];

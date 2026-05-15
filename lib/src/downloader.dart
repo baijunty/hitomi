@@ -143,6 +143,7 @@ class DownLoader {
                       await await manager.client!
                           .imageEmbeddings(
                             File(msg.file.path).readAsBytesSync(),
+                            resize: msg.gallery.files.first.width > 640,
                           )
                           .then(
                             (imageFeature) => imageFeature.isNotEmpty

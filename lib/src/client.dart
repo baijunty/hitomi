@@ -37,9 +37,7 @@ class LlamaClient {
   /// - {"prompt_string": "<__media__>", "image_data": [base64String, ...]}
   ///
   /// 返回结果按索引对应，每个元素为 Map<String, List<double>>
-  Future<List<List<double>>> embedMultiModal(
-    List<Map<String, dynamic>> contents,
-  ) async {
+  Future<List<List<double>>> embedMultiModal(List<dynamic> contents) async {
     logger?.i('embedMultiModal: 开始处理 ${contents.length} 个内容项');
     logger?.d('embedMultiModal: 请求模型=$embeddingModel');
 
@@ -79,37 +77,28 @@ class LlamaClient {
         .toList();
   }
 
-  /// 文本嵌入
-  ///
-  /// 返回文本的嵌入向量
-  Future<List<double>> textEmbeddings(String text) async {
-    logger?.i('textEmbeddings: 开始处理文本嵌入, 文本长度=${text.length}');
-    logger?.d(
-      'textEmbeddings: 文本前50字符="${text.length > 50 ? '${text.substring(0, 50)}...' : text}"',
-    );
-
-    final result = await embedMultiModal([
-      {'prompt_string': text},
-    ]);
-
-    logger?.i('textEmbeddings: 嵌入完成, 向量维度=${result[0].length}');
-    return result[0];
-  }
-
   /// 图片嵌入
   ///
   /// [imagePath] 图片路径
   /// 返回图片的嵌入向量
-  Future<List<double>> imageEmbeddings(Uint8List bytes) async {
+  Future<List<double>> imageEmbeddings(
+    Uint8List dates, {
+    bool resize = true,
+  }) async {
+    final bytes = resize ? await resizeThumbImage(dates, 640, 90) : dates;
+    if (bytes == null) {
+      return [];
+    }
     logger?.i('imageEmbeddings: 开始处理图片嵌入, 图片大小=${bytes.length} 字节');
-
     final base64String = base64Encode(bytes);
-    logger?.d('imageEmbeddings: base64编码后大小=${base64String.length} 字符');
+    logger?.d(
+      'imageEmbeddings: base64编码后大小=${base64String.length} 字符${base64String.substring(0, 10)}',
+    );
 
     final result = await embedMultiModal([
       {
-        'prompt_string': '',
-        'image_data': [base64String],
+        'prompt_string': '<__media__>',
+        'multimodal_data': [base64String],
       },
     ]);
 

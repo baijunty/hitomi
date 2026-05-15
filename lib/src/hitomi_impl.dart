@@ -88,7 +88,7 @@ class _LocalHitomiImpl implements Hitomi {
           })
           .catchError((e) {
             stream.addError(e);
-            _manager.logger.e('download error: $e');
+            _manager.logger.e('fetch image $image error: $e');
           }, test: (error) => true)
           .whenComplete(() => stream.close());
     }
