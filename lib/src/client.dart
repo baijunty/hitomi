@@ -6,7 +6,6 @@ import 'package:hitomi/lib.dart';
 import 'package:http/http.dart' as http;
 import 'package:logger/logger.dart';
 
-
 class LlamaClient {
   final String baseUrl;
   final String apiKey;
@@ -93,7 +92,6 @@ class LlamaClient {
     Uint8List dates, {
     required String model,
     bool resize = true,
-    bool openai = false,
   }) async {
     final bytes = resize ? await resizeThumbImage(dates, 640, 90) : dates;
     if (bytes == null) {
@@ -109,7 +107,7 @@ class LlamaClient {
           'multimodal_data': [base64String],
         },
       ],
-      openai: openai,
+      openai: false,
       model: model,
     );
 
@@ -161,7 +159,7 @@ class LlamaClient {
       return {};
     }
 
-    final bytes = await resizeThumbImage(dates, 512);
+    final bytes = await resizeThumbImage(dates, 640);
     if (bytes == null) {
       logger?.w('detectElements: 图片缩略图生成失败，返回空结果');
       return {};
@@ -246,6 +244,7 @@ class LlamaClient {
       );
     }
     final result = jsonDecode(response.body) as Map<String, dynamic>;
+    logger?.d('response reulst $result');
     final choices = result['choices'] as List<dynamic>;
 
     if (choices.isEmpty) {

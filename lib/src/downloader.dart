@@ -127,7 +127,6 @@ class DownLoader {
                   (msg.target as Image).name,
                 ])
                 .then((value) async {
-                  bool needInsert = value.firstOrNull == null;
                   int hashValue =
                       value.firstOrNull?['fileHash'] ??
                       await computeImageHash(
@@ -138,25 +137,6 @@ class DownLoader {
                         msg.file.deleteSync();
                         return 0;
                       }, test: (error) => true);
-                  if (needInsert) {
-                    if (msg.target == msg.gallery.files.first) {
-                      await await manager.client!
-                          .imageEmbeddings(
-                            File(msg.file.path).readAsBytesSync(),
-                            resize: msg.gallery.files.first.width > 640,
-                            model: config.imageEmbeddingModel,
-                          )
-                          .then(
-                            (imageFeature) => imageFeature.isNotEmpty
-                                ? helper.updateGalleryImageEmbedding(
-                                    msg.gallery.id,
-                                    imageFeature,
-                                  )
-                                : false,
-                          )
-                          .catchError((e) => true, test: (error) => true);
-                    }
-                  }
                   return helper.insertGalleryFile(
                     msg.gallery,
                     msg.target,

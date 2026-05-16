@@ -490,11 +490,32 @@ class HitomiDir {
     return false;
   }
 
+  Future<bool> generateGalleryTitleEmbedding() async {
+    var f = _downLoader.config.llamaBaseUri.isNotEmpty
+        ? await _downLoader.manager.client!
+              .embedMultiModal(
+                [gallery.title],
+                openai: true,
+                model: _downLoader.config.textEmbeddingModel,
+              )
+              .then(
+                (embeddings) =>
+                    embeddings.isNotEmpty ? embeddings.first : <double>[],
+              )
+              .catchError((e) => <double>[], test: (error) => true)
+        : <double>[];
+    if (f.isNotEmpty) {
+      _downLoader.logger?.d('generate text embedding for ${gallery.id}');
+      return await _downLoader.helper.updateGalleryTextEmbedding(gallery.id, f);
+    }
+    return false;
+  }
+
   Future<bool> fixGallery() async {
     _downLoader.logger?.d(
       'fix gallery ${gallery.id} with ${dir.path} ${dir.existsSync()}',
     );
-    if (!_downLoader.filter(gallery) || (gallery.artists?.length ?? 0) > 2) {
+    if (!_downLoader.filter(gallery)) {
       return deleteGallery(reason: 'filter failed');
     }
     var images = await _downLoader.helper.getImageListByGid(gallery.id);
@@ -504,7 +525,7 @@ class HitomiDir {
           if (value) {
             return _downLoader.helper
                 .querySql(
-                  'select g.title, g.date, ge.imageEmbedding from Gallery g left join GalleryExtra ge on g.id = ge.gid where g.id=?',
+                  'select g.title, g.date, ge.imageEmbedding,ge.textEmbedding from Gallery g left join GalleryExtra ge on g.id = ge.gid where g.id=?',
                   [gallery.id],
                 )
                 .then((set) async {
@@ -515,6 +536,9 @@ class HitomiDir {
                   }
                   if (set.firstOrNull?['imageEmbedding'] == null) {
                     await generateGalleryImageEmbedding();
+                  }
+                  if (set.firstOrNull?['textEmbedding'] == null) {
+                    await generateGalleryTitleEmbedding();
                   }
                   var missing = gallery.files
                       .where(

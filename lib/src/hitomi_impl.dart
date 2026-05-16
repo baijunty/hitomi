@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:hitomi/gallery/image.dart';
 import 'package:hitomi/gallery/label.dart';
@@ -143,97 +144,130 @@ class _LocalHitomiImpl implements Hitomi {
     var group = include.groupListsBy((element) => element.runtimeType);
     var excludeGroups = exclude.groupListsBy((element) => element.runtimeType);
     final sql = StringBuffer(
-      'select COUNT(*) OVER() AS total_count,g.id from Gallery g where ',
+      'select COUNT(*) OVER() AS total_count,g.id from Gallery g left join GalleryExtra ge on g.id=ge.gid where ',
     );
     final params = [];
-    group.entries.fold(sql, (previousValue, element) {
-      switch (element.key) {
+    for (final entry in group.entries) {
+      switch (entry.key) {
         case QueryText:
           {
-            previousValue.write('( ');
-            element.value.foldIndexed(sql, (index, previousValue, element) {
-              params.add('%${element.name}%');
+            sql.write('( ');
+            for (var index = 0; index < entry.value.length; index++) {
+              final item = entry.value[index];
+              params.add('%${item.name}%');
               if (index != 0) {
-                previousValue.write('and ');
+                sql.write('and ');
               }
-              return previousValue..write('title like ? ');
-            });
-            previousValue.write(') and ');
+              sql.write('title like ? ');
+            }
+            // 如果配置了嵌入模型，使用textEmbedding进行语义相似度搜索
+            if (_manager.config.llamaBaseUri.isNotEmpty) {
+              try {
+                final vectors = await _manager.client!.embedMultiModal(
+                  entry.value.toList(),
+                  openai: true,
+                  model: _manager.config.textEmbeddingModel,
+                );
+                if (vectors.isNotEmpty) {
+                  // 如果有多个查询文本，对向量取平均
+                  final avgVector = List<double>.generate(
+                    vectors.first.length,
+                    (i) =>
+                        vectors.fold(0.0, (sum, v) => sum + v[i]) /
+                        vectors.length,
+                  );
+                  // 转换为Uint8List，与数据库存储格式一致
+                  final float64List = Float64List.fromList(avgVector);
+                  final vectorBytes = float64List.buffer.asUint8List();
+                  // 使用向量距离搜索语义相似的条目（距离越小越相似，<0.5表示高相似度）
+                  sql.write(
+                    'or (ge.textEmbedding is not null and vector_distance(?, ge.textEmbedding) < 0.5) ',
+                  );
+                  params.add(vectorBytes);
+                }
+              } catch (e) {
+                _manager.logger.e('获取文本嵌入向量失败: $e');
+              }
+            }
+            sql.write(') and ');
           }
         case Language:
         case TypeLabel:
           {
-            previousValue.write('( ');
-            element.value.foldIndexed(sql, (index, previousValue, element) {
-              params.addAll([element.name]);
+            sql.write('( ');
+            for (var index = 0; index < entry.value.length; index++) {
+              final item = entry.value[index];
+              params.addAll([item.name]);
               if (index != 0) {
-                previousValue.write('or ');
+                sql.write('or ');
               }
-              return previousValue..write('${element.type} =? ');
-            });
-            previousValue.write(') and ');
+              sql.write('${item.type} =? ');
+            }
+            sql.write(') and ');
           }
         default:
           {
-            previousValue.write('( ');
-            element.value.foldIndexed(sql, (index, previousValue, element) {
-              params.addAll(element.params);
+            sql.write('( ');
+            for (var index = 0; index < entry.value.length; index++) {
+              final item = entry.value[index];
+              params.addAll(item.params);
               if (index != 0) {
-                previousValue.write('and ');
+                sql.write('and ');
               }
-              return previousValue..write(
+              sql.write(
                 'exists (select 1 from GalleryTagRelation r where r.gid = g.id and r.tid = (select id from Tags where type = ? and name = ?))',
               );
-            });
-            previousValue.write(') and ');
+            }
+            sql.write(') and ');
           }
       }
-      return previousValue;
-    });
-    excludeGroups.entries.fold(sql, (previousValue, element) {
-      switch (element.key) {
+    }
+    for (final entry in excludeGroups.entries) {
+      switch (entry.key) {
         case QueryText:
           {
-            previousValue.write('( ');
-            element.value.foldIndexed(sql, (index, previousValue, element) {
-              params.add('%${element.name}%');
+            sql.write('( ');
+            for (var index = 0; index < entry.value.length; index++) {
+              final item = entry.value[index];
+              params.add('%${item.name}%');
               if (index != 0) {
-                previousValue.write('and ');
+                sql.write('and ');
               }
-              return previousValue..write('title not like ? ');
-            });
-            previousValue.write(') and ');
+              sql.write('title not like ? ');
+            }
+            sql.write(') and ');
           }
         case Language:
         case TypeLabel:
           {
-            previousValue.write('( ');
-            element.value.foldIndexed(sql, (index, previousValue, element) {
-              params.addAll([element.name]);
+            sql.write('( ');
+            for (var index = 0; index < entry.value.length; index++) {
+              final item = entry.value[index];
+              params.addAll([item.name]);
               if (index != 0) {
-                previousValue.write('or ');
+                sql.write('or ');
               }
-              return previousValue..write('${element.type} =? ');
-            });
-            previousValue.write(') and ');
+              sql.write('${item.type} =? ');
+            }
+            sql.write(') and ');
           }
         default:
           {
-            previousValue.write('( ');
-            element.value.foldIndexed(sql, (index, previousValue, element) {
-              params.addAll(element.params);
+            sql.write('( ');
+            for (var index = 0; index < entry.value.length; index++) {
+              final item = entry.value[index];
+              params.addAll(item.params);
               if (index != 0) {
-                previousValue.write('and ');
+                sql.write('and ');
               }
-              return previousValue..write(
+              sql.write(
                 'not exists (select 1 from GalleryTagRelation r where r.gid = g.id and r.tid = (select id from Tags where type = ? and name = ?))',
               );
-            });
-            previousValue.write(') and ');
+            }
+            sql.write(') and ');
           }
       }
-      return previousValue;
-    });
+    }
     sql.write('1=1');
     switch (sort) {
       case SortEnum.Default:
