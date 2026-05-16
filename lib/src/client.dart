@@ -6,17 +6,14 @@ import 'package:hitomi/lib.dart';
 import 'package:http/http.dart' as http;
 import 'package:logger/logger.dart';
 
+
 class LlamaClient {
   final String baseUrl;
   final String apiKey;
-  final String embeddingModel;
-  final String imageModel;
   late Logger? logger = null;
   LlamaClient({
     required this.baseUrl,
     required this.apiKey,
-    required this.embeddingModel,
-    required this.imageModel,
     this.logger = null,
   });
 
@@ -37,21 +34,24 @@ class LlamaClient {
   /// - {"prompt_string": "<__media__>", "image_data": [base64String, ...]}
   ///
   /// 返回结果按索引对应，每个元素为 Map<String, List<double>>
-  Future<List<List<double>>> embedMultiModal(List<dynamic> contents) async {
-    final request = {'model': embeddingModel, 'content': contents};
-
-    logger?.d('embedMultiModal: 发送请求到 $baseUrl/embeddings');
-    final stopwatch = Stopwatch()..start();
+  Future<List<List<double>>> embedMultiModal(
+    List<dynamic> contents, {
+    required String model,
+    bool openai = false,
+  }) async {
+    final request = <String, dynamic>{'model': model};
+    if (openai) {
+      request['input'] = contents;
+    } else {
+      request['content'] = contents;
+    }
+    final url = openai ? '$baseUrl/v1/embeddings' : '$baseUrl/embeddings';
+    logger?.d('embedMultiModal: 发送请求到 $url 模型 $model user openai $openai');
 
     final response = await http.post(
-      Uri.parse('$baseUrl/embeddings'),
+      Uri.parse('$url'),
       headers: _headers,
       body: jsonEncode(request),
-    );
-
-    stopwatch.stop();
-    logger?.d(
-      'embedMultiModal: 响应耗时=${stopwatch.elapsedMilliseconds}ms, 状态码=${response.statusCode}',
     );
 
     if (response.statusCode != 200) {
@@ -63,14 +63,26 @@ class LlamaClient {
       );
     }
 
-    final result = jsonDecode(response.body) as List<dynamic>;
+    if (openai) {
+      // OpenAI 格式：响应为 {"data": [{"embedding": [...], "index": 0, "object": "embedding"}, ...]}
+      final result = jsonDecode(response.body) as Map<String, dynamic>;
+      final data = result['data'] as List<dynamic>;
+      return data
+          .map(
+            (e) => List<double>.from((e as Map<String, dynamic>)['embedding']),
+          )
+          .toList();
+    } else {
+      // 原始格式：响应为 [{embedding: [[...]]}, ...]
+      final result = jsonDecode(response.body) as List<dynamic>;
 
-    return result
-        .map(
-          (e) =>
-              List<double>.from((e as Map<String, dynamic>)['embedding'][0]!),
-        )
-        .toList();
+      return result
+          .map(
+            (e) =>
+                List<double>.from((e as Map<String, dynamic>)['embedding'][0]!),
+          )
+          .toList();
+    }
   }
 
   /// 图片嵌入
@@ -79,7 +91,9 @@ class LlamaClient {
   /// 返回图片的嵌入向量
   Future<List<double>> imageEmbeddings(
     Uint8List dates, {
+    required String model,
     bool resize = true,
+    bool openai = false,
   }) async {
     final bytes = resize ? await resizeThumbImage(dates, 640, 90) : dates;
     if (bytes == null) {
@@ -88,12 +102,16 @@ class LlamaClient {
     logger?.d('imageEmbeddings: 开始处理图片嵌入, 图片大小=${bytes.length} 字节');
     final base64String = base64Encode(bytes);
 
-    final result = await embedMultiModal([
-      {
-        'prompt_string': '<__media__>',
-        'multimodal_data': [base64String],
-      },
-    ]);
+    final result = await embedMultiModal(
+      [
+        {
+          'prompt_string': '<__media__>',
+          'multimodal_data': [base64String],
+        },
+      ],
+      openai: openai,
+      model: model,
+    );
 
     logger?.d('imageEmbeddings: 嵌入完成, 向量维度=${result[0].length}');
     return result[0];
@@ -136,6 +154,7 @@ class LlamaClient {
   Future<Map<String, bool>> detectElements(
     Uint8List dates,
     List<String> elements,
+    String model,
   ) async {
     if (elements.isEmpty) {
       logger?.w('detectElements: 元素列表为空，直接返回空结果');
@@ -147,10 +166,6 @@ class LlamaClient {
       logger?.w('detectElements: 图片缩略图生成失败，返回空结果');
       return {};
     }
-
-    logger?.d(
-      'detectElements: 缩略图大小=${bytes.length} 字节, MIME类型=${_detectImageMime(bytes)}',
-    );
 
     final base64String = base64Encode(bytes);
     final mimeType = _detectImageMime(bytes);
@@ -205,22 +220,22 @@ class LlamaClient {
     ];
 
     final request = {
-      'model': imageModel,
+      'model': model,
       'messages': messages,
       'tools': [tool],
       'tool_choice': 'auto',
       // 限制最大 token 数以控制响应大小
       'max_tokens': 1024,
     };
-    final stopwatch = Stopwatch()..start();
 
+    logger?.d(
+      'detectElements: 缩略图大小=${bytes.length} 字节, MIME类型=${mimeType} $model ',
+    );
     final response = await http.post(
-      Uri.parse('$baseUrl/chat/completions'),
+      Uri.parse('$baseUrl/v1/chat/completions'),
       headers: _headers,
       body: jsonEncode(request),
     );
-
-    stopwatch.stop();
 
     if (response.statusCode != 200) {
       logger?.e(
@@ -230,7 +245,6 @@ class LlamaClient {
         'Failed to detect elements: ${response.statusCode} - ${response.body}',
       );
     }
-
     final result = jsonDecode(response.body) as Map<String, dynamic>;
     final choices = result['choices'] as List<dynamic>;
 

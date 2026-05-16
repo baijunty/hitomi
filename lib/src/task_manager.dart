@@ -141,8 +141,6 @@ class TaskManager {
       client = LlamaClient(
         baseUrl: config.llamaBaseUri,
         apiKey: config.llamaApiKey,
-        embeddingModel: config.embeddingModel,
-        imageModel: config.imageModel,
         logger: this.logger,
       );
     }
@@ -432,11 +430,12 @@ class TaskManager {
       if (client != null && idTitleMap.isNotEmpty && gallery.title.isNotEmpty) {
         try {
           // 构建批量嵌入请求：第 0 条为当前画廊标题（参考向量），其余为 idTitleMap 中的标题
-          final contents = [
-            {'prompt_string': gallery.title},
-            ...idTitleMap.entries.map((e) => {'prompt_string': e.value}),
-          ];
-          final allEmbeddings = await client!.embedMultiModal(contents);
+          final contents = [gallery.title, ...idTitleMap.values];
+          final allEmbeddings = await client!.embedMultiModal(
+            contents,
+            openai: true,
+            model: config.textEmbeddingModel,
+          );
 
           // 第 0 个是参考向量
           final refVec = Vector.fromList(allEmbeddings[0]);
@@ -453,7 +452,10 @@ class TaskManager {
           // 按余弦距离升序排序（距离越小越相似），取前 5 条
           scored.sort((a, b) => a.value.compareTo(b.value));
           final topIds = scored.take(5).map((e) => e.key).toList();
-          logger.d('title cosine similarity top5: $topIds');
+          final topTitles = topIds
+              .map((id) => '$id: ${idTitleMap[id] ?? ''}')
+              .join(', ');
+          logger.d('title cosine similarity top5: $topTitles');
           ids.addAll(topIds);
         } catch (e) {
           logger.e('title similarity search failed: $e');

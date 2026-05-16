@@ -144,6 +144,7 @@ class DownLoader {
                           .imageEmbeddings(
                             File(msg.file.path).readAsBytesSync(),
                             resize: msg.gallery.files.first.width > 640,
+                            model: config.imageEmbeddingModel,
                           )
                           .then(
                             (imageFeature) => imageFeature.isNotEmpty

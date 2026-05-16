@@ -321,11 +321,15 @@ class HitomiDir {
                           compareHashDistance(hash, img.fileHash ?? 0) < 4,
                     ) ||
                     _downLoader.config.llamaBaseUri.isNotEmpty &&
-                        _downLoader.config.imageModel.isNotEmpty &&
+                        _downLoader.config.multimodal.isNotEmpty &&
                         await _downLoader.manager.client!
-                            .detectElements(file.readAsBytesSync(), ['qr code'])
+                            .detectElements(
+                              file.readAsBytesSync(),
+                              ['网站宣传信息'],
+                              _downLoader.config.multimodal,
+                            )
                             .then((resp) {
-                              return resp['qr code'] == true;
+                              return resp['网站宣传信息'] == true;
                             }))) {
               _downLoader.logger?.w(
                 ' ${gallery.id} remove db illegal file ${img}',
@@ -472,6 +476,7 @@ class HitomiDir {
                   path.join(dir.path, gallery.files.first.name),
                 ).readAsBytesSync(),
                 resize: gallery.files.first.width > 640,
+                model: _downLoader.config.imageEmbeddingModel,
               )
               .catchError((e) => <double>[], test: (error) => true)
         : <double>[];
