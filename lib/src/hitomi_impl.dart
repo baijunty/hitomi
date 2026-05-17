@@ -163,10 +163,8 @@ class _LocalHitomiImpl implements Hitomi {
             // 如果配置了嵌入模型，使用textEmbedding进行语义相似度搜索
             if (_manager.config.llamaBaseUri.isNotEmpty) {
               try {
-                final vectors = await _manager.client!.embedMultiModal(
+                var vectors = await _manager.client!.embedMultiModal(
                   entry.value.toList(),
-                  openai: true,
-                  model: _manager.config.textEmbeddingModel,
                 );
                 if (vectors.isNotEmpty) {
                   // 如果有多个查询文本，对向量取平均
@@ -181,7 +179,11 @@ class _LocalHitomiImpl implements Hitomi {
                   final vectorBytes = float64List.buffer.asUint8List();
                   // 使用向量距离搜索语义相似的条目（距离越小越相似，<0.5表示高相似度）
                   sql.write(
-                    'or (ge.textEmbedding is not null and vector_distance(?, ge.textEmbedding) < 0.5) ',
+                    'or (ge.textEmbedding is not null and vector_distance(?, ge.textEmbedding) < 0.4) ',
+                  );
+                  params.add(vectorBytes);
+                  sql.write(
+                    'or (ge.imageEmbedding is not null and vector_distance(?, ge.imageEmbedding) < 0.4) ',
                   );
                   params.add(vectorBytes);
                 }

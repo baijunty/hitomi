@@ -323,11 +323,7 @@ class HitomiDir {
                     _downLoader.config.llamaBaseUri.isNotEmpty &&
                         _downLoader.config.multimodal.isNotEmpty &&
                         await _downLoader.manager.client!
-                            .detectElements(
-                              file.readAsBytesSync(),
-                              ['网站宣传信息'],
-                              _downLoader.config.multimodal,
-                            )
+                            .detectElements(file.readAsBytesSync(), ['网站宣传信息'])
                             .then((resp) {
                               return resp['网站宣传信息'] == true;
                             }))) {
@@ -476,7 +472,6 @@ class HitomiDir {
                   path.join(dir.path, gallery.files.first.name),
                 ).readAsBytesSync(),
                 resize: gallery.files.first.width > 640,
-                model: _downLoader.config.imageEmbeddingModel,
               )
               .catchError((e) => <double>[], test: (error) => true)
         : <double>[];
@@ -493,11 +488,7 @@ class HitomiDir {
   Future<bool> generateGalleryTitleEmbedding() async {
     var f = _downLoader.config.llamaBaseUri.isNotEmpty
         ? await _downLoader.manager.client!
-              .embedMultiModal(
-                [gallery.title],
-                openai: true,
-                model: _downLoader.config.textEmbeddingModel,
-              )
+              .embedMultiModal([gallery.title], openai: true)
               .then(
                 (embeddings) =>
                     embeddings.isNotEmpty ? embeddings.first : <double>[],

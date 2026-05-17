@@ -138,11 +138,7 @@ class TaskManager {
       concurrent: config.maxTasks * 2,
     );
     if (config.llamaBaseUri.isNotEmpty) {
-      client = LlamaClient(
-        baseUrl: config.llamaBaseUri,
-        apiKey: config.llamaApiKey,
-        logger: this.logger,
-      );
+      client = LlamaClient(config: config, logger: this.logger);
     }
     helper = SqliteHelper(config.output, logger: logger);
     dio.httpClientAdapter = crateHttpClientAdapter(config.proxy);
@@ -434,7 +430,6 @@ class TaskManager {
           final allEmbeddings = await client!.embedMultiModal(
             contents,
             openai: true,
-            model: config.textEmbeddingModel,
           );
 
           // 第 0 个是参考向量

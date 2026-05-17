@@ -30,9 +30,7 @@ _UserConfig _$UserConfigFromJson(Map<String, dynamic> json) => _UserConfig(
   threshold: (json['threshold'] as num?)?.toDouble() ?? 0.72,
   llamaBaseUri: json['llamaBaseUri'] as String? ?? "http://localhost:8080",
   llamaApiKey: json['llamaApiKey'] as String? ?? "",
-  textEmbeddingModel: json['textEmbeddingModel'] as String? ?? "gemma4-it:e2b",
-  imageEmbeddingModel:
-      json['imageEmbeddingModel'] as String? ?? "Qwen3-VL-Embedding",
+  embeddingModel: json['embeddingModel'] as String? ?? "Embedding",
   multimodal: json['multimodal'] as String? ?? "gemma4-it:e2b",
 );
 
@@ -51,7 +49,6 @@ Map<String, dynamic> _$UserConfigToJson(_UserConfig instance) =>
       'threshold': instance.threshold,
       'llamaBaseUri': instance.llamaBaseUri,
       'llamaApiKey': instance.llamaApiKey,
-      'textEmbeddingModel': instance.textEmbeddingModel,
-      'imageEmbeddingModel': instance.imageEmbeddingModel,
+      'embeddingModel': instance.embeddingModel,
       'multimodal': instance.multimodal,
     };

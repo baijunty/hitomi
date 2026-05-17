@@ -7,20 +7,16 @@ import 'package:http/http.dart' as http;
 import 'package:logger/logger.dart';
 
 class LlamaClient {
-  final String baseUrl;
-  final String apiKey;
+  final UserConfig config;
   late Logger? logger = null;
-  LlamaClient({
-    required this.baseUrl,
-    required this.apiKey,
-    this.logger = null,
-  });
+  LlamaClient({required this.config, this.logger = null});
 
   /// 构建请求头
   Map<String, String> get _headers {
     return {
       'Content-Type': 'application/json',
-      if (apiKey.isNotEmpty) 'Authorization': 'Bearer $apiKey',
+      if (config.llamaApiKey.isNotEmpty)
+        'Authorization': 'Bearer ${config.llamaApiKey}',
     };
   }
 
@@ -35,17 +31,20 @@ class LlamaClient {
   /// 返回结果按索引对应，每个元素为 Map<String, List<double>>
   Future<List<List<double>>> embedMultiModal(
     List<dynamic> contents, {
-    required String model,
     bool openai = false,
   }) async {
-    final request = <String, dynamic>{'model': model};
+    final request = <String, dynamic>{'model': config.embeddingModel};
     if (openai) {
       request['input'] = contents;
     } else {
       request['content'] = contents;
     }
-    final url = openai ? '$baseUrl/v1/embeddings' : '$baseUrl/embeddings';
-    logger?.d('embedMultiModal: 发送请求到 $url 模型 $model user openai $openai');
+    final url = openai
+        ? '${config.llamaBaseUri}/v1/embeddings'
+        : '${config.llamaBaseUri}/embeddings';
+    logger?.i(
+      'embedMultiModal: 发送请求到 $url 模型 ${config.embeddingModel} user openai $openai',
+    );
 
     final response = await http.post(
       Uri.parse('$url'),
@@ -57,9 +56,7 @@ class LlamaClient {
       logger?.e(
         'embedMultiModal: 请求失败, 状态码=${response.statusCode}, 响应=${response.body}',
       );
-      throw Exception(
-        'Failed to get embeddings: ${response.statusCode} - ${response.body}',
-      );
+      return [];
     }
 
     if (openai) {
@@ -90,7 +87,6 @@ class LlamaClient {
   /// 返回图片的嵌入向量
   Future<List<double>> imageEmbeddings(
     Uint8List dates, {
-    required String model,
     bool resize = true,
   }) async {
     final bytes = resize ? await resizeThumbImage(dates, 640, 90) : dates;
@@ -100,16 +96,12 @@ class LlamaClient {
     logger?.d('imageEmbeddings: 开始处理图片嵌入, 图片大小=${bytes.length} 字节');
     final base64String = base64Encode(bytes);
 
-    final result = await embedMultiModal(
-      [
-        {
-          'prompt_string': '<__media__>',
-          'multimodal_data': [base64String],
-        },
-      ],
-      openai: false,
-      model: model,
-    );
+    final result = await embedMultiModal([
+      {
+        'prompt_string': '<__media__>',
+        'multimodal_data': [base64String],
+      },
+    ], openai: false);
 
     logger?.d('imageEmbeddings: 嵌入完成, 向量维度=${result[0].length}');
     return result[0];
@@ -152,7 +144,6 @@ class LlamaClient {
   Future<Map<String, bool>> detectElements(
     Uint8List dates,
     List<String> elements,
-    String model,
   ) async {
     if (elements.isEmpty) {
       logger?.w('detectElements: 元素列表为空，直接返回空结果');
@@ -218,7 +209,7 @@ class LlamaClient {
     ];
 
     final request = {
-      'model': model,
+      'model': config.multimodal,
       'messages': messages,
       'tools': [tool],
       'tool_choice': 'auto',
@@ -227,10 +218,10 @@ class LlamaClient {
     };
 
     logger?.d(
-      'detectElements: 缩略图大小=${bytes.length} 字节, MIME类型=${mimeType} $model ',
+      'detectElements: 缩略图大小=${bytes.length} 字节, MIME类型=${mimeType} ${config.multimodal} ',
     );
     final response = await http.post(
-      Uri.parse('$baseUrl/v1/chat/completions'),
+      Uri.parse('${config.llamaBaseUri}/v1/chat/completions'),
       headers: _headers,
       body: jsonEncode(request),
     );
