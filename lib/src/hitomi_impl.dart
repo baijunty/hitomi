@@ -149,6 +149,7 @@ class _LocalHitomiImpl implements Hitomi {
     final params = [];
     bool _hasVectorDistance = false;
     final _vectorSortParams = <Uint8List>[];
+    final _queryTexts = <String>[];
     for (final entry in group.entries) {
       switch (entry.key) {
         case QueryText:
@@ -161,6 +162,7 @@ class _LocalHitomiImpl implements Hitomi {
                 sql.write('and ');
               }
               sql.write('title like ? ');
+              _queryTexts.add(item.name);
             }
             // 如果配置了嵌入模型，使用textEmbedding进行语义相似度搜索
             if (_manager.config.llamaBaseUri.isNotEmpty) {
@@ -271,30 +273,53 @@ class _LocalHitomiImpl implements Hitomi {
     sql.write('1=1');
     if (_hasVectorDistance) {
       // Sort by closest vector distance ascending when embeddings are used
-      sql.write(' order by min(');
+      sql.write(' order by ');
+      // Highest priority: galleries whose title contains the search text
+      if (_queryTexts.isNotEmpty) {
+        sql.write('case when (');
+        for (var i = 0; i < _queryTexts.length; i++) {
+          if (i > 0) sql.write(' and ');
+          params.add('%${_queryTexts[i]}%');
+          sql.write('g.title like ?');
+        }
+        sql.write(') then 0 else 1 end, ');
+      }
       for (var i = 0; i < _vectorSortParams.length; i++) {
         if (i > 0) sql.write(', ');
         params.add(_vectorSortParams[i]);
         sql.write('coalesce(vector_distance(?, ge.textEmbedding), 999999)');
-        sql.write(', ');
+        sql.write(' asc, ');
         params.add(_vectorSortParams[i]);
         sql.write('coalesce(vector_distance(?, ge.imageEmbedding), 999999)');
       }
-      sql.write(') asc, g.id desc');
+      sql.write(' asc, g.id desc');
     } else {
+      sql.write(' order by ');
+      // Highest priority: galleries whose title contains the search text
+      if (_queryTexts.isNotEmpty) {
+        sql.write('case when (');
+        for (var i = 0; i < _queryTexts.length; i++) {
+          if (i > 0) sql.write(' and ');
+          params.add('%${_queryTexts[i]}%');
+          sql.write('g.title like ?');
+        }
+        sql.write(') then 0 else 1 end, ');
+      }
       switch (sort) {
         case SortEnum.Default:
-          sql.write(' order by g.id desc');
+          sql.write('g.id desc');
         case SortEnum.ID_ASC:
-          sql.write(' order by g.id asc');
+          sql.write('g.id asc');
         case SortEnum.ADD_TIME:
-          sql.write(' order by g.date desc');
+          sql.write('g.date desc');
         // ignore: unreachable_switch_default
         default:
           break;
       }
     }
-    _manager.logger.d('sql is ${sql} parms = ${params.map((i)=>i is List<Uint8List>?'vector':i).toList()}');
+    _manager.logger.i(
+      'sql is ${sql} parms = ${params.map((i) => i is List ? 'vector' : i).toList()}',
+    );
     int count = 0;
     return _helper
         .querySql(sql.toString(), params)
