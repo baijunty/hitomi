@@ -169,17 +169,16 @@ class _LocalHitomiImpl implements Hitomi {
                   entry.value.toList(),
                 );
                 if (vectors.isNotEmpty) {
-                  final threshold = 1 - _manager.config.threshold;
                   for (var vector in vectors) {
                     // 转换为Uint8List，与数据库存储格式一致
                     final float64List = Float64List.fromList(vector);
                     final vectorBytes = float64List.buffer.asUint8List();
                     sql.write(
-                      'or (ge.textEmbedding is not null and vector_distance(?, ge.textEmbedding) < $threshold) ',
+                      'or (ge.textEmbedding is not null and vector_distance(?, ge.textEmbedding) < 0.4) ',
                     );
                     params.add(vectorBytes);
                     sql.write(
-                      'or (ge.imageEmbedding is not null and vector_distance(?, ge.imageEmbedding) < $threshold) ',
+                      'or (ge.imageEmbedding is not null and vector_distance(?, ge.imageEmbedding) < 0.4) ',
                     );
                     params.add(vectorBytes);
                     _hasVectorDistance = true;
@@ -295,7 +294,7 @@ class _LocalHitomiImpl implements Hitomi {
           break;
       }
     }
-    _manager.logger.d('sql is ${sql} parms = ${params}');
+    _manager.logger.d('sql is ${sql} parms = ${params.map((i)=>i is List<Uint8List>?'vector':i).toList()}');
     int count = 0;
     return _helper
         .querySql(sql.toString(), params)
