@@ -147,6 +147,8 @@ class _LocalHitomiImpl implements Hitomi {
       'select COUNT(*) OVER() AS total_count,g.id from Gallery g left join GalleryExtra ge on g.id=ge.gid where ',
     );
     final params = [];
+    bool _hasVectorDistance = false;
+    final _vectorSortParams = <Uint8List>[];
     for (final entry in group.entries) {
       switch (entry.key) {
         case QueryText:
@@ -167,25 +169,22 @@ class _LocalHitomiImpl implements Hitomi {
                   entry.value.toList(),
                 );
                 if (vectors.isNotEmpty) {
-                  // 如果有多个查询文本，对向量取平均
-                  final avgVector = List<double>.generate(
-                    vectors.first.length,
-                    (i) =>
-                        vectors.fold(0.0, (sum, v) => sum + v[i]) /
-                        vectors.length,
-                  );
-                  // 转换为Uint8List，与数据库存储格式一致
-                  final float64List = Float64List.fromList(avgVector);
-                  final vectorBytes = float64List.buffer.asUint8List();
-                  // 使用向量距离搜索语义相似的条目（距离越小越相似，<0.5表示高相似度）
-                  sql.write(
-                    'or (ge.textEmbedding is not null and vector_distance(?, ge.textEmbedding) < 0.4) ',
-                  );
-                  params.add(vectorBytes);
-                  sql.write(
-                    'or (ge.imageEmbedding is not null and vector_distance(?, ge.imageEmbedding) < 0.4) ',
-                  );
-                  params.add(vectorBytes);
+                  final threshold = 1 - _manager.config.threshold;
+                  for (var vector in vectors) {
+                    // 转换为Uint8List，与数据库存储格式一致
+                    final float64List = Float64List.fromList(vector);
+                    final vectorBytes = float64List.buffer.asUint8List();
+                    sql.write(
+                      'or (ge.textEmbedding is not null and vector_distance(?, ge.textEmbedding) < $threshold) ',
+                    );
+                    params.add(vectorBytes);
+                    sql.write(
+                      'or (ge.imageEmbedding is not null and vector_distance(?, ge.imageEmbedding) < $threshold) ',
+                    );
+                    params.add(vectorBytes);
+                    _hasVectorDistance = true;
+                    _vectorSortParams.add(vectorBytes);
+                  }
                 }
               } catch (e) {
                 _manager.logger.e('获取文本嵌入向量失败: $e');
@@ -271,16 +270,30 @@ class _LocalHitomiImpl implements Hitomi {
       }
     }
     sql.write('1=1');
-    switch (sort) {
-      case SortEnum.Default:
-        sql.write(' order by g.id desc');
-      case SortEnum.ID_ASC:
-        sql.write(' order by g.id asc');
-      case SortEnum.ADD_TIME:
-        sql.write(' order by g.date desc');
-      // ignore: unreachable_switch_default
-      default:
-        break;
+    if (_hasVectorDistance) {
+      // Sort by closest vector distance ascending when embeddings are used
+      sql.write(' order by min(');
+      for (var i = 0; i < _vectorSortParams.length; i++) {
+        if (i > 0) sql.write(', ');
+        params.add(_vectorSortParams[i]);
+        sql.write('coalesce(vector_distance(?, ge.textEmbedding), 999999)');
+        sql.write(', ');
+        params.add(_vectorSortParams[i]);
+        sql.write('coalesce(vector_distance(?, ge.imageEmbedding), 999999)');
+      }
+      sql.write(') asc, g.id desc');
+    } else {
+      switch (sort) {
+        case SortEnum.Default:
+          sql.write(' order by g.id desc');
+        case SortEnum.ID_ASC:
+          sql.write(' order by g.id asc');
+        case SortEnum.ADD_TIME:
+          sql.write(' order by g.date desc');
+        // ignore: unreachable_switch_default
+        default:
+          break;
+      }
     }
     _manager.logger.d('sql is ${sql} parms = ${params}');
     int count = 0;
