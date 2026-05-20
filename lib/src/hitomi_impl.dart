@@ -176,12 +176,9 @@ class _LocalHitomiImpl implements Hitomi {
                     final float64List = Float64List.fromList(vector);
                     final vectorBytes = float64List.buffer.asUint8List();
                     sql.write(
-                      'or (ge.textEmbedding is not null and vector_distance(?, ge.textEmbedding) < 0.4) ',
+                      'or (min(vector_distance(?, ge.textEmbedding),vector_distance(?, ge.imageEmbedding)) < 0.4) ',
                     );
                     params.add(vectorBytes);
-                    sql.write(
-                      'or (ge.imageEmbedding is not null and vector_distance(?, ge.imageEmbedding) < 0.4) ',
-                    );
                     params.add(vectorBytes);
                     _hasVectorDistance = true;
                     _vectorSortParams.add(vectorBytes);
@@ -286,25 +283,13 @@ class _LocalHitomiImpl implements Hitomi {
       }
       for (var i = 0; i < _vectorSortParams.length; i++) {
         if (i > 0) sql.write(', ');
+        sql.write('min(vector_distance(?, ge.textEmbedding),vector_distance(?, ge.imageEmbedding))');
         params.add(_vectorSortParams[i]);
-        sql.write('coalesce(vector_distance(?, ge.textEmbedding), 999999)');
-        sql.write(' asc, ');
         params.add(_vectorSortParams[i]);
-        sql.write('coalesce(vector_distance(?, ge.imageEmbedding), 999999)');
       }
       sql.write(' asc, g.id desc');
     } else {
       sql.write(' order by ');
-      // Highest priority: galleries whose title contains the search text
-      if (_queryTexts.isNotEmpty) {
-        sql.write('case when (');
-        for (var i = 0; i < _queryTexts.length; i++) {
-          if (i > 0) sql.write(' and ');
-          params.add('%${_queryTexts[i]}%');
-          sql.write('g.title like ?');
-        }
-        sql.write(') then 0 else 1 end, ');
-      }
       switch (sort) {
         case SortEnum.Default:
           sql.write('g.id desc');
