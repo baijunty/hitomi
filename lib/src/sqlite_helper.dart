@@ -338,7 +338,7 @@ class SqliteHelper {
           db.execute("ALTER table Gallery rename to GalleryTemp");
           createTables(db);
           db.execute(
-            """insert into  Gallery(id,path,artist,groupes,series,character,language,title,tag,createDate,type,date,mark,length,feature) 
+            """insert into  Gallery(id,path,artist,groupes,series,character,language,title,tag,createDate,type,date,mark,length,feature)
               select id,path,artist,groupes,series,character,language,title,tag,createDate,type,date,mark,length,null from GalleryTemp""",
           );
           db.execute("drop table GalleryTemp");
@@ -361,7 +361,7 @@ class SqliteHelper {
           db.execute("ALTER table Gallery rename to GalleryTemp");
           createTables(db);
           db.execute(
-            """insert into  Gallery(id,path,artist,groupes,series,character,language,title,tag,createDate,type,date,mark,length,feature) 
+            """insert into  Gallery(id,path,artist,groupes,series,character,language,title,tag,createDate,type,date,mark,length,feature)
               select id,path,artist,groupes,series,character,language,title,tag,createDate,type,date,mark,length,null from GalleryTemp""",
           );
           var stmt = db.prepare('select id,feature from GalleryTemp');
@@ -391,7 +391,7 @@ class SqliteHelper {
           db.execute("ALTER table Gallery rename to GalleryTemp");
           createTables(db);
           db.execute(
-            """insert into  Gallery(id,path,language,title,createDate,type,date,mark,length,feature) 
+            """insert into  Gallery(id,path,language,title,createDate,type,date,mark,length,feature)
               select id,path,language,title,createDate,type,date,mark,length,feature from GalleryTemp""",
           );
           db.execute("drop table if exists GalleryTemp ");
@@ -403,7 +403,7 @@ class SqliteHelper {
           db.execute("ALTER table UserLog rename to UserLogTemp");
           createTables(db);
           db.execute(
-            """insert into  UserLog(id,type,value,content,date,extension) 
+            """insert into  UserLog(id,type,value,content,date,extension)
               select id,type,mark,content,null,null  from UserLogTemp""",
           );
           return 14;
@@ -425,7 +425,7 @@ class SqliteHelper {
           db.execute("ALTER table Gallery rename to GalleryTemp");
           createTables(db);
           db.execute(
-            """insert into  Gallery(id,path,language,title,createDate,type,date,mark,length) 
+            """insert into  Gallery(id,path,language,title,createDate,type,date,mark,length)
               select id,path,language,title,createDate,type,date,mark,length from GalleryTemp""",
           );
           db.execute("drop table if exists GalleryTemp ");
@@ -502,10 +502,10 @@ class SqliteHelper {
     // 对每种type，最多取20个结果，完全匹配的优先
     for (var type in types) {
       var sets = await querySql(
-        '''select type, name, translate, intro, links 
-             from Tags 
-             where (name like ? or translate like ?) and type = ? 
-             order by case when name = ? then 0 else 1 end, 
+        '''select type, name, translate, intro, links
+             from Tags
+             where (name like ? or translate like ?) and type = ?
+             order by case when name = ? then 0 else 1 end,
                       case when translate = ? then 0 else 1 end
              limit 20''',
         [
@@ -668,7 +668,11 @@ class SqliteHelper {
     return querySql(
       '''select * from GalleryFile where gid=? order by name''',
       [id],
-    ).then((set) => set.map((r) => Image.fromRow(r)).toList());
+    ).then((set) => set.map((r) => Image.fromRow(r)).toList()).catchError((e) {
+      _logger?.e(
+        "select * from GalleryFile where gid=$id order by name occus $e",
+      );
+    }, test: (e) => true);
   }
 
   //通过gid查询GalleryFile表并转换为Image List后返回
@@ -683,7 +687,7 @@ class SqliteHelper {
 
   Future<Map<int, List<int>>> queryImageHashsByLabel(String type, String name) {
     return querySqlByCursor(
-      '''select gf.gid,gf.fileHash,gf.name,g.path,g.length from Gallery g left join GalleryFile gf on g.id=gf.gid 
+      '''select gf.gid,gf.fileHash,gf.name,g.path,g.length from Gallery g left join GalleryFile gf on g.id=gf.gid
         where exists (select 1 from GalleryTagRelation r where r.gid = g.id and r.tid = (select id from Tags where type = ? and name = ?)) and gf.gid is not null order by gf.gid,gf.name''',
       [type, name],
     ).then(

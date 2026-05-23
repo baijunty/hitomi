@@ -13,7 +13,7 @@ dependencies:
     crypto: ^3.0.7
     image: ^4.8.0
     async: ^2.13.1
-    json_annotation: ^4.9.0
+    json_annotation: ^4.10.0
     freezed_annotation: ^3.1.0
     collection: ^1.19.1
     sqlite3: ^3.3.1
@@ -33,5 +33,5 @@ dependencies:
 dev_dependencies:
     lints: ^6.1.0
     build_runner: ^2.15.0
-    json_serializable: ^6.13.2
+    json_serializable: ^6.14.0
     freezed: ^3.2.3
