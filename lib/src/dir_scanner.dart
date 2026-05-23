@@ -509,7 +509,7 @@ class HitomiDir {
     if (!_downLoader.filter(gallery)) {
       return deleteGallery(reason: 'filter failed');
     }
-    var images = await _downLoader.helper.getImageListByGid(gallery.id);
+    var images = await _downLoader.helper.queryImageHashsById(gallery.id);
     return _removeIllegalFiles(images)
         .then((value) => _tryFixMissingFile())
         .then((value) async {
