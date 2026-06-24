@@ -672,6 +672,7 @@ class SqliteHelper {
       _logger?.e(
         "select * from GalleryFile where gid=$id order by name occus $e",
       );
+      return <Image>[];
     }, test: (e) => true);
   }
 
