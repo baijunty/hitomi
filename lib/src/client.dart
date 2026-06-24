@@ -81,6 +81,26 @@ class LlamaClient {
     }
   }
 
+  /// 获取指定模型的 media_marker
+  Future<String> _getMediaMarker() async {
+    final response = await http.get(
+      Uri.parse('${config.llamaBaseUri}/props?model=${config.embeddingModel}'),
+      headers: _headers,
+    );
+
+    if (response.statusCode != 200) {
+      logger?.e(
+        '_getMediaMarker: 请求失败, 状态码=${response.statusCode}, 响应=${response.body}',
+      );
+      return '<__media__>';
+    }
+
+    final result = jsonDecode(response.body) as Map<String, dynamic>;
+    final marker = result['media_marker'];
+    logger?.d('_getMediaMarker: media_marker=$marker');
+    return marker ?? '<__media__>';
+  }
+
   /// 图片嵌入
   ///
   /// [imagePath] 图片路径
@@ -96,9 +116,11 @@ class LlamaClient {
     logger?.d('imageEmbeddings: 开始处理图片嵌入, 图片大小=${bytes.length} 字节');
     final base64String = base64Encode(bytes);
 
+    final mediaMarker = await _getMediaMarker();
+
     final result = await embedMultiModal([
       {
-        'prompt_string': '<__media__>',
+        'prompt_string': mediaMarker,
         'multimodal_data': [base64String],
       },
     ], openai: false);

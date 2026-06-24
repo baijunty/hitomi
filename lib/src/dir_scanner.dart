@@ -486,9 +486,11 @@ class HitomiDir {
   }
 
   Future<bool> generateGalleryTitleEmbedding() async {
-    var f = _downLoader.config.llamaBaseUri.isNotEmpty
+    var tagNames = gallery.tags?.map((t) => t.name).toList() ?? <String>[];
+    var combinedText = '$gallery.title ${tagNames.join(' ')}'.trim();
+    var f = _downLoader.config.llamaBaseUri.isNotEmpty && combinedText.isNotEmpty
         ? await _downLoader.manager.client!
-              .embedMultiModal([gallery.title], openai: true)
+              .embedMultiModal([combinedText], openai: true)
               .then(
                 (embeddings) =>
                     embeddings.isNotEmpty ? embeddings.first : <double>[],
