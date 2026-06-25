@@ -50,14 +50,20 @@ extension CursorCover on IteratingCursor {
   Stream<Row> asStream(CommonPreparedStatement statement, [Logger? logger]) {
     late StreamController<Row> controller;
     var launch = true;
+    bool statementClosed = false;
     void stop() {
-      statement.close();
+      if (!statementClosed) {
+        statement.close();
+        statementClosed = true;
+      }
     }
 
-    void start() {
+    Future<void> start() async {
       try {
         while (moveNext() && launch) {
           controller.add(current);
+          // 每处理一行后让出事件循环，避免阻塞消费者造成背压问题
+          await Future<void>.value();
         }
         if (launch) {
           controller.close();
@@ -65,6 +71,8 @@ extension CursorCover on IteratingCursor {
       } catch (e) {
         logger?.e('handle row error $e');
         controller.addError(e);
+        // 发生错误时也关闭 statement，避免资源泄漏
+        stop();
       }
     }
 
