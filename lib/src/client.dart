@@ -9,7 +9,31 @@ import 'package:logger/logger.dart';
 class LlamaClient {
   final UserConfig config;
   late Logger? logger = null;
+
+  /// 远程嵌入模型是否处于已加载状态（服务端启动时一般已加载）
+  bool _modelLoaded = true;
+
+  /// 最近一次使用嵌入模型的时间，用于空闲卸载判断
+  DateTime _lastUsedAt = DateTime.now();
+
+  /// 并发去重，多个请求共享同一次加载过程
+  Future<void>? _loading;
+
+  /// 进行中的卸载请求，避免与新的嵌入请求竞争
+  Future<bool>? _unloading;
+
   LlamaClient({required this.config, this.logger = null});
+
+  /// 最近一次嵌入请求时间
+  DateTime get lastUsedAt => _lastUsedAt;
+
+  /// 远程嵌入模型当前是否已加载
+  bool get isModelLoaded => _modelLoaded;
+
+  /// 记录一次嵌入模型使用时间
+  void touch() {
+    _lastUsedAt = DateTime.now();
+  }
 
   /// 构建请求头
   Map<String, String> get _headers {
@@ -18,6 +42,114 @@ class LlamaClient {
       if (config.llamaApiKey.isNotEmpty)
         'Authorization': 'Bearer ${config.llamaApiKey}',
     };
+  }
+
+  /// 确保远程嵌入模型已加载，被卸载后再次使用时自动重新加载
+  Future<void> ensureLoaded() async {
+    final pendingUnload = _unloading;
+    if (pendingUnload != null) {
+      // 等待进行中的卸载结束，避免加载与卸载交叉
+      await pendingUnload;
+    }
+    if (_modelLoaded) {
+      return;
+    }
+    await (_loading ??= loadModel().whenComplete(() {
+      _loading = null;
+    }));
+  }
+
+  /// 向模型管理接口发送 POST 请求，网络异常时返回 null
+  Future<http.Response?> _postModelEndpoint(String endpoint, String model) async {
+    final url = '${config.llamaBaseUri}$endpoint';
+    try {
+      logger?.d('$endpoint: 发送请求到 $url 模型 $model');
+      return await http.post(
+        Uri.parse(url),
+        headers: _headers,
+        body: jsonEncode({'model': model}),
+      );
+    } catch (e) {
+      logger?.e('$endpoint: 请求异常 $e');
+      return null;
+    }
+  }
+
+  /// 解析响应中的 success 字段，缺省时以 HTTP 状态码为准
+  bool _isSuccess(http.Response? response) {
+    if (response == null || response.statusCode != 200) {
+      return false;
+    }
+    Object? body;
+    try {
+      body = jsonDecode(response.body);
+    } catch (e) {
+      return true;
+    }
+    if (body is Map && body.containsKey('success')) {
+      return body['success'] == true;
+    }
+    return true;
+  }
+
+  /// 加载远程嵌入模型 POST /models/load
+  Future<bool> loadModel({String? model}) async {
+    final name = model ?? config.embeddingModel;
+    if (name.isEmpty) {
+      return false;
+    }
+    final response = await _postModelEndpoint('/models/load', name);
+    if (_isSuccess(response)) {
+      _modelLoaded = true;
+      logger?.i('loadModel: 模型 $name 加载完成');
+      return true;
+    }
+    if (response != null &&
+        (response.statusCode == 404 || response.statusCode == 405)) {
+      // 服务端不支持按需加载接口时不再重复尝试
+      _modelLoaded = true;
+      logger?.w(
+        'loadModel: 服务端不支持 /models/load, 状态码=${response.statusCode}',
+      );
+      return false;
+    }
+    logger?.e(
+      'loadModel: 加载失败, 状态码=${response?.statusCode}, 响应=${response?.body}',
+    );
+    return false;
+  }
+
+  /// 卸载远程嵌入模型 POST /models/unload，释放服务端显存
+  Future<bool> unloadModel({String? model}) {
+    final pending = _unloading;
+    if (pending != null) {
+      return pending;
+    }
+    late Future<bool> future;
+    future = _unload(model ?? config.embeddingModel).whenComplete(() {
+      if (identical(_unloading, future)) {
+        _unloading = null;
+      }
+    });
+    _unloading = future;
+    return future;
+  }
+
+  Future<bool> _unload(String name) async {
+    if (name.isEmpty) {
+      logger?.w('unloadModel: 未配置嵌入模型，跳过卸载');
+      return false;
+    }
+    final response = await _postModelEndpoint('/models/unload', name);
+    if (_isSuccess(response)) {
+      _modelLoaded = false;
+      logger?.i('unloadModel: 模型 $name 已卸载');
+      return true;
+    }
+    logger?.e(
+      'unloadModel: 卸载失败, 状态码=${response?.statusCode}, 响应=${response?.body}',
+    );
+    return false;
   }
 
   /// 多模态嵌入
@@ -33,6 +165,8 @@ class LlamaClient {
     List<dynamic> contents, {
     bool openai = false,
   }) async {
+    touch();
+    await ensureLoaded();
     final request = <String, dynamic>{'model': config.embeddingModel};
     if (openai) {
       request['input'] = contents;
@@ -109,6 +243,8 @@ class LlamaClient {
     Uint8List dates, {
     bool resize = true,
   }) async {
+    touch();
+    await ensureLoaded();
     final bytes = resize ? await resizeThumbImage(dates, 640, 90) : dates;
     if (bytes == null) {
       return [];

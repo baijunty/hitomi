@@ -45,6 +45,9 @@ class DownLoader {
         .toList(),
   };
 
+  /// 是否已没有任何待处理和执行中的下载任务
+  bool get isIdle => _pendingTask.isEmpty && _runningTask.isEmpty;
+
   /// Handles messages for task management and updates.
   Future<bool> messageHandle(Message msg) async {
     var useHandle = await _runningTask.keys

@@ -1,6 +1,6 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // coverage:ignore-file
-// ignore_for_file: type=lint
+// ignore_for_file: type=lint, type=warning, deprecated_member_use, deprecated_member_use_from_same_package
 // ignore_for_file: unused_element, deprecated_member_use, deprecated_member_use_from_same_package, use_function_type_syntax_for_parameters, unnecessary_const, avoid_init_to_null, invalid_override_different_default_values_named, prefer_expression_function_bodies, annotate_overrides, invalid_annotation_target, unnecessary_question_mark
 
 part of 'response.dart';
@@ -9,6 +9,7 @@ part of 'response.dart';
 // FreezedGenerator
 // **************************************************************************
 
+// GENERATED CODE - DO NOT MODIFY BY HAND
 // dart format off
 T _$identity<T>(T value) => value;
 
@@ -28,16 +29,21 @@ $DataResponseCopyWith<T, DataResponse<T>> get copyWith => _$DataResponseCopyWith
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is DataResponse<T>&&const DeepCollectionEquality().equals(other.data, data)&&(identical(other.totalCount, totalCount) || other.totalCount == totalCount));
+  final _this = this as DataResponse<T>;
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is DataResponse<T>&&const DeepCollectionEquality().equals(other.data, _this.data)&&(identical(other.totalCount, _this.totalCount) || other.totalCount == _this.totalCount));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(data),totalCount);
+int get hashCode {
+  final _this = this as DataResponse<T>;
+  return Object.hash(runtimeType,const DeepCollectionEquality().hash(_this.data),_this.totalCount);
+}
 
 @override
 String toString() {
-  return 'DataResponse<$T>(data: $data, totalCount: $totalCount)';
+  final _this = this as DataResponse<T>;
+  return 'DataResponse<$T>(data: ${_this.data}, totalCount: ${_this.totalCount})';
 }
 
 
@@ -66,8 +72,8 @@ class _$DataResponseCopyWithImpl<T,$Res>
 /// Create a copy of DataResponse
 /// with the given fields replaced by the non-null parameter values.
 @pragma('vm:prefer-inline') @override $Res call({Object? data = freezed,Object? totalCount = null,}) {
-  return _then(_self.copyWith(
-data: freezed == data ? _self.data : data // ignore: cast_nullable_to_non_nullable
+  return _then(DataResponse(
+freezed == data ? _self.data : data // ignore: cast_nullable_to_non_nullable
 as T,totalCount: null == totalCount ? _self.totalCount : totalCount // ignore: cast_nullable_to_non_nullable
 as int,
   ));
@@ -229,16 +235,18 @@ Map<String, dynamic> toJson(Object? Function(T) toJsonT) {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _DataResponse<T>&&const DeepCollectionEquality().equals(other.data, data)&&(identical(other.totalCount, totalCount) || other.totalCount == totalCount));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _DataResponse<T>&&const DeepCollectionEquality().equals(other.data, data)&&(identical(other.totalCount, totalCount) || other.totalCount == totalCount));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(data),totalCount);
+int get hashCode {
+    return Object.hash(runtimeType,const DeepCollectionEquality().hash(data),totalCount);
+}
 
 @override
 String toString() {
-  return 'DataResponse<$T>(data: $data, totalCount: $totalCount)';
+    return 'DataResponse<$T>(data: $data, totalCount: $totalCount)';
 }
 
 

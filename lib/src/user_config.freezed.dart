@@ -1,6 +1,6 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // coverage:ignore-file
-// ignore_for_file: type=lint
+// ignore_for_file: type=lint, type=warning, deprecated_member_use, deprecated_member_use_from_same_package
 // ignore_for_file: unused_element, deprecated_member_use, deprecated_member_use_from_same_package, use_function_type_syntax_for_parameters, unnecessary_const, avoid_init_to_null, invalid_override_different_default_values_named, prefer_expression_function_bodies, annotate_overrides, invalid_annotation_target, unnecessary_question_mark
 
 part of 'user_config.dart';
@@ -9,6 +9,7 @@ part of 'user_config.dart';
 // FreezedGenerator
 // **************************************************************************
 
+// GENERATED CODE - DO NOT MODIFY BY HAND
 // dart format off
 T _$identity<T>(T value) => value;
 
@@ -28,16 +29,21 @@ $UserConfigCopyWith<UserConfig> get copyWith => _$UserConfigCopyWithImpl<UserCon
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is UserConfig&&(identical(other.output, output) || other.output == output)&&(identical(other.maxTasks, maxTasks) || other.maxTasks == maxTasks)&&const DeepCollectionEquality().equals(other.languages, languages)&&(identical(other.proxy, proxy) || other.proxy == proxy)&&const DeepCollectionEquality().equals(other.excludes, excludes)&&(identical(other.dateLimit, dateLimit) || other.dateLimit == dateLimit)&&(identical(other.auth, auth) || other.auth == auth)&&(identical(other.logLevel, logLevel) || other.logLevel == logLevel)&&(identical(other.logOutput, logOutput) || other.logOutput == logOutput)&&(identical(other.remoteHttp, remoteHttp) || other.remoteHttp == remoteHttp)&&(identical(other.threshold, threshold) || other.threshold == threshold)&&(identical(other.llamaBaseUri, llamaBaseUri) || other.llamaBaseUri == llamaBaseUri)&&(identical(other.llamaApiKey, llamaApiKey) || other.llamaApiKey == llamaApiKey)&&(identical(other.embeddingModel, embeddingModel) || other.embeddingModel == embeddingModel)&&(identical(other.multimodal, multimodal) || other.multimodal == multimodal));
+  final _this = this as UserConfig;
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is UserConfig&&(identical(other.output, _this.output) || other.output == _this.output)&&(identical(other.maxTasks, _this.maxTasks) || other.maxTasks == _this.maxTasks)&&const DeepCollectionEquality().equals(other.languages, _this.languages)&&(identical(other.proxy, _this.proxy) || other.proxy == _this.proxy)&&const DeepCollectionEquality().equals(other.excludes, _this.excludes)&&(identical(other.dateLimit, _this.dateLimit) || other.dateLimit == _this.dateLimit)&&(identical(other.auth, _this.auth) || other.auth == _this.auth)&&(identical(other.logLevel, _this.logLevel) || other.logLevel == _this.logLevel)&&(identical(other.logOutput, _this.logOutput) || other.logOutput == _this.logOutput)&&(identical(other.remoteHttp, _this.remoteHttp) || other.remoteHttp == _this.remoteHttp)&&(identical(other.threshold, _this.threshold) || other.threshold == _this.threshold)&&(identical(other.llamaBaseUri, _this.llamaBaseUri) || other.llamaBaseUri == _this.llamaBaseUri)&&(identical(other.llamaApiKey, _this.llamaApiKey) || other.llamaApiKey == _this.llamaApiKey)&&(identical(other.embeddingModel, _this.embeddingModel) || other.embeddingModel == _this.embeddingModel)&&(identical(other.multimodal, _this.multimodal) || other.multimodal == _this.multimodal));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,output,maxTasks,const DeepCollectionEquality().hash(languages),proxy,const DeepCollectionEquality().hash(excludes),dateLimit,auth,logLevel,logOutput,remoteHttp,threshold,llamaBaseUri,llamaApiKey,embeddingModel,multimodal);
+int get hashCode {
+  final _this = this as UserConfig;
+  return Object.hash(runtimeType,_this.output,_this.maxTasks,const DeepCollectionEquality().hash(_this.languages),_this.proxy,const DeepCollectionEquality().hash(_this.excludes),_this.dateLimit,_this.auth,_this.logLevel,_this.logOutput,_this.remoteHttp,_this.threshold,_this.llamaBaseUri,_this.llamaApiKey,_this.embeddingModel,_this.multimodal);
+}
 
 @override
 String toString() {
-  return 'UserConfig(output: $output, maxTasks: $maxTasks, languages: $languages, proxy: $proxy, excludes: $excludes, dateLimit: $dateLimit, auth: $auth, logLevel: $logLevel, logOutput: $logOutput, remoteHttp: $remoteHttp, threshold: $threshold, llamaBaseUri: $llamaBaseUri, llamaApiKey: $llamaApiKey, embeddingModel: $embeddingModel, multimodal: $multimodal)';
+  final _this = this as UserConfig;
+  return 'UserConfig(output: ${_this.output}, maxTasks: ${_this.maxTasks}, languages: ${_this.languages}, proxy: ${_this.proxy}, excludes: ${_this.excludes}, dateLimit: ${_this.dateLimit}, auth: ${_this.auth}, logLevel: ${_this.logLevel}, logOutput: ${_this.logOutput}, remoteHttp: ${_this.remoteHttp}, threshold: ${_this.threshold}, llamaBaseUri: ${_this.llamaBaseUri}, llamaApiKey: ${_this.llamaApiKey}, embeddingModel: ${_this.embeddingModel}, multimodal: ${_this.multimodal})';
 }
 
 
@@ -66,8 +72,8 @@ class _$UserConfigCopyWithImpl<$Res>
 /// Create a copy of UserConfig
 /// with the given fields replaced by the non-null parameter values.
 @pragma('vm:prefer-inline') @override $Res call({Object? output = null,Object? maxTasks = null,Object? languages = null,Object? proxy = null,Object? excludes = null,Object? dateLimit = null,Object? auth = null,Object? logLevel = null,Object? logOutput = null,Object? remoteHttp = null,Object? threshold = null,Object? llamaBaseUri = null,Object? llamaApiKey = null,Object? embeddingModel = null,Object? multimodal = null,}) {
-  return _then(_self.copyWith(
-output: null == output ? _self.output : output // ignore: cast_nullable_to_non_nullable
+  return _then(UserConfig(
+null == output ? _self.output : output // ignore: cast_nullable_to_non_nullable
 as String,maxTasks: null == maxTasks ? _self.maxTasks : maxTasks // ignore: cast_nullable_to_non_nullable
 as int,languages: null == languages ? _self.languages : languages // ignore: cast_nullable_to_non_nullable
 as List<String>,proxy: null == proxy ? _self.proxy : proxy // ignore: cast_nullable_to_non_nullable
@@ -223,7 +229,7 @@ return $default(_that.output,_that.maxTasks,_that.languages,_that.proxy,_that.ex
 @JsonSerializable()
 
 class _UserConfig implements UserConfig {
-   _UserConfig(this.output, {this.maxTasks = 5, final  List<String> languages = const ["japanese", "chinese"], this.proxy = "", final  List<List<FilterLabel>> excludes = const [], this.dateLimit = "2013-01-01", this.auth = "12345678", this.logLevel = "debug", this.logOutput = "", this.remoteHttp = "127.0.0.1:7890", this.threshold = 0.72, this.llamaBaseUri = "http://localhost:8080", this.llamaApiKey = "", this.embeddingModel = "Embedding", this.multimodal = "gemma4-it:e2b"}): _languages = languages,_excludes = excludes;
+   _UserConfig(this.output, {this.maxTasks = 5,  List<String> languages = const ["japanese", "chinese"], this.proxy = "",  List<List<FilterLabel>> excludes = const [], this.dateLimit = "2013-01-01", this.auth = "12345678", this.logLevel = "debug", this.logOutput = "", this.remoteHttp = "127.0.0.1:7890", this.threshold = 0.72, this.llamaBaseUri = "http://localhost:8080", this.llamaApiKey = "", this.embeddingModel = "Embedding", this.multimodal = "gemma4-it:e2b"}): _languages = languages,_excludes = excludes;
   factory _UserConfig.fromJson(Map<String, dynamic> json) => _$UserConfigFromJson(json);
 
 @override final  String output;
@@ -267,16 +273,18 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _UserConfig&&(identical(other.output, output) || other.output == output)&&(identical(other.maxTasks, maxTasks) || other.maxTasks == maxTasks)&&const DeepCollectionEquality().equals(other._languages, _languages)&&(identical(other.proxy, proxy) || other.proxy == proxy)&&const DeepCollectionEquality().equals(other._excludes, _excludes)&&(identical(other.dateLimit, dateLimit) || other.dateLimit == dateLimit)&&(identical(other.auth, auth) || other.auth == auth)&&(identical(other.logLevel, logLevel) || other.logLevel == logLevel)&&(identical(other.logOutput, logOutput) || other.logOutput == logOutput)&&(identical(other.remoteHttp, remoteHttp) || other.remoteHttp == remoteHttp)&&(identical(other.threshold, threshold) || other.threshold == threshold)&&(identical(other.llamaBaseUri, llamaBaseUri) || other.llamaBaseUri == llamaBaseUri)&&(identical(other.llamaApiKey, llamaApiKey) || other.llamaApiKey == llamaApiKey)&&(identical(other.embeddingModel, embeddingModel) || other.embeddingModel == embeddingModel)&&(identical(other.multimodal, multimodal) || other.multimodal == multimodal));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _UserConfig&&(identical(other.output, output) || other.output == output)&&(identical(other.maxTasks, maxTasks) || other.maxTasks == maxTasks)&&const DeepCollectionEquality().equals(other.languages, _languages)&&(identical(other.proxy, proxy) || other.proxy == proxy)&&const DeepCollectionEquality().equals(other.excludes, _excludes)&&(identical(other.dateLimit, dateLimit) || other.dateLimit == dateLimit)&&(identical(other.auth, auth) || other.auth == auth)&&(identical(other.logLevel, logLevel) || other.logLevel == logLevel)&&(identical(other.logOutput, logOutput) || other.logOutput == logOutput)&&(identical(other.remoteHttp, remoteHttp) || other.remoteHttp == remoteHttp)&&(identical(other.threshold, threshold) || other.threshold == threshold)&&(identical(other.llamaBaseUri, llamaBaseUri) || other.llamaBaseUri == llamaBaseUri)&&(identical(other.llamaApiKey, llamaApiKey) || other.llamaApiKey == llamaApiKey)&&(identical(other.embeddingModel, embeddingModel) || other.embeddingModel == embeddingModel)&&(identical(other.multimodal, multimodal) || other.multimodal == multimodal));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,output,maxTasks,const DeepCollectionEquality().hash(_languages),proxy,const DeepCollectionEquality().hash(_excludes),dateLimit,auth,logLevel,logOutput,remoteHttp,threshold,llamaBaseUri,llamaApiKey,embeddingModel,multimodal);
+int get hashCode {
+    return Object.hash(runtimeType,output,maxTasks,const DeepCollectionEquality().hash(_languages),proxy,const DeepCollectionEquality().hash(_excludes),dateLimit,auth,logLevel,logOutput,remoteHttp,threshold,llamaBaseUri,llamaApiKey,embeddingModel,multimodal);
+}
 
 @override
 String toString() {
-  return 'UserConfig(output: $output, maxTasks: $maxTasks, languages: $languages, proxy: $proxy, excludes: $excludes, dateLimit: $dateLimit, auth: $auth, logLevel: $logLevel, logOutput: $logOutput, remoteHttp: $remoteHttp, threshold: $threshold, llamaBaseUri: $llamaBaseUri, llamaApiKey: $llamaApiKey, embeddingModel: $embeddingModel, multimodal: $multimodal)';
+    return 'UserConfig(output: $output, maxTasks: $maxTasks, languages: $languages, proxy: $proxy, excludes: $excludes, dateLimit: $dateLimit, auth: $auth, logLevel: $logLevel, logOutput: $logOutput, remoteHttp: $remoteHttp, threshold: $threshold, llamaBaseUri: $llamaBaseUri, llamaApiKey: $llamaApiKey, embeddingModel: $embeddingModel, multimodal: $multimodal)';
 }
 
 

@@ -76,6 +76,13 @@ class TaskManager {
   IsolateManager<List<int>?, String>? manager;
   LlamaClient? client;
   late _MemoryOutputWrap outputEvent;
+
+  /// 空闲多久后卸载远程嵌入模型
+  static const Duration embeddingIdleDelay = Duration(minutes: 5);
+
+  /// 空闲检查间隔
+  static const Duration embeddingCheckInterval = Duration(seconds: 30);
+  Timer? _embeddingIdleTimer;
   DownLoader get down => _downLoader;
   List<Map<String, dynamic>> get queryTask => _queryTasks
       .map((e) => {'href': '/${e.urlEncode()}-all.html', ...e.toMap()})
@@ -103,6 +110,58 @@ class TaskManager {
   void removeTaskObserver(Function(Map<String, dynamic>) observer) {
     taskObserver.remove(observer);
     logger.d('remove observer now length ${taskObserver.length}');
+  }
+
+  /// 启动远程嵌入模型空闲检查，所有任务完成后延时卸载模型释放服务端显存
+  void startEmbeddingIdleWatch() {
+    _embeddingIdleTimer?.cancel();
+    if (client == null) {
+      return;
+    }
+    _embeddingIdleTimer = Timer.periodic(
+      embeddingCheckInterval,
+      (_) => checkEmbeddingIdle(),
+    );
+    logger.d(
+      '启动远程嵌入模型空闲检查 间隔 $embeddingCheckInterval 空闲阈值 $embeddingIdleDelay',
+    );
+  }
+
+  /// 停止远程嵌入模型空闲检查
+  void stopEmbeddingIdleWatch() {
+    _embeddingIdleTimer?.cancel();
+    _embeddingIdleTimer = null;
+  }
+
+  /// 下载队列已清空且嵌入模型长时间未被使用时卸载模型
+  void checkEmbeddingIdle() {
+    final llama = client;
+    if (llama == null || !llama.isModelLoaded) {
+      return;
+    }
+    if (!down.isIdle) {
+      return;
+    }
+    final idleTime = DateTime.now().difference(llama.lastUsedAt);
+    if (idleTime < embeddingIdleDelay) {
+      return;
+    }
+    logger.i(
+      '所有任务已完成且 ${idleTime.inSeconds} 秒未使用嵌入模型，准备卸载 ${config.embeddingModel}',
+    );
+    unloadEmbeddingModel();
+  }
+
+  /// 调用远程接口卸载嵌入模型
+  Future<bool> unloadEmbeddingModel() async {
+    final llama = client;
+    if (llama == null) {
+      logger.w('未配置远程嵌入模型，跳过卸载');
+      return false;
+    }
+    final success = await llama.unloadModel();
+    logger.i('卸载远程嵌入模型 ${config.embeddingModel} ${success ? '成功' : '失败'}');
+    return success;
   }
 
   TaskManager(this.config) {
@@ -178,6 +237,7 @@ class TaskManager {
           logger.d('load ${value.length} ads');
           _adImage.addAll(value);
         });
+    startEmbeddingIdleWatch();
   }
 
   String _takeTranslateText(String input) {
