@@ -1,0 +1,36 @@
+# Version control / CI metadata
+.git
+.github
+
+# Local Dart & pub caches — the image resolves its own inside the build stage.
+# Copying the host .dart_tool over it would break "dart pub get --offline".
+.dart_tool/
+.packages
+.pub-cache/
+.dart-home/
+
+# Build output, regenerated inside the image
+build/
+
+# Local runtime data and secrets
+config.json
+user.db
+*.db
+*.log
+nohup.out
+
+# Front-end (ayaka) is built separately and mounted at runtime; in this repo it
+# is only a symlink pointing outside the build context.
+web
+
+# Not used by the container build
+test/
+monkey.js
+sqlite3.dll
+artist.txt
+template.json
+
+# Editor / tooling
+.idea/
+.vscode/
+.sisyphus/
