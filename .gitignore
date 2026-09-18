@@ -20,3 +20,7 @@ hitomi.log
 test/
 web/
 web
+
+# 本地 Dart/pub 缓存目录（沙箱内构建产生，不入库）
+.dart-home/
+.pub-cache/
