@@ -133,21 +133,20 @@ class TaskManager {
     _embeddingIdleTimer = null;
   }
 
-  /// 下载队列已清空且嵌入模型长时间未被使用时卸载模型
+  /// 所有任务完成且长时间未使用嵌入模型时卸载模型，只发起一次不再重试
   void checkEmbeddingIdle() {
     final llama = client;
-    if (llama == null || !llama.isModelLoaded) {
-      return;
-    }
-    if (!down.isIdle) {
+    if (llama == null || !down.isIdle) {
       return;
     }
     final idleTime = DateTime.now().difference(llama.lastUsedAt);
     if (idleTime < embeddingIdleDelay) {
       return;
     }
+    // 服务端会在下次嵌入请求时自动加载模型，这里卸载一次后不再重复
+    stopEmbeddingIdleWatch();
     logger.i(
-      '所有任务已完成且 ${idleTime.inSeconds} 秒未使用嵌入模型，准备卸载 ${config.embeddingModel}',
+      '所有任务已完成且 ${idleTime.inSeconds} 秒未使用嵌入模型，卸载 ${config.embeddingModel}',
     );
     unloadEmbeddingModel();
   }
