@@ -249,13 +249,31 @@ class SqliteHelper {
     return run;
   }
 
+  /// Zone 标记：当前异步链是否已处于某个事务内部。
+  static const _txZoneKey = #sqlite_transaction_active;
+
   /// 在单个事务里执行 [action]，并发调用按到达顺序串行化。
   ///
   /// 嵌套调用（[action] 内部又调 `transaction`）会直接加入当前事务，
   /// 不会重复 BEGIN。
+  ///
+  /// 注意：判断「是否嵌套」必须用 Zone 而不是 `_inTransaction`。
+  /// 若嵌套调用也走 `_exclusive`，它会被排到外层事务的后面，而外层正
+  /// `await` 着它的结果 —— 外层等嵌套、嵌套等外层，写链从此永久死锁
+  /// （insertGallery → queryOrInsertTagTable / excuteSqlMultiParams
+  /// 正是这种嵌套，导致所有下载任务卡死）。Zone 标记沿异步链传播，
+  /// 能准确区分「嵌套在当前事务里」与「另一个并发事务」。
   Future<T> transaction<T>(Future<T> Function() action) async {
     await checkInit();
-    return _exclusive(() => _inTransactionBlock(action));
+    if (Zone.current[_txZoneKey] == true) {
+      // 嵌套在当前事务的异步链上：直接内联执行，加入外层 BEGIN。
+      return action();
+    }
+    return _exclusive(
+      () => Zone.current
+          .fork(zoneValues: {_txZoneKey: true})
+          .run(() => _inTransactionBlock(action)),
+    );
   }
 
   Future<T> _inTransactionBlock<T>(Future<T> Function() action) async {
@@ -931,11 +949,14 @@ class SqliteHelper {
   Future<bool> deleteGallery(dynamic id) async {
     _logger?.w('del gallery with id $id');
     // 四条删除放进同一个事务，避免删一半被中断留下孤儿行。
+    // 注意顺序：先删子表、最后删父表 Gallery。现网库里 GalleryTagRelation 的
+    // 外键是旧版本建的、没有 ON DELETE CASCADE（create table if not exists
+    // 不会更新已存在的表），先删 Gallery 会触发 FOREIGN KEY constraint failed。
     return transaction(() async {
-      await excuteSqlAsync('delete from Gallery where id =?', [id]);
       await excuteSqlAsync('delete from GalleryFile where gid =?', [id]);
       await excuteSqlAsync('delete from GalleryTagRelation where gid =?', [id]);
       await excuteSqlAsync('delete from GalleryExtra where gid =?', [id]);
+      await excuteSqlAsync('delete from Gallery where id =?', [id]);
       return true;
     });
   }

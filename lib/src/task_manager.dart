@@ -717,7 +717,15 @@ class TaskManager {
               return r;
             } catch (e) {
               logger.d('fetchGallery error $e');
-              await helper.removeTask(event['id'], withGaller: true);
+              // 这里已在 catch 内：removeTask 再抛异常会冒泡成未处理异常把进程
+              // 打死（deleteGallery 的 FK 失败就是这样崩的），必须就地兜住。
+              try {
+                await helper.removeTask(event['id'], withGaller: true);
+              } catch (removeError) {
+                logger.e(
+                  'removeTask after fetch error failed for ${event["id"]}: $removeError',
+                );
+              }
             }
             return null;
           }).filterNonNull(),
