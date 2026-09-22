@@ -8,6 +8,7 @@ part of 'user_config.dart';
 
 _UserConfig _$UserConfigFromJson(Map<String, dynamic> json) => _UserConfig(
   json['output'] as String,
+  dbDir: json['dbDir'] as String? ?? "",
   maxTasks: (json['maxTasks'] as num?)?.toInt() ?? 5,
   languages:
       (json['languages'] as List<dynamic>?)?.map((e) => e as String).toList() ??
@@ -37,6 +38,7 @@ _UserConfig _$UserConfigFromJson(Map<String, dynamic> json) => _UserConfig(
 Map<String, dynamic> _$UserConfigToJson(_UserConfig instance) =>
     <String, dynamic>{
       'output': instance.output,
+      'dbDir': instance.dbDir,
       'maxTasks': instance.maxTasks,
       'languages': instance.languages,
       'proxy': instance.proxy,

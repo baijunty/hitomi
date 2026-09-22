@@ -16,7 +16,14 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$UserConfig {
 
- String get output; int get maxTasks; List<String> get languages; String get proxy; List<List<FilterLabel>> get excludes; String get dateLimit; String get auth; String get logLevel; String get logOutput; String get remoteHttp; double get threshold; String get llamaBaseUri; String get llamaApiKey; String get embeddingModel; String get multimodal;
+ String get output;/// user.db（以及 WAL 模式下的 `-wal` / `-shm`）实际所在目录。
+///
+/// 留空时回落到 `output`，保持旧行为。
+///
+/// 之所以要能单独配：漫画数据盘常常是 NTFS / 网络盘，而 WAL 模式要求主库、
+/// `-wal`、`-shm` 三个文件都落在支持可靠 mmap + POSIX 锁的本地盘上。
+/// 只把 `user.db` 单独 bind mount 走是没用的 —— 近期写入全在 `-wal` 里。
+ String get dbDir; int get maxTasks; List<String> get languages; String get proxy; List<List<FilterLabel>> get excludes; String get dateLimit; String get auth; String get logLevel; String get logOutput; String get remoteHttp; double get threshold; String get llamaBaseUri; String get llamaApiKey; String get embeddingModel; String get multimodal;
 /// Create a copy of UserConfig
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -30,20 +37,20 @@ $UserConfigCopyWith<UserConfig> get copyWith => _$UserConfigCopyWithImpl<UserCon
 @override
 bool operator ==(Object other) {
   final _this = this as UserConfig;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is UserConfig&&(identical(other.output, _this.output) || other.output == _this.output)&&(identical(other.maxTasks, _this.maxTasks) || other.maxTasks == _this.maxTasks)&&const DeepCollectionEquality().equals(other.languages, _this.languages)&&(identical(other.proxy, _this.proxy) || other.proxy == _this.proxy)&&const DeepCollectionEquality().equals(other.excludes, _this.excludes)&&(identical(other.dateLimit, _this.dateLimit) || other.dateLimit == _this.dateLimit)&&(identical(other.auth, _this.auth) || other.auth == _this.auth)&&(identical(other.logLevel, _this.logLevel) || other.logLevel == _this.logLevel)&&(identical(other.logOutput, _this.logOutput) || other.logOutput == _this.logOutput)&&(identical(other.remoteHttp, _this.remoteHttp) || other.remoteHttp == _this.remoteHttp)&&(identical(other.threshold, _this.threshold) || other.threshold == _this.threshold)&&(identical(other.llamaBaseUri, _this.llamaBaseUri) || other.llamaBaseUri == _this.llamaBaseUri)&&(identical(other.llamaApiKey, _this.llamaApiKey) || other.llamaApiKey == _this.llamaApiKey)&&(identical(other.embeddingModel, _this.embeddingModel) || other.embeddingModel == _this.embeddingModel)&&(identical(other.multimodal, _this.multimodal) || other.multimodal == _this.multimodal));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is UserConfig&&(identical(other.output, _this.output) || other.output == _this.output)&&(identical(other.dbDir, _this.dbDir) || other.dbDir == _this.dbDir)&&(identical(other.maxTasks, _this.maxTasks) || other.maxTasks == _this.maxTasks)&&const DeepCollectionEquality().equals(other.languages, _this.languages)&&(identical(other.proxy, _this.proxy) || other.proxy == _this.proxy)&&const DeepCollectionEquality().equals(other.excludes, _this.excludes)&&(identical(other.dateLimit, _this.dateLimit) || other.dateLimit == _this.dateLimit)&&(identical(other.auth, _this.auth) || other.auth == _this.auth)&&(identical(other.logLevel, _this.logLevel) || other.logLevel == _this.logLevel)&&(identical(other.logOutput, _this.logOutput) || other.logOutput == _this.logOutput)&&(identical(other.remoteHttp, _this.remoteHttp) || other.remoteHttp == _this.remoteHttp)&&(identical(other.threshold, _this.threshold) || other.threshold == _this.threshold)&&(identical(other.llamaBaseUri, _this.llamaBaseUri) || other.llamaBaseUri == _this.llamaBaseUri)&&(identical(other.llamaApiKey, _this.llamaApiKey) || other.llamaApiKey == _this.llamaApiKey)&&(identical(other.embeddingModel, _this.embeddingModel) || other.embeddingModel == _this.embeddingModel)&&(identical(other.multimodal, _this.multimodal) || other.multimodal == _this.multimodal));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
   final _this = this as UserConfig;
-  return Object.hash(runtimeType,_this.output,_this.maxTasks,const DeepCollectionEquality().hash(_this.languages),_this.proxy,const DeepCollectionEquality().hash(_this.excludes),_this.dateLimit,_this.auth,_this.logLevel,_this.logOutput,_this.remoteHttp,_this.threshold,_this.llamaBaseUri,_this.llamaApiKey,_this.embeddingModel,_this.multimodal);
+  return Object.hash(runtimeType,_this.output,_this.dbDir,_this.maxTasks,const DeepCollectionEquality().hash(_this.languages),_this.proxy,const DeepCollectionEquality().hash(_this.excludes),_this.dateLimit,_this.auth,_this.logLevel,_this.logOutput,_this.remoteHttp,_this.threshold,_this.llamaBaseUri,_this.llamaApiKey,_this.embeddingModel,_this.multimodal);
 }
 
 @override
 String toString() {
   final _this = this as UserConfig;
-  return 'UserConfig(output: ${_this.output}, maxTasks: ${_this.maxTasks}, languages: ${_this.languages}, proxy: ${_this.proxy}, excludes: ${_this.excludes}, dateLimit: ${_this.dateLimit}, auth: ${_this.auth}, logLevel: ${_this.logLevel}, logOutput: ${_this.logOutput}, remoteHttp: ${_this.remoteHttp}, threshold: ${_this.threshold}, llamaBaseUri: ${_this.llamaBaseUri}, llamaApiKey: ${_this.llamaApiKey}, embeddingModel: ${_this.embeddingModel}, multimodal: ${_this.multimodal})';
+  return 'UserConfig(output: ${_this.output}, dbDir: ${_this.dbDir}, maxTasks: ${_this.maxTasks}, languages: ${_this.languages}, proxy: ${_this.proxy}, excludes: ${_this.excludes}, dateLimit: ${_this.dateLimit}, auth: ${_this.auth}, logLevel: ${_this.logLevel}, logOutput: ${_this.logOutput}, remoteHttp: ${_this.remoteHttp}, threshold: ${_this.threshold}, llamaBaseUri: ${_this.llamaBaseUri}, llamaApiKey: ${_this.llamaApiKey}, embeddingModel: ${_this.embeddingModel}, multimodal: ${_this.multimodal})';
 }
 
 
@@ -54,7 +61,7 @@ abstract mixin class $UserConfigCopyWith<$Res>  {
   factory $UserConfigCopyWith(UserConfig value, $Res Function(UserConfig) _then) = _$UserConfigCopyWithImpl;
 @useResult
 $Res call({
- String output, int maxTasks, List<String> languages, String proxy, List<List<FilterLabel>> excludes, String dateLimit, String auth, String logLevel, String logOutput, String remoteHttp, double threshold, String llamaBaseUri, String llamaApiKey, String embeddingModel, String multimodal
+ String output, String dbDir, int maxTasks, List<String> languages, String proxy, List<List<FilterLabel>> excludes, String dateLimit, String auth, String logLevel, String logOutput, String remoteHttp, double threshold, String llamaBaseUri, String llamaApiKey, String embeddingModel, String multimodal
 });
 
 
@@ -71,9 +78,10 @@ class _$UserConfigCopyWithImpl<$Res>
 
 /// Create a copy of UserConfig
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? output = null,Object? maxTasks = null,Object? languages = null,Object? proxy = null,Object? excludes = null,Object? dateLimit = null,Object? auth = null,Object? logLevel = null,Object? logOutput = null,Object? remoteHttp = null,Object? threshold = null,Object? llamaBaseUri = null,Object? llamaApiKey = null,Object? embeddingModel = null,Object? multimodal = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? output = null,Object? dbDir = null,Object? maxTasks = null,Object? languages = null,Object? proxy = null,Object? excludes = null,Object? dateLimit = null,Object? auth = null,Object? logLevel = null,Object? logOutput = null,Object? remoteHttp = null,Object? threshold = null,Object? llamaBaseUri = null,Object? llamaApiKey = null,Object? embeddingModel = null,Object? multimodal = null,}) {
   return _then(UserConfig(
 null == output ? _self.output : output // ignore: cast_nullable_to_non_nullable
+as String,dbDir: null == dbDir ? _self.dbDir : dbDir // ignore: cast_nullable_to_non_nullable
 as String,maxTasks: null == maxTasks ? _self.maxTasks : maxTasks // ignore: cast_nullable_to_non_nullable
 as int,languages: null == languages ? _self.languages : languages // ignore: cast_nullable_to_non_nullable
 as List<String>,proxy: null == proxy ? _self.proxy : proxy // ignore: cast_nullable_to_non_nullable
@@ -173,10 +181,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String output,  int maxTasks,  List<String> languages,  String proxy,  List<List<FilterLabel>> excludes,  String dateLimit,  String auth,  String logLevel,  String logOutput,  String remoteHttp,  double threshold,  String llamaBaseUri,  String llamaApiKey,  String embeddingModel,  String multimodal)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String output,  String dbDir,  int maxTasks,  List<String> languages,  String proxy,  List<List<FilterLabel>> excludes,  String dateLimit,  String auth,  String logLevel,  String logOutput,  String remoteHttp,  double threshold,  String llamaBaseUri,  String llamaApiKey,  String embeddingModel,  String multimodal)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _UserConfig() when $default != null:
-return $default(_that.output,_that.maxTasks,_that.languages,_that.proxy,_that.excludes,_that.dateLimit,_that.auth,_that.logLevel,_that.logOutput,_that.remoteHttp,_that.threshold,_that.llamaBaseUri,_that.llamaApiKey,_that.embeddingModel,_that.multimodal);case _:
+return $default(_that.output,_that.dbDir,_that.maxTasks,_that.languages,_that.proxy,_that.excludes,_that.dateLimit,_that.auth,_that.logLevel,_that.logOutput,_that.remoteHttp,_that.threshold,_that.llamaBaseUri,_that.llamaApiKey,_that.embeddingModel,_that.multimodal);case _:
   return orElse();
 
 }
@@ -194,10 +202,10 @@ return $default(_that.output,_that.maxTasks,_that.languages,_that.proxy,_that.ex
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String output,  int maxTasks,  List<String> languages,  String proxy,  List<List<FilterLabel>> excludes,  String dateLimit,  String auth,  String logLevel,  String logOutput,  String remoteHttp,  double threshold,  String llamaBaseUri,  String llamaApiKey,  String embeddingModel,  String multimodal)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String output,  String dbDir,  int maxTasks,  List<String> languages,  String proxy,  List<List<FilterLabel>> excludes,  String dateLimit,  String auth,  String logLevel,  String logOutput,  String remoteHttp,  double threshold,  String llamaBaseUri,  String llamaApiKey,  String embeddingModel,  String multimodal)  $default,) {final _that = this;
 switch (_that) {
 case _UserConfig():
-return $default(_that.output,_that.maxTasks,_that.languages,_that.proxy,_that.excludes,_that.dateLimit,_that.auth,_that.logLevel,_that.logOutput,_that.remoteHttp,_that.threshold,_that.llamaBaseUri,_that.llamaApiKey,_that.embeddingModel,_that.multimodal);case _:
+return $default(_that.output,_that.dbDir,_that.maxTasks,_that.languages,_that.proxy,_that.excludes,_that.dateLimit,_that.auth,_that.logLevel,_that.logOutput,_that.remoteHttp,_that.threshold,_that.llamaBaseUri,_that.llamaApiKey,_that.embeddingModel,_that.multimodal);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -214,10 +222,10 @@ return $default(_that.output,_that.maxTasks,_that.languages,_that.proxy,_that.ex
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String output,  int maxTasks,  List<String> languages,  String proxy,  List<List<FilterLabel>> excludes,  String dateLimit,  String auth,  String logLevel,  String logOutput,  String remoteHttp,  double threshold,  String llamaBaseUri,  String llamaApiKey,  String embeddingModel,  String multimodal)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String output,  String dbDir,  int maxTasks,  List<String> languages,  String proxy,  List<List<FilterLabel>> excludes,  String dateLimit,  String auth,  String logLevel,  String logOutput,  String remoteHttp,  double threshold,  String llamaBaseUri,  String llamaApiKey,  String embeddingModel,  String multimodal)?  $default,) {final _that = this;
 switch (_that) {
 case _UserConfig() when $default != null:
-return $default(_that.output,_that.maxTasks,_that.languages,_that.proxy,_that.excludes,_that.dateLimit,_that.auth,_that.logLevel,_that.logOutput,_that.remoteHttp,_that.threshold,_that.llamaBaseUri,_that.llamaApiKey,_that.embeddingModel,_that.multimodal);case _:
+return $default(_that.output,_that.dbDir,_that.maxTasks,_that.languages,_that.proxy,_that.excludes,_that.dateLimit,_that.auth,_that.logLevel,_that.logOutput,_that.remoteHttp,_that.threshold,_that.llamaBaseUri,_that.llamaApiKey,_that.embeddingModel,_that.multimodal);case _:
   return null;
 
 }
@@ -229,10 +237,18 @@ return $default(_that.output,_that.maxTasks,_that.languages,_that.proxy,_that.ex
 @JsonSerializable()
 
 class _UserConfig implements UserConfig {
-   _UserConfig(this.output, {this.maxTasks = 5,  List<String> languages = const ["japanese", "chinese"], this.proxy = "",  List<List<FilterLabel>> excludes = const [], this.dateLimit = "2013-01-01", this.auth = "12345678", this.logLevel = "debug", this.logOutput = "", this.remoteHttp = "127.0.0.1:7890", this.threshold = 0.72, this.llamaBaseUri = "http://localhost:8080", this.llamaApiKey = "", this.embeddingModel = "Embedding", this.multimodal = "gemma4-it:e2b"}): _languages = languages,_excludes = excludes;
+   _UserConfig(this.output, {this.dbDir = "", this.maxTasks = 5,  List<String> languages = const ["japanese", "chinese"], this.proxy = "",  List<List<FilterLabel>> excludes = const [], this.dateLimit = "2013-01-01", this.auth = "12345678", this.logLevel = "debug", this.logOutput = "", this.remoteHttp = "127.0.0.1:7890", this.threshold = 0.72, this.llamaBaseUri = "http://localhost:8080", this.llamaApiKey = "", this.embeddingModel = "Embedding", this.multimodal = "gemma4-it:e2b"}): _languages = languages,_excludes = excludes;
   factory _UserConfig.fromJson(Map<String, dynamic> json) => _$UserConfigFromJson(json);
 
 @override final  String output;
+/// user.db（以及 WAL 模式下的 `-wal` / `-shm`）实际所在目录。
+///
+/// 留空时回落到 `output`，保持旧行为。
+///
+/// 之所以要能单独配：漫画数据盘常常是 NTFS / 网络盘，而 WAL 模式要求主库、
+/// `-wal`、`-shm` 三个文件都落在支持可靠 mmap + POSIX 锁的本地盘上。
+/// 只把 `user.db` 单独 bind mount 走是没用的 —— 近期写入全在 `-wal` 里。
+@override@JsonKey() final  String dbDir;
 @override@JsonKey() final  int maxTasks;
  final  List<String> _languages;
 @override@JsonKey() List<String> get languages {
@@ -273,18 +289,18 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _UserConfig&&(identical(other.output, output) || other.output == output)&&(identical(other.maxTasks, maxTasks) || other.maxTasks == maxTasks)&&const DeepCollectionEquality().equals(other.languages, _languages)&&(identical(other.proxy, proxy) || other.proxy == proxy)&&const DeepCollectionEquality().equals(other.excludes, _excludes)&&(identical(other.dateLimit, dateLimit) || other.dateLimit == dateLimit)&&(identical(other.auth, auth) || other.auth == auth)&&(identical(other.logLevel, logLevel) || other.logLevel == logLevel)&&(identical(other.logOutput, logOutput) || other.logOutput == logOutput)&&(identical(other.remoteHttp, remoteHttp) || other.remoteHttp == remoteHttp)&&(identical(other.threshold, threshold) || other.threshold == threshold)&&(identical(other.llamaBaseUri, llamaBaseUri) || other.llamaBaseUri == llamaBaseUri)&&(identical(other.llamaApiKey, llamaApiKey) || other.llamaApiKey == llamaApiKey)&&(identical(other.embeddingModel, embeddingModel) || other.embeddingModel == embeddingModel)&&(identical(other.multimodal, multimodal) || other.multimodal == multimodal));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _UserConfig&&(identical(other.output, output) || other.output == output)&&(identical(other.dbDir, dbDir) || other.dbDir == dbDir)&&(identical(other.maxTasks, maxTasks) || other.maxTasks == maxTasks)&&const DeepCollectionEquality().equals(other.languages, _languages)&&(identical(other.proxy, proxy) || other.proxy == proxy)&&const DeepCollectionEquality().equals(other.excludes, _excludes)&&(identical(other.dateLimit, dateLimit) || other.dateLimit == dateLimit)&&(identical(other.auth, auth) || other.auth == auth)&&(identical(other.logLevel, logLevel) || other.logLevel == logLevel)&&(identical(other.logOutput, logOutput) || other.logOutput == logOutput)&&(identical(other.remoteHttp, remoteHttp) || other.remoteHttp == remoteHttp)&&(identical(other.threshold, threshold) || other.threshold == threshold)&&(identical(other.llamaBaseUri, llamaBaseUri) || other.llamaBaseUri == llamaBaseUri)&&(identical(other.llamaApiKey, llamaApiKey) || other.llamaApiKey == llamaApiKey)&&(identical(other.embeddingModel, embeddingModel) || other.embeddingModel == embeddingModel)&&(identical(other.multimodal, multimodal) || other.multimodal == multimodal));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
-    return Object.hash(runtimeType,output,maxTasks,const DeepCollectionEquality().hash(_languages),proxy,const DeepCollectionEquality().hash(_excludes),dateLimit,auth,logLevel,logOutput,remoteHttp,threshold,llamaBaseUri,llamaApiKey,embeddingModel,multimodal);
+    return Object.hash(runtimeType,output,dbDir,maxTasks,const DeepCollectionEquality().hash(_languages),proxy,const DeepCollectionEquality().hash(_excludes),dateLimit,auth,logLevel,logOutput,remoteHttp,threshold,llamaBaseUri,llamaApiKey,embeddingModel,multimodal);
 }
 
 @override
 String toString() {
-    return 'UserConfig(output: $output, maxTasks: $maxTasks, languages: $languages, proxy: $proxy, excludes: $excludes, dateLimit: $dateLimit, auth: $auth, logLevel: $logLevel, logOutput: $logOutput, remoteHttp: $remoteHttp, threshold: $threshold, llamaBaseUri: $llamaBaseUri, llamaApiKey: $llamaApiKey, embeddingModel: $embeddingModel, multimodal: $multimodal)';
+    return 'UserConfig(output: $output, dbDir: $dbDir, maxTasks: $maxTasks, languages: $languages, proxy: $proxy, excludes: $excludes, dateLimit: $dateLimit, auth: $auth, logLevel: $logLevel, logOutput: $logOutput, remoteHttp: $remoteHttp, threshold: $threshold, llamaBaseUri: $llamaBaseUri, llamaApiKey: $llamaApiKey, embeddingModel: $embeddingModel, multimodal: $multimodal)';
 }
 
 
@@ -295,7 +311,7 @@ abstract mixin class _$UserConfigCopyWith<$Res> implements $UserConfigCopyWith<$
   factory _$UserConfigCopyWith(_UserConfig value, $Res Function(_UserConfig) _then) = __$UserConfigCopyWithImpl;
 @override @useResult
 $Res call({
- String output, int maxTasks, List<String> languages, String proxy, List<List<FilterLabel>> excludes, String dateLimit, String auth, String logLevel, String logOutput, String remoteHttp, double threshold, String llamaBaseUri, String llamaApiKey, String embeddingModel, String multimodal
+ String output, String dbDir, int maxTasks, List<String> languages, String proxy, List<List<FilterLabel>> excludes, String dateLimit, String auth, String logLevel, String logOutput, String remoteHttp, double threshold, String llamaBaseUri, String llamaApiKey, String embeddingModel, String multimodal
 });
 
 
@@ -312,9 +328,10 @@ class __$UserConfigCopyWithImpl<$Res>
 
 /// Create a copy of UserConfig
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? output = null,Object? maxTasks = null,Object? languages = null,Object? proxy = null,Object? excludes = null,Object? dateLimit = null,Object? auth = null,Object? logLevel = null,Object? logOutput = null,Object? remoteHttp = null,Object? threshold = null,Object? llamaBaseUri = null,Object? llamaApiKey = null,Object? embeddingModel = null,Object? multimodal = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? output = null,Object? dbDir = null,Object? maxTasks = null,Object? languages = null,Object? proxy = null,Object? excludes = null,Object? dateLimit = null,Object? auth = null,Object? logLevel = null,Object? logOutput = null,Object? remoteHttp = null,Object? threshold = null,Object? llamaBaseUri = null,Object? llamaApiKey = null,Object? embeddingModel = null,Object? multimodal = null,}) {
   return _then(_UserConfig(
 null == output ? _self.output : output // ignore: cast_nullable_to_non_nullable
+as String,dbDir: null == dbDir ? _self.dbDir : dbDir // ignore: cast_nullable_to_non_nullable
 as String,maxTasks: null == maxTasks ? _self.maxTasks : maxTasks // ignore: cast_nullable_to_non_nullable
 as int,languages: null == languages ? _self._languages : languages // ignore: cast_nullable_to_non_nullable
 as List<String>,proxy: null == proxy ? _self.proxy : proxy // ignore: cast_nullable_to_non_nullable

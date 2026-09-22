@@ -198,7 +198,13 @@ class TaskManager {
     if (config.llamaBaseUri.isNotEmpty) {
       client = LlamaClient(config: config, logger: this.logger);
     }
-    helper = SqliteHelper(config.output, logger: logger);
+    // db 目录可与漫画目录分开配置（config.dbDir），目的是让 user.db / -wal / -shm
+    // 三个文件都落在可靠的本地盘上，别跟着漫画数据待在 NTFS / 网络盘上。
+    final dbDir = config.effectiveDbDir;
+    if (dbDir != config.output) {
+      logger.i('user.db 使用独立目录 $dbDir（漫画目录 ${config.output}）');
+    }
+    helper = SqliteHelper(dbDir, logger: logger);
     dio.httpClientAdapter = crateHttpClientAdapter(config.proxy);
     _api = createHitomi(this, false, config.remoteHttp);
     _localApi = createHitomi(this, true, config.remoteHttp);

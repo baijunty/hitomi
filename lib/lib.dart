@@ -49,47 +49,66 @@ extension Filter<E> on Iterable<E> {
 extension CursorCover on IteratingCursor {
   Stream<Row> asStream(CommonPreparedStatement statement, [Logger? logger]) {
     late StreamController<Row> controller;
-    var launch = true;
-    bool statementClosed = false;
+    var paused = false;
+    var iterating = false;
+    var statementClosed = false;
+
     void stop() {
       if (!statementClosed) {
-        statement.close();
         statementClosed = true;
+        try {
+          statement.close();
+        } catch (e) {
+          logger?.e('close cursor statement error $e');
+        }
       }
     }
 
     Future<void> start() async {
+      // 关键修复：已经有 pump 挂在下面的 await 上时直接返回。
+      // 旧实现 onResume 无条件再调一次 start()，于是同一个 cursor 上会有两个
+      // 循环交错调用 moveNext() —— 跳行、游标状态机错乱，还会撞上已 close 的
+      // controller（Bad state: Cannot add new events after calling close）。
+      if (iterating) return;
+      iterating = true;
       try {
-        while (moveNext() && launch) {
+        while (!paused) {
+          if (!moveNext()) {
+            // 正常走完也必须关 statement。
+            // 旧实现只在 cancel / error 里关，泄漏的读游标会长期持有读事务，
+            // 阻止 WAL checkpoint，-wal 无限增长后被人手动删掉
+            // → database disk image is malformed。
+            if (!controller.isClosed) controller.close();
+            stop();
+            break;
+          }
+          if (controller.isClosed) {
+            stop();
+            break;
+          }
           controller.add(current);
           // 每处理一行后让出事件循环，避免阻塞消费者造成背压问题
           await Future<void>.value();
         }
-        if (launch) {
-          controller.close();
-        }
       } catch (e) {
         logger?.e('handle row error $e');
-        controller.addError(e);
-        // 发生错误时也关闭 statement，避免资源泄漏
+        if (!controller.isClosed) controller.addError(e);
         stop();
+      } finally {
+        iterating = false;
       }
-    }
-
-    void onResume() {
-      launch = true;
-      start();
-    }
-
-    void onPause() {
-      launch = false;
     }
 
     controller = StreamController<Row>(
       onListen: start,
       onCancel: stop,
-      onPause: onPause,
-      onResume: onResume,
+      onPause: () => paused = true,
+      // 只置标志位：若已有 pump 挂在 await 上，它醒来后会自己继续，
+      // 不能在这里重复起第二个循环。
+      onResume: () {
+        paused = false;
+        start();
+      },
     );
 
     return controller.stream;
