@@ -73,19 +73,21 @@ class _LocalHitomiImpl implements Hitomi {
           }, test: (error) => true);
     } else {
       origin
-          .then((value) {
+          .then((value) async {
             if (value == null) {
               stream.addError('file not found');
               stream.close();
-              return null;
+              return;
             }
-            return _manager.manager!
-                .compute(value)
-                .then(
-                  (value) => value != null
-                      ? stream.add(value)
-                      : stream.addError('empty data'),
-                );
+            final data = await _manager.manager!.compute(value);
+            if (data == null || data.isEmpty) {
+              stream.addError('empty data');
+            } else {
+              // 命中本地仓储后必须主动上报一次进度：上层（缓存管理器）依赖首个
+              // 进度回调取 contentLength，缺了它缩略图请求会一直挂着发不出去。
+              onProcess?.call(data.length, data.length);
+              stream.add(data);
+            }
           })
           .catchError((e) {
             stream.addError(e);
