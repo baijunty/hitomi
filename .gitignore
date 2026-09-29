@@ -17,7 +17,6 @@ config.json
 web/
 hitomi.log
 .vscode/
-test/
 web/
 web
 

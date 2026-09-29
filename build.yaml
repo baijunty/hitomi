@@ -1,0 +1,11 @@
+# Drift 代码生成配置。
+#
+# 现网数据库的列名是驼峰（createDate / imageEmbedding / fileHash ...），
+# drift 默认会把 Dart 名转成 snake_case，会把 schema 改坏。
+# 这里强制保留原样，保证生成的 DDL 与既有 v16 schema 完全一致。
+targets:
+  $default:
+    builders:
+      drift_dev:
+        options:
+          case_from_dart_to_sql: preserve

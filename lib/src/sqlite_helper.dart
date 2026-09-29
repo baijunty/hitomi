@@ -1,73 +1,83 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
+
 import 'package:collection/collection.dart';
+import 'package:drift/drift.dart' show QueryRow, Variable;
 import 'package:hitomi/gallery/gallery.dart';
 import 'package:hitomi/gallery/image.dart';
 import 'package:hitomi/gallery/label.dart';
 import 'package:hitomi/lib.dart';
-import 'package:hitomi/src/gallery_util.dart';
 import 'package:logger/logger.dart';
-import 'package:ml_linalg/distance.dart';
-import 'package:ml_linalg/vector.dart';
 import 'package:path/path.dart';
 import 'package:sqlite3/common.dart';
-import 'multi_paltform.dart' show openSqliteDb;
 
+import 'db/database.dart';
+import 'multi_paltform.dart' show createDriftExecutor;
+
+/// hitomi 的数据库门面。
+///
+/// 底层已重构为 drift（见 lib/src/db/）：
+/// - [HitomiDatabase]：drift 表定义 + MigrationStrategy（schema v16）；
+/// - `custom_functions.dart`：PRAGMA 与 vector_distance / title_fixed / hash_distance，
+///   在 executor 的 setup 回调里、任何 DDL 之前执行；
+/// - `legacy.dart`：逐字移植的 v0→v16 迁移链。
+///
+/// 本类保持旧 `SqliteHelper` 的全部公共 API 与行为语义（返回 sqlite3 的
+/// `ResultSet`/`Row`，调用方零改动）：所有查询经 drift 的 `customSelect` /
+/// `customStatement` 走同一连接、同一事务机制，结果再包装回 `ResultSet`。
 class SqliteHelper {
   final String _dirPath;
-  static final _version = 16;
-  Logger? _logger = null;
-  late CommonDatabase _db;
-  String dbName;
+  final String dbName;
+  final Logger? _logger;
 
   /// 初始化 single-flight：并发调用共享同一个 Future，
-  /// 保证同一个 db 文件只会被 open 一次。
-  Completer<void>? _initCompleter;
-
-  /// 写事务串行化队列的尾部，避免同一连接上两个逻辑事务交错 BEGIN / COMMIT。
-  Future<void> _writeChain = Future.value();
-
-  /// 当前是否已处于事务中，让嵌套调用直接加入外层事务而不是重复 BEGIN。
-  bool _inTransaction = false;
+  /// 保证同一个 db 文件只会被 open 一次（open 内含建表 / 迁移）。
+  Completer<HitomiDatabase>? _initCompleter;
 
   SqliteHelper(
     this._dirPath, {
     this.dbName = 'user.db',
     Logger? logger = null,
-  }) {
-    this._logger = logger;
+  }) : _logger = logger;
+
+  /// single-flight 初始化：打开 drift 执行器并触发建表 / 迁移。
+  ///
+  /// 修复点（沿用旧实现注释）：旧实现里 `__db` 只在 `await` **之后**才赋值，
+  /// 每次操作都会调 `checkInit`，并发查询各自 open 一个连接并重复跑建表 / 迁移，
+  /// 多连接并发 `ALTER RENAME` / `CREATE` / `DROP` 是 database disk image is
+  /// malformed 的直接成因。这里并发调用共享同一个 Future。
+  Future<void> checkInit() async {
+    await _ensureOpen();
   }
 
-  /// single-flight 初始化。
-  ///
-  /// 修复点：旧实现里 `__db` 只在 `await` **之后**才赋值，而 `databaseOpera`
-  /// 每次操作都会调 `checkInit`。启动时并发的多个查询全部看到 `__db == null`，
-  /// 于是各自 open 一个连接到同一个文件，并且每个连接都再跑一遍建表 / 迁移 ——
-  /// 多个连接并发执行 `ALTER TABLE ... RENAME` / `CREATE` / `DROP` 是
-  /// database disk image is malformed 的直接成因。
-  Future<void> checkInit() {
+  Future<HitomiDatabase> _ensureOpen() {
     final existing = _initCompleter;
     if (existing != null) return existing.future;
 
-    final completer = Completer<void>();
+    final completer = Completer<HitomiDatabase>();
     _initCompleter = completer;
 
     () async {
-      CommonDatabase? opened;
+      HitomiDatabase? opened;
       try {
-        opened = await openSqliteDb(_dirPath, dbName);
-        _db = opened;
-        await init();
-        if (!completer.isCompleted) completer.complete();
+        final executor = await createDriftExecutor(
+          _dirPath,
+          dbName,
+          logger: _logger,
+        );
+        opened = HitomiDatabase(executor, logger: _logger);
+        // 触发 drift 的完整 open 流程：setup（PRAGMA + 自定义函数）→
+        // 读 user_version → onCreate / onUpgrade → setSchemaVersion。
+        await opened.customSelect('select 1;').getSingle();
+        if (!completer.isCompleted) completer.complete(opened);
       } catch (e, stack) {
         // 失败后允许下次重试，同时关掉已打开的连接避免句柄泄漏。
         if (identical(_initCompleter, completer)) {
           _initCompleter = null;
         }
         try {
-          opened?.close();
+          await opened?.close();
         } catch (closeError) {
           _logger?.e('close db after init failure error $closeError');
         }
@@ -78,331 +88,109 @@ class SqliteHelper {
     return completer.future;
   }
 
-  double vectorDistance(List<Object?> arguments) {
-    if (arguments.length == 2 && arguments.every((args) => args != null)) {
-      try {
-        var v1 = Vector.fromList(
-          _uint8ListToDoubleList(arguments[0] as List<int>),
-        );
-        var v2 = Vector.fromList(
-          _uint8ListToDoubleList(arguments[1] as List<int>),
-        );
-        return v1.distanceTo(v2, distance: Distance.cosine);
-      } catch (e) {
-        _logger?.e('args ${arguments.sublist(2)} occus $e');
-        return 100.0;
-      }
-    }
-    return 100.0;
-  }
-
-  List<double> _uint8ListToDoubleList(List<int> list) {
-    Uint8List data = Uint8List.fromList(list);
-    Float64List doubleArray = Float64List.view(data.buffer);
-    return doubleArray.toList();
-  }
-
-  String? pureTitle(List<Object?> title) {
-    return titleFixed(title[0].toString());
-  }
-
-  int hashDistance(List<Object?> arguments) {
-    if (arguments.length == 2 && arguments.every((element) => element is int)) {
-      return compareHashDistance(arguments[0] as int, arguments[1] as int);
-    }
-    return 64;
-  }
-
-  /// 打开连接后、任何 DDL 之前先落地 PRAGMA。
-  ///
-  /// 修复点：旧实现把 `journal_mode = WAL` 放在建表和迁移**之后**，而且完全不看
-  /// 返回值。一旦有别的连接还持有锁，切换会失败而代码毫无察觉，于是同一个 db
-  /// 文件上部分连接在 WAL、部分还在 DELETE —— 混用 journal mode 会直接损坏数据库。
-  void _applyPragmas(CommonDatabase db) {
-    // 锁冲突时等待而不是立刻抛 SQLITE_BUSY（旧代码会把 BUSY 静默吞掉）。
-    db.execute('PRAGMA busy_timeout=15000;');
-
-    // WAL 必须在事务外切换，并且要确认真的切过去了。
-    final before = _pragmaString(db, 'PRAGMA journal_mode;');
-    if (before != 'wal') {
-      try {
-        final after = _pragmaString(db, 'PRAGMA journal_mode=WAL;');
-        if (after != 'wal') {
-          _logger?.e(
-            'WAL 切换失败，当前 journal_mode=$after（切换前=$before）。'
-            '若数据目录在网络盘 / FUSE 上，SQLite 可能拒绝启用 WAL。',
-          );
-        } else {
-          _logger?.i('journal_mode 已切换为 WAL');
-        }
-      } catch (e) {
-        _logger?.e('设置 journal_mode=WAL 失败 $e');
-      }
-    }
-
-    // 限制回滚后 wal 文件的保留大小，避免无限膨胀诱导人工删除 -wal。
-    db.execute('PRAGMA journal_size_limit=67108864;');
-    // 让 schema 里声明的 ON DELETE CASCADE 真正生效（SQLite 默认是 OFF）。
-    db.execute('PRAGMA foreign_keys=ON;');
-  }
-
-  String? _pragmaString(CommonDatabase db, String statement) {
+  Future<void> close() async {
+    final completer = _initCompleter;
+    if (completer == null) return;
+    _initCompleter = null;
     try {
-      return db.select(statement).first.columnAt(0)?.toString().toLowerCase();
+      final db = await completer.future;
+      await db.close();
     } catch (e) {
-      _logger?.e('exec "$statement" error $e');
-      return null;
+      _logger?.e('close db error $e');
     }
   }
 
-  /// 初始化 schema / 自定义函数 / 版本迁移。
+  // ---------------------------------------------------------------------------
+  // 通用执行原语
+  // ---------------------------------------------------------------------------
+
+  List<Variable> _vars(List<dynamic> params) {
+    return [for (final p in params) Variable<Object>(p)];
+  }
+
+  /// 把 drift 的 [QueryRow] 列表包装回 sqlite3 的 [ResultSet]，
+  /// 让调用方的 `row['x']` / 迭代 / `.length` 行为与旧实现完全一致。
   ///
-  /// 修复点：旧签名是 `void init() async`，调用方写的是 `.then((v) => init())`，
-  /// 回调返回 void 导致 Future 链**根本不会等待**迁移完成 —— schema 还没建好
-  /// 查询就发出去了，迁移中途抛异常也只会变成 unhandled async error。
-  Future<void> init() async {
-    _applyPragmas(_db);
-    createTables(_db);
-    await createIndexes(_db);
-    _registerFunctions(_db);
-
-    final version = _readUserVersion(_db);
-    if (version != _version) {
-      // 迁移期间必须关闭外键：历史库是在 foreign_keys=OFF 下写出来的，
-      // 可能存在孤儿行（例如 GalleryFile.gid 指向已不存在的 Gallery）。
-      // 开着 FK 跑 `insert ... select` 会直接约束失败并回滚整个迁移。
-      // 注意 PRAGMA foreign_keys 在事务内是 no-op，所以必须在事务外切换。
-      _db.execute('PRAGMA foreign_keys=OFF;');
-      try {
-        await _migrateToTarget(_db, version);
-      } finally {
-        _db.execute('PRAGMA foreign_keys=ON;');
-      }
-    }
+  /// 列名取首行的 key 顺序；重复列名在 drift 的 Map 里已按 lastIndexOf
+  /// 语义折叠为最后一个值，与 sqlite3 原生 ResultSet 的查找语义一致。
+  ResultSet _resultSet(List<QueryRow> rows) {
+    if (rows.isEmpty) return ResultSet(const [], null, const []);
+    final columnNames = rows.first.data.keys.toList();
+    final rawRows = [for (final r in rows) r.data.values.toList()];
+    return ResultSet(columnNames, null, rawRows);
   }
 
-  int _readUserVersion(CommonDatabase db) {
-    final stmt = db.prepare('PRAGMA user_version;');
-    try {
-      return stmt.select().first.columnAt(0) as int;
-    } finally {
-      stmt.close();
-    }
+  Future<ResultSet> querySql(
+    String sql, [
+    List<dynamic> params = const [],
+  ]) async {
+    final db = await _ensureOpen();
+    final rows = await db.customSelect(sql, variables: _vars(params)).get();
+    return _resultSet(rows);
   }
 
-  void _registerFunctions(CommonDatabase db) {
-    db.createFunction(
-      functionName: 'vector_distance',
-      function: vectorDistance,
-      argumentCount: AllowedArgumentCount.any(),
-    );
-    db.createFunction(
-      functionName: 'title_fixed',
-      function: pureTitle,
-      argumentCount: AllowedArgumentCount(2),
-    );
-    db.createFunction(
-      functionName: 'hash_distance',
-      function: hashDistance,
-      argumentCount: AllowedArgumentCount(2),
-    );
+  Future<Stream<Row>> querySqlByCursor(
+    String sql, [
+    List<dynamic> params = const [],
+  ]) async {
+    // drift 的 customSelect 是一次性取回结果集；调用方都是把整个结果折叠 /
+    // 遍历完的用法，直接物化成 Stream 语义等价。
+    final set = await querySql(sql, params);
+    return Stream<Row>.fromIterable(set);
   }
 
-  /// 把整个迁移包在一个事务里。
-  ///
-  /// 旧实现每个 `DROP` / `ALTER RENAME` / `CREATE` / `INSERT...SELECT` 都是独立的
-  /// autocommit 语句，中途被 kill 就会留下「Gallery 是空的、GalleryTemp 是唯一
-  /// 副本、user_version 没更新」的半迁移状态，而重跑的第一句
-  /// `drop table if exists ...Temp` 会直接删掉唯一的数据副本。
-  Future<void> _migrateToTarget(CommonDatabase db, int startVersion) async {
-    // 注意：这里走 _exclusive 而不是 public 的 transaction()，
-    // 因为当前正处于 checkInit() 内部，再 await checkInit() 会自死锁。
-    await _exclusive(
-      () => _inTransactionBlock(() async {
-        var version = startVersion;
-        var steps = 0;
-        while (version > 0 && version != _version) {
-          // 旧实现里 dataBaseUpgrade 未命中 case 会 return oldVersion，
-          // 于是 while 条件永远成立 —— 直接死循环。这里显式挡住。
-          if (++steps > 64) {
-            throw StateError('migration did not converge at version $version');
-          }
-          final next = version < _version
-              ? dataBaseUpgrade(db, version)
-              : dateBaseDowngrade(db, version);
-          if (next == version) {
-            throw StateError('migration made no progress at version $version');
-          }
-          version = next;
-        }
-        db.execute('PRAGMA user_version=$_version;');
-        _logger?.i('database migrated $startVersion -> $_version');
-      }),
-    );
+  Future<bool> excuteSqlAsync(String sql, List<dynamic> params) async {
+    final db = await _ensureOpen();
+    await db.customStatement(sql, params);
+    return true;
   }
 
-  /// 把 [body] 排到写事务队列尾部串行执行。
-  Future<T> _exclusive<T>(Future<T> Function() body) {
-    final run = _writeChain.then((_) => body());
-    // 无论成败都推进队列，避免一次失败把后续事务永久卡住。
-    _writeChain = run.then((_) {}, onError: (_) {});
-    return run;
-  }
-
-  /// Zone 标记：当前异步链是否已处于某个事务内部。
-  static const _txZoneKey = #sqlite_transaction_active;
-
-  /// 在单个事务里执行 [action]，并发调用按到达顺序串行化。
-  ///
-  /// 嵌套调用（[action] 内部又调 `transaction`）会直接加入当前事务，
-  /// 不会重复 BEGIN。
-  ///
-  /// 注意：判断「是否嵌套」必须用 Zone 而不是 `_inTransaction`。
-  /// 若嵌套调用也走 `_exclusive`，它会被排到外层事务的后面，而外层正
-  /// `await` 着它的结果 —— 外层等嵌套、嵌套等外层，写链从此永久死锁
-  /// （insertGallery → queryOrInsertTagTable / excuteSqlMultiParams
-  /// 正是这种嵌套，导致所有下载任务卡死）。Zone 标记沿异步链传播，
-  /// 能准确区分「嵌套在当前事务里」与「另一个并发事务」。
-  Future<T> transaction<T>(Future<T> Function() action) async {
-    await checkInit();
-    if (Zone.current[_txZoneKey] == true) {
-      // 嵌套在当前事务的异步链上：直接内联执行，加入外层 BEGIN。
-      return action();
-    }
-    return _exclusive(
-      () => Zone.current
-          .fork(zoneValues: {_txZoneKey: true})
-          .run(() => _inTransactionBlock(action)),
-    );
-  }
-
-  Future<T> _inTransactionBlock<T>(Future<T> Function() action) async {
-    if (_inTransaction) return action();
-
-    _db.execute('BEGIN IMMEDIATE;');
-    _inTransaction = true;
-    var needsRollback = true;
-    try {
-      final result = await action();
-      _db.execute('COMMIT;');
-      needsRollback = false;
-      return result;
-    } catch (e) {
-      if (needsRollback) {
-        try {
-          _db.execute('ROLLBACK;');
-        } catch (rollbackError) {
-          _logger?.e('rollback failed $rollbackError (original: $e)');
-        }
-      }
-      rethrow;
-    } finally {
-      _inTransaction = false;
-    }
-  }
-
-  Future<T> databaseOpera<T>(
+  Future<bool> excuteSqlMultiParams(
     String sql,
-    T operate(CommonPreparedStatement statement), {
-    bool releaseOnce = true,
-  }) async {
-    CommonPreparedStatement? stam;
-    try {
-      await checkInit();
-      stam = _db.prepare(sql);
-      return operate(stam);
-    } catch (e, stack) {
-      _logger?.e('excel sql $e faild ${stack}');
-      return Future.error('$sql error', stack);
-    } finally {
-      if (releaseOnce) {
-        stam?.close();
+    List<List<dynamic>> params,
+  ) async {
+    if (params.isEmpty) return true;
+    final db = await _ensureOpen();
+    // 整批参数放进同一个事务：中途失败不会留下半批数据。
+    await db.transaction(() async {
+      for (final element in params) {
+        await db.customStatement(sql, element);
+      }
+    });
+    return true;
+  }
+
+  /// 在单个事务里执行 [action]，并发调用由 drift 的执行器串行化。
+  ///
+  /// 嵌套调用（[action] 内部又调 `transaction`）走 drift 的 savepoint：
+  /// 内层失败只回滚到保存点，异常照常向外传播；外层若捕获则继续，
+  /// 外层事务最终提交时包含所有已提交内层的改动。
+  Future<T> transaction<T>(Future<T> Function() action) async {
+    final db = await _ensureOpen();
+    return db.transaction(action);
+  }
+
+  Future<Map<List<dynamic>, ResultSet>> selectSqlMultiResultAsync(
+    String sql,
+    List<List<dynamic>> params,
+  ) async {
+    final db = await _ensureOpen();
+    final result = <List<dynamic>, ResultSet>{};
+    for (final element in params) {
+      try {
+        final rows = await db.customSelect(sql, variables: _vars(element)).get();
+        result[element] = _resultSet(rows);
+      } catch (e) {
+        _logger?.e('$sql error parmas $element $e');
+        rethrow;
       }
     }
+    return result;
   }
 
-  void createTables(CommonDatabase db) {
-    db.execute('''create table  if not exists Tags(
-      id Integer PRIMARY KEY autoincrement,
-      type TEXT NOT NULL,
-      name TEXT NOT NULL,
-      translate TEXT NOT NULL,
-      intro TEXT NOT NULL,
-      links TEXT,
-      superior TEXT,
-      CONSTRAINT tag UNIQUE (type,name)
-      )''');
-    db.execute('''create table if not exists Gallery(
-      id integer PRIMARY KEY,
-      path TEXT Quique,
-      language TEXT not null,
-      title TEXT not NULL,
-      createDate TEXT,
-      type Text,
-      date INTEGER,
-      mark INTEGER default 0,
-      length integer
-      )''');
-    db.execute('''create table if not exists GalleryExtra(
-      id integer PRIMARY KEY,
-      gid integer not null,
-      imageEmbedding BLOB,
-      storyDescription TEXT,
-      textEmbedding BLOB,
-      FOREIGN KEY(gid) REFERENCES Gallery(id) ON DELETE CASCADE,
-      UNIQUE(gid)
-      )''');
-    db.execute('''create table if not exists GalleryFile(
-      gid INTEGER,
-      hash TEXT not NULL,
-      name TEXT not NULL,
-      width integer,
-      height integer,
-      fileHash integer,
-      PRIMARY KEY(gid,name),
-      FOREIGN KEY(gid) REFERENCES Gallery(id)  ON DELETE CASCADE
-      )''');
-    db.execute('''create table if not exists Tasks(
-      id integer PRIMARY KEY,
-      title Text not null,
-      path TEXT not null,
-      completed bool default 0
-      )''');
-    db.execute('''create table if not exists UserLog(
-      id integer,
-      value integer,
-      type integer default 0,
-      content Text,
-      date integer,
-      extension BLOB,
-      PRIMARY KEY(id,type)
-      )''');
-    db.execute('''create table if not exists GalleryTagRelation(
-      gid integer,
-      tid integer,
-      type integer default null,
-      FOREIGN KEY (gid) REFERENCES Gallery(id) ON DELETE CASCADE,
-      FOREIGN KEY (tid) REFERENCES Tags(id),
-      PRIMARY KEY (gid, tid)
-      )''');
-  }
-
-  Future<void> createIndexes(CommonDatabase db) async {
-    db.execute('CREATE INDEX IF NOT EXISTS idx_gallery_path ON Gallery(path);');
-    db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_gallery_language ON Gallery(language);',
-    );
-    db.execute('CREATE INDEX IF NOT EXISTS idx_gallery_date ON Gallery(date);');
-    db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_gallery_tag ON GalleryTagRelation(tid);',
-    );
-    db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_gallery_gid ON GalleryTagRelation(gid);',
-    );
-    db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_tags_type_name ON Tags(type, name);',
-    );
-  }
+  // ---------------------------------------------------------------------------
+  // 业务 API（与旧实现逐一对应）
+  // ---------------------------------------------------------------------------
 
   Future<bool> insertUserLog(
     int id,
@@ -449,217 +237,6 @@ class SqliteHelper {
       'delete from $tableNmae where $where 1=1',
       params.values.toList(),
     );
-  }
-
-  int dataBaseUpgrade(CommonDatabase db, int oldVersion) {
-    switch (oldVersion) {
-      case 0:
-      case 1:
-      case 2:
-      case 3:
-        {
-          db.execute("drop table if exists  GalleryTemp ");
-          db.execute("ALTER table Gallery rename to GalleryTemp");
-          createTables(db);
-          db.execute(
-            """insert into  Gallery(id,path,author,groupes,serial,character,language,title,tags,createDate,date,mark,length) select id,path,author,groupes,serial,null,language,title,null,null,0,0,0 from GalleryTemp""",
-          );
-          db.execute("drop table GalleryTemp");
-          return 4;
-        }
-      case 4:
-        {
-          db.execute("drop table if exists  GalleryTemp ");
-          db.execute("ALTER table Gallery rename to GalleryTemp");
-          createTables(db);
-          db.execute(
-            """insert into  Gallery(id,path,artist,groupes,series,character,language,title,tag,createDate,date,mark,length) select id,path,author,groupes,serial,character,language,title,tags,createDate,date,mark,length from GalleryTemp""",
-          );
-          db.execute("drop table GalleryTemp");
-          return 5;
-        }
-      case 5:
-        {
-          db.execute("drop table if exists  GalleryTemp ");
-          db.execute("ALTER table Gallery rename to GalleryTemp");
-          createTables(db);
-          db.execute(
-            """insert into  Gallery(id,path,artist,groupes,series,character,language,title,tag,createDate,type,date,mark,length) select id,path,artist,groupes,series,character,language,title,tag,createDate,null,date,mark,length from GalleryTemp""",
-          );
-          db.execute("drop table GalleryTemp");
-          return 6;
-        }
-      case 6:
-        {
-          db.execute("drop table if exists TagsTemp ");
-          db.execute("ALTER table Tags rename to TagsTemp");
-          createTables(db);
-          db.execute(
-            """insert into  Tags(id,type,name,translate,intro,links,superior) select id,type,name,translate,intro,null,null from TagsTemp""",
-          );
-          db.execute("drop table TagsTemp");
-          return 7;
-        }
-      case 7:
-        {
-          db.execute("drop table if exists UserLogTemp ");
-          db.execute("ALTER table UserLog rename to UserLogTemp");
-          createTables(db);
-          db.execute(
-            """insert into  UserLog(id,mark,type,content,extension) select id,mark,0,content,extension from UserLogTemp""",
-          );
-          db.execute("drop table UserLogTemp");
-          return 8;
-        }
-      case 8:
-        {
-          db.execute("drop table if exists GalleryFileTemp ");
-          db.execute("ALTER table GalleryFile rename to GalleryFileTemp");
-          createTables(db);
-          db.execute(
-            """insert into GalleryFile(gid,hash,name,width,height,fileHash,tag) select gid,hash,name,width,height,fileHash,null from GalleryFileTemp""",
-          );
-          db.execute("drop table GalleryFileTemp");
-          return 9;
-        }
-      case 9:
-        {
-          db.execute("drop table if exists GalleryTemp ");
-          db.execute("ALTER table Gallery rename to GalleryTemp");
-          createTables(db);
-          db.execute(
-            """insert into  Gallery(id,path,artist,groupes,series,character,language,title,tag,createDate,type,date,mark,length,feature)
-              select id,path,artist,groupes,series,character,language,title,tag,createDate,type,date,mark,length,null from GalleryTemp""",
-          );
-          db.execute("drop table GalleryTemp");
-          return 10;
-        }
-      case 10:
-        {
-          db.execute("drop table if exists GalleryFileTemp ");
-          db.execute("ALTER table GalleryFile rename to GalleryFileTemp");
-          createTables(db);
-          db.execute(
-            """insert into GalleryFile(gid,hash,name,width,height,fileHash) select gid,hash,name,width,height,fileHash from GalleryFileTemp""",
-          );
-          db.execute("drop table GalleryFileTemp");
-          return 11;
-        }
-      case 11:
-        {
-          db.execute("drop table if exists GalleryTemp ");
-          db.execute("ALTER table Gallery rename to GalleryTemp");
-          createTables(db);
-          db.execute(
-            """insert into  Gallery(id,path,artist,groupes,series,character,language,title,tag,createDate,type,date,mark,length,feature)
-              select id,path,artist,groupes,series,character,language,title,tag,createDate,type,date,mark,length,null from GalleryTemp""",
-          );
-          var stmt = db.prepare('select id,feature from GalleryTemp');
-          var cursor = stmt.selectCursor();
-          while (cursor.moveNext()) {
-            var row = cursor.current;
-            var id = row[0] as int;
-            var feature = row[1] as String?;
-            if (feature != null && feature.isNotEmpty) {
-              var data = json.decode(feature) as List<dynamic>;
-              var list = Float64List.fromList(
-                data.map((element) => element as double).toList(),
-              );
-              db.execute("update Gallery set feature = ? where id = ?", [
-                list.buffer.asUint8List(),
-                id,
-              ]);
-            }
-          }
-          stmt.close();
-          db.execute("drop table if exists GalleryTemp ");
-          return 12;
-        }
-      case 12:
-        {
-          db.execute("drop table if exists GalleryTemp ");
-          db.execute("ALTER table Gallery rename to GalleryTemp");
-          createTables(db);
-          db.execute(
-            """insert into  Gallery(id,path,language,title,createDate,type,date,mark,length,feature)
-              select id,path,language,title,createDate,type,date,mark,length,feature from GalleryTemp""",
-          );
-          db.execute("drop table if exists GalleryTemp ");
-          return 13;
-        }
-      case 13:
-        {
-          db.execute("drop table if exists UserLogTemp ");
-          db.execute("ALTER table UserLog rename to UserLogTemp");
-          createTables(db);
-          db.execute(
-            """insert into  UserLog(id,type,value,content,date,extension)
-              select id,type,mark,content,null,null  from UserLogTemp""",
-          );
-          // 修复：其它 case 都有这句，这里漏掉了，导致 UserLogTemp 永久残留。
-          db.execute("drop table if exists UserLogTemp ");
-          return 14;
-        }
-      case 14:
-        {
-          db.execute("drop table if exists GalleryFileTemp ");
-          db.execute("ALTER table GalleryFile rename to GalleryFileTemp");
-          createTables(db);
-          db.execute(
-            """insert into GalleryFile(gid,hash,name,width,height,fileHash) select gid,hash,name,width,height,fileHash from GalleryFileTemp""",
-          );
-          db.execute("drop table GalleryFileTemp");
-          return 15;
-        }
-      case 15:
-        {
-          db.execute("drop table if exists GalleryTemp ");
-          db.execute("ALTER table Gallery rename to GalleryTemp");
-          createTables(db);
-          db.execute(
-            """insert into  Gallery(id,path,language,title,createDate,type,date,mark,length)
-              select id,path,language,title,createDate,type,date,mark,length from GalleryTemp""",
-          );
-          db.execute("drop table if exists GalleryTemp ");
-          return 16;
-        }
-    }
-    return oldVersion;
-  }
-
-  /// 比当前代码更新的 schema 无法安全降级。
-  ///
-  /// 旧实现直接 `return _version`，随后照样写 `PRAGMA user_version=$_version`，
-  /// 于是数据库**谎称**自己是 v$_version 而实际 schema 更新，后续 SQL 引用不存在
-  /// 的列。这里改为明确拒绝 —— 宁可启动失败，也不要静默损坏。
-  int dateBaseDowngrade(CommonDatabase db, int oldVersion) {
-    throw StateError(
-      'database schema version $oldVersion is newer than this build '
-      '($_version); refusing to open to avoid a schema mismatch. '
-      'Please use a newer binary.',
-    );
-  }
-
-  Future<Map<List<dynamic>, ResultSet>> selectSqlMultiResultAsync(
-    String sql,
-    List<List<dynamic>> params,
-  ) async {
-    var r = databaseOpera(sql, (stmt) {
-      return params.fold(<List<dynamic>, ResultSet>{}, (
-        previousValue,
-        element,
-      ) {
-        try {
-          ResultSet r = stmt.select(element);
-          previousValue[element] = r;
-          return previousValue;
-        } catch (e) {
-          _logger?.e('$sql error parmas $element $e');
-          throw e;
-        }
-      });
-    });
-    return r;
   }
 
   Future<Map<Label, int>> queryOrInsertTagTable(List<Label> params) async {
@@ -734,24 +311,6 @@ class SqliteHelper {
     return result;
   }
 
-  Future<ResultSet> querySql(
-    String sql, [
-    List<dynamic> params = const [],
-  ]) async {
-    return databaseOpera(sql, (stmt) => stmt.select(params));
-  }
-
-  Future<Stream<Row>> querySqlByCursor(
-    String sql, [
-    List<dynamic> params = const [],
-  ]) async {
-    return databaseOpera(
-      sql,
-      (stmt) => stmt.selectCursor(params).asStream(stmt),
-      releaseOnce: false,
-    );
-  }
-
   Future<List<Label>> mapToLabel(List<String> names) async {
     var set = await selectSqlMultiResultAsync(
       'select * from Tags where name = ?',
@@ -767,28 +326,6 @@ class SqliteHelper {
       }
       return QueryText(e);
     }).toList();
-  }
-
-  Future<bool> excuteSqlAsync(String sql, List<dynamic> params) async {
-    await databaseOpera(sql, (stmt) => stmt.execute(params));
-    return true;
-  }
-
-  Future<bool> excuteSqlMultiParams(
-    String sql,
-    List<List<dynamic>> params,
-  ) async {
-    if (params.isEmpty) return true;
-    // 整批参数放进同一个事务：中途失败不会留下半批数据。
-    return transaction(() async {
-      await databaseOpera(sql, (stmt) {
-        for (final element in params) {
-          stmt.execute(element);
-        }
-        return true;
-      });
-      return true;
-    });
   }
 
   Future<bool> insertGallery(Gallery gallery, FileSystemEntity path) async {
