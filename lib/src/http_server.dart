@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:collection/collection.dart';
+import 'package:dio/dio.dart' as dio show DioException;
 import 'package:hitomi/gallery/gallery.dart';
 import 'package:hitomi/gallery/image.dart';
 import 'package:hitomi/gallery/label.dart';
@@ -132,7 +133,35 @@ class _TaskWarp {
         .toList();
   }
 
+  /// 把上游请求的异常转成正常的 HTTP 响应，避免异常冒泡成 "Error thrown by
+  /// handler"（500）让客户端整批请求一起失败。上游 404 映射为 404，其余映射
+  /// 为 502，body 都带 JSON 错误信息，客户端可按 id 跳过坏数据。
+  Response _errorResponse(Object error, {required String what}) {
+    if (error is dio.DioException && error.response?.statusCode == 404) {
+      _manager.logger.w('$what not found: ${error.requestOptions.uri}');
+      return Response.notFound(
+        json.encode({'error': 'not found', 'target': what}),
+        headers: defaultRespHeader,
+      );
+    }
+    _manager.logger.e('$what failed: $error');
+    return Response(
+      HttpStatus.badGateway,
+      body: json.encode({'error': '$error', 'target': what}),
+      headers: defaultRespHeader,
+    );
+  }
+
   Future<Response> _proxy(Request req) async {
+    try {
+      return await _proxyInner(req);
+    } catch (e) {
+      // 兜底：任何未预料的异常都转成正常响应，不让它冒泡成 handler 未捕获错误。
+      return _errorResponse(e, what: 'proxy ${req.params['method']}');
+    }
+  }
+
+  Future<Response> _proxyInner(Request req) async {
     final task = await _authToken(req);
     final method = req.params['method'];
     _manager.logger.d('proxy $method task $task');
@@ -149,6 +178,10 @@ class _TaskWarp {
                     json.encode(value),
                     headers: defaultRespHeader,
                   ),
+                )
+                .catchError(
+                  (e) => _errorResponse(e, what: 'gallery $id'),
+                  test: (error) => true,
                 );
           }
         case 'search':
