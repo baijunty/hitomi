@@ -169,8 +169,8 @@ class _LocalHitomiImpl implements Hitomi {
             // 如果配置了嵌入模型，使用textEmbedding进行语义相似度搜索
             if (_manager.config.llamaBaseUri.isNotEmpty) {
               try {
-                var vectors = await _manager.client!.embedMultiModal(
-                  entry.value.toList(),
+                var vectors = await _manager.client!.textEmbeddings(
+                  entry.value.map((item) => item.name).toList(),
                 );
                 if (vectors.isNotEmpty) {
                   for (var vector in vectors) {

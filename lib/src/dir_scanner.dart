@@ -490,7 +490,7 @@ class HitomiDir {
     var combinedText = '$gallery.title ${tagNames.join(' ')}'.trim();
     var f = _downLoader.config.llamaBaseUri.isNotEmpty && combinedText.isNotEmpty
         ? await _downLoader.manager.client!
-              .embedMultiModal([combinedText], openai: true)
+              .textEmbeddings([combinedText])
               .then(
                 (embeddings) =>
                     embeddings.isNotEmpty ? embeddings.first : <double>[],

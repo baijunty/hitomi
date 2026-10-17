@@ -492,10 +492,7 @@ class TaskManager {
         try {
           // 构建批量嵌入请求：第 0 条为当前画廊标题（参考向量），其余为 idTitleMap 中的标题
           final contents = [gallery.title, ...idTitleMap.values];
-          final allEmbeddings = await client!.embedMultiModal(
-            contents,
-            openai: true,
-          );
+          final allEmbeddings = await client!.textEmbeddings(contents);
 
           // 第 0 个是参考向量
           final refVec = Vector.fromList(allEmbeddings[0]);

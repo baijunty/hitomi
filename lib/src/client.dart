@@ -62,119 +62,163 @@ class LlamaClient {
       return false;
     }
   }
-  /// 多模态嵌入
+  /// 文本 part，对应 `{"type": "text", "text": "..."}`
+  static Map<String, dynamic> _textPart(String text) => {
+    'type': 'text',
+    'text': text,
+  };
+
+  /// 图片 part，字节数据统一编码成 `data:image/...;base64,` URL
+  static Map<String, dynamic> _imagePart(Uint8List bytes) => {
+    'type': 'image_url',
+    'image_url': {
+      'url': 'data:${_detectImageMime(bytes)};base64,${base64Encode(bytes)}',
+    },
+  };
+
+  /// 把一条待嵌入内容映射成 `/v1/embeddings` 里的一个 `input` 元素。
   ///
-  /// 根据传入的内容列表（文本和图片）返回对应的嵌入向量
-  ///
-  /// [contents] 内容列表，每个元素可以是:
-  /// - {"prompt_string": "文本内容"}
-  /// - {"prompt_string": "<__media__>", "image_data": [base64String, ...]}
-  ///
-  /// 返回结果按索引对应，每个元素为 Map<String, List<double>>
-  Future<List<List<double>>> embedMultiModal(
-    List<dynamic> contents, {
-    bool openai = false,
-  }) async {
-    touch();
-    final request = <String, dynamic>{'model': config.embeddingModel};
-    if (openai) {
-      request['input'] = contents;
-    } else {
-      request['content'] = contents;
+  /// 接受 `String`（文本）、`Uint8List`（图片字节）或两者的 `Iterable`
+  /// （同一内容里的多个部分，例如图片加配套文本）。
+  static List<Map<String, dynamic>> _toParts(dynamic item) {
+    if (item == null) return const [];
+    if (item is String) return [_textPart(item)];
+    if (item is Uint8List) return [_imagePart(item)];
+    if (item is List<int>) return [_imagePart(Uint8List.fromList(item))];
+    if (item is Map<String, dynamic>) return [item];
+    if (item is Map) {
+      return [item.cast<String, dynamic>()];
     }
-    final url = openai
-        ? '${config.llamaBaseUri}/v1/embeddings'
-        : '${config.llamaBaseUri}/embeddings';
+    if (item is Iterable) {
+      return item.expand(_toParts).toList();
+    }
+    return [_textPart(item.toString())];
+  }
+
+  /// 统一的多模态嵌入入口
+  ///
+  /// 文本与图片一律走 OpenAI 兼容的 `POST /v1/embeddings`，请求体形状见
+  /// llama.cpp `tools/server/README.md` 的 "input as multimodal content"：
+  ///
+  /// ```json
+  /// {
+  ///   "model": "embedding",
+  ///   "input": [
+  ///     { "content": [
+  ///         { "type": "image_url", "image_url": { "url": "data:image/png;base64,..." } },
+  ///         { "type": "text", "text": "可选的配套文本" }
+  ///     ] }
+  ///   ]
+  /// }
+  /// ```
+  ///
+  /// [items] 每个元素表示一条待嵌入内容，可以是 `String`（文本）、
+  /// `Uint8List`（图片字节，自动转 data URL）或一个 `Iterable`
+  /// （把多个部分合成一条内容，只产出一个向量）。
+  ///
+  /// [promptName] 透传给服务端的 `prompt_name`（如 `query` / `document`），
+  /// 是否生效取决于服务端与模型。
+  ///
+  /// 返回与 [items] 顺序一一对应的向量列表；[items] 为空时不发请求。
+  /// 请求失败抛出 [Exception]。
+  Future<List<List<double>>> embedItems(
+    List<dynamic> items, {
+    String? promptName,
+  }) async {
+    if (items.isEmpty) {
+      return [];
+    }
+    touch();
+    final request = <String, dynamic>{
+      'model': config.embeddingModel,
+      'input': items.map((item) => {'content': _toParts(item)}).toList(),
+      'encoding_format': 'float',
+      if (promptName != null && promptName.isNotEmpty) 'prompt_name': promptName,
+    };
+    final url = '${config.llamaBaseUri}/v1/embeddings';
     logger?.i(
-      'embedMultiModal: 发送请求到 $url 模型 ${config.embeddingModel} user openai $openai',
+      'embedItems: 发送请求到 $url 模型 ${config.embeddingModel} '
+      '条数=${items.length}${promptName == null ? '' : ' prompt=$promptName'}',
     );
 
     final response = await http.post(
-      Uri.parse('$url'),
+      Uri.parse(url),
       headers: _headers,
       body: jsonEncode(request),
     );
 
     if (response.statusCode != 200) {
       logger?.e(
-        'embedMultiModal: 请求失败, 状态码=${response.statusCode}, 响应=${response.body}',
+        'embedItems: 请求失败, 状态码=${response.statusCode}, 响应=${response.body}',
       );
-      return [];
+      throw Exception(
+        'embedItems failed: ${response.statusCode} - ${response.body}',
+      );
     }
 
-    if (openai) {
-      // OpenAI 格式：响应为 {"data": [{"embedding": [...], "index": 0, "object": "embedding"}, ...]}
-      final result = jsonDecode(response.body) as Map<String, dynamic>;
-      final data = result['data'] as List<dynamic>;
-      return data
-          .map(
-            (e) => List<double>.from((e as Map<String, dynamic>)['embedding']),
-          )
-          .toList();
-    } else {
-      // 原始格式：响应为 [{embedding: [[...]]}, ...]
-      final result = jsonDecode(response.body) as List<dynamic>;
-
-      return result
-          .map(
-            (e) =>
-                List<double>.from((e as Map<String, dynamic>)['embedding'][0]!),
-          )
-          .toList();
-    }
-  }
-
-  /// 获取指定模型的 media_marker
-  Future<String> _getMediaMarker() async {
-    final response = await http.get(
-      Uri.parse('${config.llamaBaseUri}/props?model=${config.embeddingModel}'),
-      headers: _headers,
+    final vectors = _parseOpenAiEmbeddings(response.body);
+    logger?.d(
+      'embedItems: 嵌入完成, 向量数=${vectors.length} 维度=${vectors.firstOrNull?.length ?? 0}',
     );
-
-    if (response.statusCode != 200) {
-      logger?.e(
-        '_getMediaMarker: 请求失败, 状态码=${response.statusCode}, 响应=${response.body}',
-      );
-      return '<__media__>';
-    }
-
-    final result = jsonDecode(response.body) as Map<String, dynamic>;
-    final marker = result['media_marker'];
-    logger?.d('_getMediaMarker: media_marker=$marker');
-    return marker ?? '<__media__>';
+    return vectors;
   }
+
+  /// 解析 OpenAI 嵌入响应 `{"data": [{"embedding": [...], "index": 0}, ...]}`
+  ///
+  /// 按 `index` 排序，保证与输入顺序严格对应。
+  List<List<double>> _parseOpenAiEmbeddings(String body) {
+    final result = jsonDecode(body);
+    if (result is! Map<String, dynamic> || result['data'] is! List) {
+      throw Exception('embedItems: 响应格式异常, 缺少 data 字段: $body');
+    }
+    final data = result['data'] as List;
+    final indexed = <MapEntry<int, List<double>>>[];
+    for (var i = 0; i < data.length; i++) {
+      final item = data[i] as Map<String, dynamic>;
+      indexed.add(
+        MapEntry(
+          (item['index'] as num?)?.toInt() ?? i,
+          List<double>.from(item['embedding'] as List),
+        ),
+      );
+    }
+    indexed.sort((a, b) => a.key.compareTo(b.key));
+    return indexed.map((e) => e.value).toList();
+  }
+
+  /// 文本嵌入
+  ///
+  /// [texts] 文本列表，返回顺序一致的向量列表。
+  Future<List<List<double>>> textEmbeddings(
+    List<String> texts, {
+    String? promptName,
+  }) => embedItems(texts, promptName: promptName);
 
   /// 图片嵌入
   ///
-  /// [imagePath] 图片路径
-  /// 返回图片的嵌入向量
+  /// [dates] 图片字节，[resize] 为真时先压缩成缩略图再嵌入。
+  /// 返回图片的嵌入向量，失败或缩略图生成失败时返回空列表。
   Future<List<double>> imageEmbeddings(
     Uint8List dates, {
     bool resize = true,
   }) async {
-    touch();
     final bytes = resize ? await resizeThumbImage(dates, 640, 90) : dates;
     if (bytes == null) {
+      logger?.w('imageEmbeddings: 缩略图生成失败，跳过嵌入');
       return [];
     }
     logger?.d('imageEmbeddings: 开始处理图片嵌入, 图片大小=${bytes.length} 字节');
-    final base64String = base64Encode(bytes);
-
-    final mediaMarker = await _getMediaMarker();
-
-    final result = await embedMultiModal([
-      {
-        'prompt_string': mediaMarker,
-        'multimodal_data': [base64String],
-      },
-    ], openai: false);
-
-    logger?.d('imageEmbeddings: 嵌入完成, 向量维度=${result[0].length}');
-    return result[0];
+    final result = await embedItems([bytes]);
+    if (result.isEmpty) {
+      logger?.w('imageEmbeddings: 未返回向量');
+      return [];
+    }
+    logger?.d('imageEmbeddings: 嵌入完成, 向量维度=${result.first.length}');
+    return result.first;
   }
 
   /// 根据图片字节数据推断 MIME 类型
-  String _detectImageMime(Uint8List bytes) {
+  static String _detectImageMime(Uint8List bytes) {
     if (bytes.length < 4) return 'image/jpeg';
     if (bytes[0] == 0xFF && bytes[1] == 0xD8) return 'image/jpeg';
     if (bytes[0] == 0x89 &&

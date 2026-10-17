@@ -28,9 +28,9 @@ abstract class UserConfig with _$UserConfig {
     @Default("") String logOutput,
     @Default("127.0.0.1:7890") String remoteHttp,
     @Default(0.72) double threshold,
-    @Default("http://localhost:8080") String llamaBaseUri,
+    @Default("http://127.0.0.1:8080") String llamaBaseUri,
     @Default("") String llamaApiKey,
-    @Default("Embedding") String embeddingModel,
+    @Default("embedding") String embeddingModel,
     @Default("gemma4-it:e2b") String multimodal,
   }) = _UserConfig;
   factory UserConfig.fromJson(Map<String, Object> json) =>

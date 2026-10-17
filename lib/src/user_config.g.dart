@@ -29,9 +29,9 @@ _UserConfig _$UserConfigFromJson(Map<String, dynamic> json) => _UserConfig(
   logOutput: json['logOutput'] as String? ?? "",
   remoteHttp: json['remoteHttp'] as String? ?? "127.0.0.1:7890",
   threshold: (json['threshold'] as num?)?.toDouble() ?? 0.72,
-  llamaBaseUri: json['llamaBaseUri'] as String? ?? "http://localhost:8080",
+  llamaBaseUri: json['llamaBaseUri'] as String? ?? "http://127.0.0.1:8080",
   llamaApiKey: json['llamaApiKey'] as String? ?? "",
-  embeddingModel: json['embeddingModel'] as String? ?? "Embedding",
+  embeddingModel: json['embeddingModel'] as String? ?? "embedding",
   multimodal: json['multimodal'] as String? ?? "gemma4-it:e2b",
 );
 

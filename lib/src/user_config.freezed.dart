@@ -237,7 +237,7 @@ return $default(_that.output,_that.dbDir,_that.maxTasks,_that.languages,_that.pr
 @JsonSerializable()
 
 class _UserConfig implements UserConfig {
-   _UserConfig(this.output, {this.dbDir = "", this.maxTasks = 5,  List<String> languages = const ["japanese", "chinese"], this.proxy = "",  List<List<FilterLabel>> excludes = const [], this.dateLimit = "2013-01-01", this.auth = "12345678", this.logLevel = "debug", this.logOutput = "", this.remoteHttp = "127.0.0.1:7890", this.threshold = 0.72, this.llamaBaseUri = "http://localhost:8080", this.llamaApiKey = "", this.embeddingModel = "Embedding", this.multimodal = "gemma4-it:e2b"}): _languages = languages,_excludes = excludes;
+   _UserConfig(this.output, {this.dbDir = "", this.maxTasks = 5,  List<String> languages = const ["japanese", "chinese"], this.proxy = "",  List<List<FilterLabel>> excludes = const [], this.dateLimit = "2013-01-01", this.auth = "12345678", this.logLevel = "debug", this.logOutput = "", this.remoteHttp = "127.0.0.1:7890", this.threshold = 0.72, this.llamaBaseUri = "http://127.0.0.1:8080", this.llamaApiKey = "", this.embeddingModel = "embedding", this.multimodal = "gemma4-it:e2b"}): _languages = languages,_excludes = excludes;
   factory _UserConfig.fromJson(Map<String, dynamic> json) => _$UserConfigFromJson(json);
 
 @override final  String output;
