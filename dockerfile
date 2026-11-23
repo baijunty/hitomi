@@ -22,8 +22,11 @@ RUN ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
 # libraries and configuration files stored in `/runtime/` from the build stage.
 FROM scratch
 COPY --from=build /runtime/ /
-COPY --from=build /hitomi/build/cli/linux_x64/bundle/bin/main /bin/main
-COPY --from=build /hitomi/build/cli/linux_x64/bundle/lib/libsqlite3.so /lib/libsqlite3.so
+# 整个 bundle 拷进来：新版 Dart SDK 的 dart build 不再把 AOT snapshot 内嵌进
+# bin/main，snapshot 是 bundle/lib/ 下的独立文件。旧写法只拷 bin/main 和
+# libsqlite3.so，snapshot 被落下，/bin/main 变成找不到快照的空运行时，
+# 启动即打印 dartvm 用法退出（exit 255）。
+COPY --from=build /hitomi/build/cli/linux_x64/bundle/ /
 # Time zone data: /etc/localtime is a symlink into /usr/share/zoneinfo, so both
 # must be copied for it to keep resolving inside the scratch image.
 COPY --from=build /usr/share/zoneinfo /usr/share/zoneinfo
