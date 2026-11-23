@@ -23,6 +23,42 @@ final defaultRespHeader = {
   HttpHeaders.contentTypeHeader: 'application/json',
 };
 
+/// 选取「本地 / 局域网」门槛使用的客户端地址：优先取自报的 x-real-ip，
+/// 头缺失 / 为空 / 无法解析时回退到真实 TCP 连接的对端地址。
+///
+/// 桌面客户端在头里自报本机局域网 IP（它可能从局域网之外连进来）；浏览器拿不到
+/// 自己的局域网 IP，头为空。旧实现直接 `InternetAddress(空串)` 抛
+/// ArgumentError，Web 端所有 /sync 都变成 500 —— 这是 Web 端阅读历史 /
+/// 收藏无法同步的根因。回退到对端地址后，局域网里的浏览器天然从局域网 IP
+/// 连进来，经本机反向代理进来的表现为环回地址，鉴权模型（auth token +
+/// 局域网门槛）不变。单独抽成顶层纯函数便于测试。
+InternetAddress? pickClientAddress(String? headerIp, InternetAddress? peerIp) {
+  final reported = (headerIp == null || headerIp.isEmpty)
+      ? null
+      : InternetAddress.tryParse(headerIp);
+  // 自报头缺失 / 为空 / 非法时按缺失处理，走对端地址，而不是让请求冒 500。
+  return reported ?? peerIp;
+}
+
+/// 把 IPv4-mapped IPv6（`::ffff:a.b.c.d`）还原成普通 IPv4 地址。
+///
+/// 服务器绑定的是 anyIPv6，IPv4 客户端（局域网浏览器经 [pickClientAddress]
+/// 回退得到的对端地址就是这种形态）在连接信息里表现为 IPv4-mapped IPv6，
+/// 而 Dart 的 `isLoopback` 与私网段判断都不识别这种形态，必须先还原再判断。
+InternetAddress unmapIPv4Mapped(InternetAddress address) {
+  if (address.type == InternetAddressType.IPv6) {
+    final b = address.rawAddress;
+    if (b.length == 16 &&
+        b[10] == 0xFF &&
+        b[11] == 0xFF &&
+        b.take(10).every((byte) => byte == 0)) {
+      final v4 = InternetAddress.tryParse(b.sublist(12).join('.'));
+      if (v4 != null) return v4;
+    }
+  }
+  return address;
+}
+
 class _TaskWarp {
   final TaskManager _manager;
   final Router router = Router();
@@ -460,9 +496,9 @@ class _TaskWarp {
 
   Future<Response> _delete(Request req) async {
     final task = await _authToken(req);
-    final ip = req.headers['x-real-ip'] ?? '';
-    _manager.logger.d('real ip $ip');
-    if (task.key && _isLocalOrLAN(InternetAddress(ip))) {
+    final address = _clientAddress(req);
+    _manager.logger.d('real ip ${address?.address}');
+    if (task.key && address != null && _isLocalOrLAN(address)) {
       return _manager
           .parseCommandAndRun('-d ${task.value['id']}')
           .then(
@@ -475,7 +511,17 @@ class _TaskWarp {
     return Response.unauthorized('unauth');
   }
 
+  /// 解析用于「本地 / 局域网」门槛的客户端地址，规则见 [pickClientAddress]。
+  /// shelf 把 dart:io 的连接信息放在 `context['shelf.io.connection_info']` 里。
+  InternetAddress? _clientAddress(Request req) {
+    final info = req.context['shelf.io.connection_info'];
+    final peer = info is HttpConnectionInfo ? info.remoteAddress : null;
+    return pickClientAddress(req.headers['x-real-ip'], peer);
+  }
+
   bool _isLocalOrLAN(InternetAddress address) {
+    // anyIPv6 监听下 IPv4 客户端以 ::ffff:a.b.c.d 形态进来，先还原再判断。
+    address = unmapIPv4Mapped(address);
     // 检查环回地址
     if (address.isLoopback) return true;
 
@@ -514,11 +560,11 @@ class _TaskWarp {
 
   Future<Response> _sync(Request req) async {
     final task = await _authToken(req);
-    final ip = req.headers['x-real-ip'] ?? '';
+    final address = _clientAddress(req);
     _manager.logger.d(
-      'real ip $ip mark ${task.value['mark']} content ${task.value['content'].length}',
+      'real ip ${address?.address} mark ${task.value['mark']} content ${task.value['content'].length}',
     );
-    if (task.key && _isLocalOrLAN(InternetAddress(ip))) {
+    if (task.key && address != null && _isLocalOrLAN(address)) {
       int mark = task.value['mark'];
       bool returnValue = task.value['returnValue'] ?? false;
       List<dynamic> content = task.value['content'];
